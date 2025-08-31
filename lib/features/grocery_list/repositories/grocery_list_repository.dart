@@ -10,17 +10,32 @@ class GroceryListRepository {
   // Parse natural language text into structured updates
   Future<ParseResult> parseGroceryText({
     required String text,
-    String? openaiApiKey,
   }) async {
     try {
       final response = await _apiService.parseGroceryText(
         text: text,
-        openaiApiKey: openaiApiKey,
       );
 
       return ParseResult.fromJson(response);
     } catch (e) {
       throw GroceryListRepositoryException('Failed to parse grocery text: $e');
+    }
+  }
+  
+  // Parse image (receipt or grocery list photo) into structured updates
+  Future<ParseResult> parseGroceryImage({
+    required String imageBase64,
+    String imageType = 'receipt',
+  }) async {
+    try {
+      final response = await _apiService.parseGroceryImage(
+        imageBase64: imageBase64,
+        imageType: imageType,
+      );
+
+      return ParseResult.fromJson(response);
+    } catch (e) {
+      throw GroceryListRepositoryException('Failed to parse grocery image: $e');
     }
   }
 

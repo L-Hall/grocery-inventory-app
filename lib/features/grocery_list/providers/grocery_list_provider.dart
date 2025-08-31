@@ -84,7 +84,6 @@ class GroceryListProvider with ChangeNotifier {
   // Parse natural language text
   Future<bool> parseGroceryText({
     required String text,
-    String? openaiApiKey,
   }) async {
     try {
       _setParsing(true);
@@ -93,7 +92,6 @@ class GroceryListProvider with ChangeNotifier {
 
       final result = await _repository.parseGroceryText(
         text: text,
-        openaiApiKey: openaiApiKey,
       );
 
       _lastParseResult = result;
@@ -101,6 +99,32 @@ class GroceryListProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _setError('Failed to parse grocery text: $e');
+      return false;
+    } finally {
+      _setParsing(false);
+    }
+  }
+  
+  // Parse image (receipt or grocery list photo)
+  Future<bool> parseGroceryImage({
+    required String imageBase64,
+    String imageType = 'receipt',
+  }) async {
+    try {
+      _setParsing(true);
+      _setError(null);
+      _currentInputText = '[Image: $imageType]';
+
+      final result = await _repository.parseGroceryImage(
+        imageBase64: imageBase64,
+        imageType: imageType,
+      );
+
+      _lastParseResult = result;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to process image: $e');
       return false;
     } finally {
       _setParsing(false);
@@ -229,7 +253,6 @@ class GroceryListProvider with ChangeNotifier {
   // Parse with common format enhancements
   Future<bool> parseWithEnhancements({
     required String text,
-    String? openaiApiKey,
   }) async {
     try {
       _setParsing(true);

@@ -104,13 +104,9 @@ class ApiService {
 
   Future<Map<String, dynamic>> parseGroceryText({
     required String text,
-    String? openaiApiKey,
   }) async {
     try {
       final data = {'text': text};
-      if (openaiApiKey != null) {
-        data['openaiApiKey'] = openaiApiKey;
-      }
 
       final response = await _dio.post(
         '/inventory/parse',
@@ -121,6 +117,35 @@ class ApiService {
         return response.data;
       } else {
         throw ApiException('Failed to parse grocery text', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+  
+  Future<Map<String, dynamic>> parseGroceryImage({
+    required String imageBase64,
+    String imageType = 'receipt',
+  }) async {
+    try {
+      final data = {
+        'image': imageBase64,
+        'imageType': imageType,
+      };
+
+      final response = await _dio.post(
+        '/inventory/parse',
+        data: data,
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to parse grocery image', response.statusCode);
       }
     } on DioException catch (e) {
       throw _handleDioException(e);

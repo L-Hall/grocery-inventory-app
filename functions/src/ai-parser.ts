@@ -27,18 +27,23 @@ interface ParseResult {
 }
 
 export class GroceryParser {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
 
   constructor(apiKey: string) {
-    this.openai = new OpenAI({
-      apiKey: apiKey
-    });
+    if (apiKey) {
+      this.openai = new OpenAI({
+        apiKey: apiKey
+      });
+    }
   }
 
   /**
    * Parse natural language grocery text into structured updates
    */
   async parseGroceryText(text: string): Promise<ParseResult> {
+    if (!this.openai) {
+      return this.fallbackParser(text);
+    }
     try {
       const completion = await this.openai.chat.completions.create({
         model: "gpt-4",
@@ -256,6 +261,143 @@ Be helpful and smart about interpreting context while being conservative about c
   /**
    * Validate and clean parsed items
    */
+  /**
+   * Parse grocery receipt or list image using GPT-4V
+   */
+  async parseGroceryImage(imageBase64: string, imageType: string = 'receipt'): Promise<ParseResult> {
+    if (!this.openai) {
+      return {
+        items: [],
+        confidence: 0,
+        originalText: '[Image processing requires OpenAI API]',
+        needsReview: true,
+        error: 'OpenAI API key not configured'
+      };
+    }
+
+    try {
+      const prompt = imageType === 'receipt' 
+        ? this.getReceiptPrompt()
+        : this.getGroceryListImagePrompt();
+
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4-vision-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`,
+                  detail: "high"
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.3
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      
+      if (!response) {
+        throw new Error('No response from OpenAI Vision API');
+      }
+
+      // Parse the JSON response
+      const parsedData = JSON.parse(response);
+      
+      // Calculate overall confidence
+      const avgConfidence = parsedData.items?.length > 0
+        ? parsedData.items.reduce((sum: number, item: ParsedItem) => sum + (item.confidence || 0.8), 0) / parsedData.items.length
+        : 0;
+
+      return {
+        items: parsedData.items || [],
+        confidence: avgConfidence,
+        originalText: `[Parsed from ${imageType} image]`,
+        needsReview: avgConfidence < 0.7 || parsedData.items?.some((item: ParsedItem) => item.confidence < 0.6),
+        error: undefined
+      };
+    } catch (error: any) {
+      console.error('Error parsing image with GPT-4V:', error);
+      
+      return {
+        items: [],
+        confidence: 0,
+        originalText: `[Failed to process ${imageType} image]`,
+        needsReview: true,
+        error: error.message || 'Failed to parse image'
+      };
+    }
+  }
+
+  private getReceiptPrompt(): string {
+    return `You are a grocery receipt analyzer. Extract all grocery items from this receipt image.
+
+For each item found, provide:
+- name: The product name (clean and standardized)
+- quantity: The quantity purchased (default to 1 if not clear)
+- unit: The unit of measurement (item, pound, gallon, etc.)
+- action: Always "add" for receipts
+- category: The grocery category (produce, dairy, meat, etc.)
+- brand: Brand name if visible
+- confidence: Your confidence level (0.0 to 1.0)
+
+Return ONLY a valid JSON object in this format:
+{
+  "items": [
+    {
+      "name": "Milk",
+      "quantity": 1,
+      "unit": "gallon",
+      "action": "add",
+      "category": "dairy",
+      "brand": "Store Brand",
+      "confidence": 0.9
+    }
+  ]
+}
+
+Be thorough and extract ALL items from the receipt. If you can't read something clearly, still include it with lower confidence.`;
+  }
+
+  private getGroceryListImagePrompt(): string {
+    return `You are a grocery list analyzer. Extract all items from this handwritten or printed grocery list image.
+
+For each item found, provide:
+- name: The item name (clean and standardized)
+- quantity: The quantity if specified (default to 1)
+- unit: The unit if specified (default to "item")
+- action: Always "add" for grocery lists
+- category: The grocery category
+- notes: Any additional notes or specifications
+- confidence: Your confidence level (0.0 to 1.0)
+
+Return ONLY a valid JSON object in this format:
+{
+  "items": [
+    {
+      "name": "Bananas",
+      "quantity": 6,
+      "unit": "item",
+      "action": "add",
+      "category": "produce",
+      "notes": "ripe",
+      "confidence": 0.85
+    }
+  ]
+}
+
+Extract ALL visible items, even if handwriting is unclear (use lower confidence for unclear items).`;
+  }
+
   validateItems(items: ParsedItem[]): ParsedItem[] {
     return items.map(item => ({
       ...item,

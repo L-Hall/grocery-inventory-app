@@ -64,7 +64,6 @@ class StorageService {
   static const String keyUserId = 'user_id';
   static const String keyUserEmail = 'user_email';
   static const String keyAuthToken = 'auth_token';
-  static const String keyOpenAiApiKey = 'openai_api_key';
   static const String keyLowStockThreshold = 'low_stock_threshold';
   static const String keyNotificationsEnabled = 'notifications_enabled';
   static const String keyFirstLaunch = 'first_launch';

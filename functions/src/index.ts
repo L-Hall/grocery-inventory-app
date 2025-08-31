@@ -251,33 +251,74 @@ app.post('/inventory/update', authenticate, async (req, res) => {
   }
 });
 
-// POST /inventory/parse - Parse natural language input using OpenAI
+// POST /inventory/parse - Parse natural language input or image using OpenAI
 app.post('/inventory/parse', authenticate, async (req, res) => {
   try {
-    const { text, openaiApiKey } = req.body;
+    const { text, image, imageType } = req.body;
     
-    if (!text || typeof text !== 'string') {
+    // Validate input - must have either text or image
+    if (!text && !image) {
       return res.status(400).json({
         error: 'Bad Request',
-        message: 'Text field is required and must be a string'
+        message: 'Either text or image field is required'
       });
     }
     
-    // Use OpenAI API key from request or environment
-    const apiKey = openaiApiKey || functions.config().openai?.apikey || process.env.OPENAI_API_KEY;
+    if (text && image) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Provide either text or image, not both'
+      });
+    }
+    
+    if (text && typeof text !== 'string') {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Text field must be a string'
+      });
+    }
+    
+    if (image && typeof image !== 'string') {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Image field must be a base64 encoded string'
+      });
+    }
+    
+    // Use OpenAI API key from environment only (never from client)
+    const apiKey = functions.config().openai?.apikey || process.env.OPENAI_API_KEY;
     
     if (!apiKey) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'OpenAI API key is required. Provide it in the request body or set OPENAI_API_KEY environment variable.'
-      });
+      // If no API key configured, use fallback parser for text only
+      if (text) {
+        console.warn('OpenAI API key not configured, using fallback parser');
+        const parser = new GroceryParser('');
+        const parseResult = await parser.parseGroceryText(text);
+        
+        return res.json({
+          success: true,
+          parsed: parseResult,
+          message: 'Using basic parser. Configure OPENAI_API_KEY for better results.'
+        });
+      } else {
+        return res.status(500).json({
+          error: 'Configuration Error',
+          message: 'Image processing requires OpenAI API key to be configured'
+        });
+      }
     }
     
-    // Initialize the grocery parser
+    // Initialize the grocery parser with server-side API key
     const parser = new GroceryParser(apiKey);
     
-    // Parse the text
-    const parseResult = await parser.parseGroceryText(text);
+    // Parse based on input type
+    let parseResult;
+    if (text) {
+      parseResult = await parser.parseGroceryText(text);
+    } else {
+      // Parse image using GPT-4V
+      parseResult = await parser.parseGroceryImage(image, imageType || 'receipt');
+    }
     
     // Validate and clean the items
     const validatedItems = parser.validateItems(parseResult.items);

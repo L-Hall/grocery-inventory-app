@@ -15,23 +15,24 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late final TextEditingController _apiKeyController;
   late final StorageService _storageService;
-  bool _apiKeyVisible = false;
   bool _isLoading = false;
-  String? _currentApiKey;
+  
+  // Preference states
+  bool _notificationsEnabled = true;
+  bool _lowStockAlerts = true;
+  String _defaultUnit = 'item';
+  ThemeMode _themeMode = ThemeMode.system;
 
   @override
   void initState() {
     super.initState();
-    _apiKeyController = TextEditingController();
     _storageService = getIt<StorageService>();
     _loadSettings();
   }
 
   @override
   void dispose() {
-    _apiKeyController.dispose();
     super.dispose();
   }
 
@@ -39,11 +40,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = true);
     
     try {
-      final apiKey = await _storageService.getSecureString('openai_api_key');
-      if (apiKey != null && mounted) {
+      // Load saved preferences
+      final notifications = await _storageService.getBool('notifications_enabled');
+      final lowStock = await _storageService.getBool('low_stock_alerts');
+      final unit = await _storageService.getString('default_unit');
+      final theme = await _storageService.getString('theme_mode');
+      
+      if (mounted) {
         setState(() {
-          _currentApiKey = apiKey;
-          _apiKeyController.text = '•' * 20; // Show dots for existing key
+          _notificationsEnabled = notifications ?? true;
+          _lowStockAlerts = lowStock ?? true;
+          _defaultUnit = unit ?? 'item';
+          _themeMode = _parseThemeMode(theme);
         });
       }
     } catch (e) {
@@ -52,6 +60,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+  
+  ThemeMode _parseThemeMode(String? mode) {
+    switch (mode) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
     }
   }
 
@@ -72,13 +91,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   
                   const SizedBox(height: 24),
                   
-                  // API Configuration section
-                  _buildAPIConfigurationSection(context),
+                  // App preferences section
+                  _buildAppPreferencesSection(context),
                   
                   const SizedBox(height: 24),
                   
-                  // App preferences section
-                  _buildAppPreferencesSection(context),
+                  // Inventory preferences section
+                  _buildInventoryPreferencesSection(context),
                   
                   const SizedBox(height: 24),
                   
@@ -134,88 +153,112 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAPIConfigurationSection(BuildContext context) {
+  Widget _buildInventoryPreferencesSection(BuildContext context) {
     return _buildSection(
       context,
-      title: 'AI Configuration',
-      icon: Icons.psychology,
+      title: 'Inventory Settings',
+      icon: Icons.inventory_2,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'OpenAI API Key',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Add your OpenAI API key to enable intelligent grocery text parsing. Without this, the app will use a basic fallback parser.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _apiKeyController,
-                obscureText: !_apiKeyVisible,
-                decoration: InputDecoration(
-                  labelText: 'OpenAI API Key',
-                  hintText: 'sk-...',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(_apiKeyVisible ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            _apiKeyVisible = !_apiKeyVisible;
-                            if (!_apiKeyVisible && _currentApiKey != null) {
-                              _apiKeyController.text = '•' * 20;
-                            } else if (_apiKeyVisible && _currentApiKey != null) {
-                              _apiKeyController.text = _currentApiKey!;
-                            }
-                          });
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.save),
-                        onPressed: _saveApiKey,
-                      ),
-                    ],
+        ListTile(
+          leading: const Icon(Icons.straighten),
+          title: const Text('Default Unit'),
+          subtitle: const Text('Used when no unit is specified'),
+          trailing: PopupMenuButton<String>(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _defaultUnit,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).primaryColor,
                   ),
                 ),
-                onChanged: (value) {
-                  // Clear the dots when user starts typing
-                  if (value != '•' * 20) {
-                    setState(() {
-                      _currentApiKey = null;
-                    });
-                  }
-                },
+                const Icon(Icons.arrow_drop_down),
+              ],
+            ),
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'item',
+                child: Text('item'),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    _currentApiKey != null ? Icons.check_circle : Icons.warning,
-                    size: 16,
-                    color: _currentApiKey != null ? Colors.green : Colors.orange,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _currentApiKey != null
-                        ? 'API key configured'
-                        : 'No API key configured - using fallback parser',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: _currentApiKey != null ? Colors.green : Colors.orange,
-                    ),
-                  ),
-                ],
+              const PopupMenuItem<String>(
+                value: 'piece',
+                child: Text('piece'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'package',
+                child: Text('package'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'pound',
+                child: Text('pound'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'kg',
+                child: Text('kilogram'),
               ),
             ],
+            onSelected: (unit) async {
+              setState(() {
+                _defaultUnit = unit;
+              });
+              await _storageService.setString('default_unit', unit);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Default unit changed to $unit')),
+                );
+              }
+            },
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.warning_amber),
+          title: const Text('Low Stock Alerts'),
+          subtitle: const Text('Notify when items are running low'),
+          trailing: Switch(
+            value: _lowStockAlerts,
+            onChanged: (value) async {
+              setState(() {
+                _lowStockAlerts = value;
+              });
+              await _storageService.setBool('low_stock_alerts', value);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Low stock alerts ${value ? 'enabled' : 'disabled'}')),
+                );
+              }
+            },
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.auto_fix_high),
+          title: const Text('Smart Parsing'),
+          subtitle: const Text('AI-powered grocery text understanding'),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Enabled',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            'Smart parsing is handled securely on our servers. No API keys needed!',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -237,7 +280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'System',
+                  _getThemeModeName(_themeMode),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).primaryColor,
                   ),
@@ -246,38 +289,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              const PopupMenuItem<ThemeMode>(
                 value: ThemeMode.light,
                 child: Text('Light'),
               ),
-              const PopupMenuItem(
+              const PopupMenuItem<ThemeMode>(
                 value: ThemeMode.dark,
                 child: Text('Dark'),
               ),
-              const PopupMenuItem(
+              const PopupMenuItem<ThemeMode>(
                 value: ThemeMode.system,
                 child: Text('System'),
               ),
             ],
-            onSelected: (themeMode) {
-              // TODO: Implement theme switching
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Theme changed to ${themeMode.name}')),
-              );
+            onSelected: (themeMode) async {
+              setState(() {
+                _themeMode = themeMode;
+              });
+              await _storageService.setString('theme_mode', themeMode.name);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Theme changed to ${_getThemeModeName(themeMode)}')),
+                );
+              }
             },
           ),
         ),
         ListTile(
           leading: const Icon(Icons.notifications),
           title: const Text('Notifications'),
-          subtitle: const Text('Low stock and expiration alerts'),
+          subtitle: const Text('Push notifications for app updates'),
           trailing: Switch(
-            value: true, // TODO: Get from settings
-            onChanged: (value) {
-              // TODO: Implement notification settings
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Notifications ${value ? 'enabled' : 'disabled'}')),
-              );
+            value: _notificationsEnabled,
+            onChanged: (value) async {
+              setState(() {
+                _notificationsEnabled = value;
+              });
+              await _storageService.setBool('notifications_enabled', value);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Notifications ${value ? 'enabled' : 'disabled'}')),
+                );
+              }
             },
           ),
         ),
@@ -426,38 +479,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return name[0].toUpperCase();
     }
   }
-
-  Future<void> _saveApiKey() async {
-    final apiKey = _apiKeyController.text.trim();
-    
-    if (apiKey.isEmpty || apiKey == '•' * 20) return;
-    
-    try {
-      await _storageService.setSecureString('openai_api_key', apiKey);
-      
-      setState(() {
-        _currentApiKey = apiKey;
-        _apiKeyController.text = '•' * 20;
-        _apiKeyVisible = false;
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('API key saved successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save API key'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  
+  String _getThemeModeName(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+      case ThemeMode.system:
+        return 'System';
     }
   }
 
@@ -602,7 +632,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Tips:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text('• Include quantities and units for best results\n• Use action words like "bought", "used", "finished"\n• Set up your OpenAI API key for better parsing'),
+              Text('• Include quantities and units for best results\n• Use action words like "bought", "used", "finished"\n• Set low stock thresholds to get alerts\n• Export your inventory data anytime'),
             ],
           ),
         ),
