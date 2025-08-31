@@ -1,0 +1,323 @@
+/**
+ * AI-powered grocery list parser
+ * 
+ * Uses OpenAI's GPT models to parse natural language grocery text
+ * into structured inventory updates
+ */
+
+import OpenAI from 'openai';
+
+interface ParsedItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  action: 'add' | 'subtract' | 'set';
+  category?: string;
+  brand?: string;
+  notes?: string;
+  confidence: number;
+}
+
+interface ParseResult {
+  items: ParsedItem[];
+  confidence: number;
+  originalText: string;
+  needsReview: boolean;
+  error?: string;
+}
+
+export class GroceryParser {
+  private openai: OpenAI;
+
+  constructor(apiKey: string) {
+    this.openai = new OpenAI({
+      apiKey: apiKey
+    });
+  }
+
+  /**
+   * Parse natural language grocery text into structured updates
+   */
+  async parseGroceryText(text: string): Promise<ParseResult> {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: this.getSystemPrompt()
+          },
+          {
+            role: "user",
+            content: text
+          }
+        ],
+        functions: [
+          {
+            name: "parse_grocery_items",
+            description: "Parse grocery text into structured inventory updates",
+            parameters: {
+              type: "object",
+              properties: {
+                items: {
+                  type: "array",
+                  description: "List of parsed grocery items",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: {
+                        type: "string",
+                        description: "Item name (standardized, e.g. 'Milk', 'Bread')"
+                      },
+                      quantity: {
+                        type: "number",
+                        description: "Quantity of the item"
+                      },
+                      unit: {
+                        type: "string",
+                        description: "Unit of measurement (gallon, loaf, dozen, count, bag, etc.)"
+                      },
+                      action: {
+                        type: "string",
+                        enum: ["add", "subtract", "set"],
+                        description: "Action: 'add' for purchases, 'subtract' for consumption, 'set' for exact inventory"
+                      },
+                      category: {
+                        type: "string",
+                        description: "Category: dairy, produce, meat, pantry, frozen, beverages, snacks, bakery, or uncategorized"
+                      },
+                      brand: {
+                        type: "string",
+                        description: "Brand name or specific variety if mentioned"
+                      },
+                      notes: {
+                        type: "string",
+                        description: "Additional notes or specifications"
+                      },
+                      confidence: {
+                        type: "number",
+                        description: "Confidence level from 0-1 for this parsing"
+                      }
+                    },
+                    required: ["name", "quantity", "unit", "action", "confidence"]
+                  }
+                },
+                overallConfidence: {
+                  type: "number",
+                  description: "Overall confidence in the parsing from 0-1"
+                },
+                needsReview: {
+                  type: "boolean",
+                  description: "Whether items need human review before applying"
+                }
+              },
+              required: ["items", "overallConfidence", "needsReview"]
+            }
+          }
+        ],
+        function_call: { name: "parse_grocery_items" }
+      });
+
+      const functionCall = completion.choices[0].message.function_call;
+      if (!functionCall || !functionCall.arguments) {
+        throw new Error('No function call returned from OpenAI');
+      }
+
+      const parsed = JSON.parse(functionCall.arguments);
+      
+      return {
+        items: parsed.items || [],
+        confidence: parsed.overallConfidence || 0,
+        originalText: text,
+        needsReview: parsed.needsReview || false
+      };
+
+    } catch (error: any) {
+      console.error('Error parsing grocery text:', error);
+      
+      // Fallback to simple parsing if OpenAI fails
+      const fallbackResult = this.fallbackParse(text);
+      return {
+        ...fallbackResult,
+        error: `AI parsing failed: ${error.message}. Using fallback parser.`
+      };
+    }
+  }
+
+  /**
+   * System prompt for the OpenAI model
+   */
+  private getSystemPrompt(): string {
+    return `You are an expert grocery inventory assistant. Your job is to parse natural language text about grocery shopping, cooking, or food consumption into structured inventory updates.
+
+Key guidelines:
+1. **Actions**: 
+   - "add" for purchases: "bought milk", "picked up bread", "got some eggs"
+   - "subtract" for consumption: "used 2 eggs", "ate the last banana", "finished the milk"
+   - "set" for exact inventory: "have 3 apples left", "only 1 loaf remaining"
+
+2. **Quantities**: Default to 1 if not specified. Be smart about units:
+   - Milk → gallons (or liters for metric)
+   - Bread → loaves
+   - Eggs → dozens (convert: 12 eggs = 1 dozen)
+   - Bananas → count
+   - Ground meat → pounds
+   - Vegetables → count or pounds as appropriate
+
+3. **Categories**: 
+   - dairy: milk, cheese, yogurt, eggs, butter
+   - produce: fruits, vegetables, herbs
+   - meat: chicken, beef, pork, fish, deli meat
+   - pantry: canned goods, pasta, rice, oils, spices
+   - frozen: frozen vegetables, ice cream, frozen meals
+   - beverages: coffee, tea, juice, soda, water
+   - snacks: chips, cookies, crackers, nuts
+   - bakery: bread, bagels, muffins, pastries
+
+4. **Brand detection**: Extract brand names when mentioned: "Starbucks coffee", "Organic Valley milk"
+
+5. **Confidence scoring**:
+   - 0.9-1.0: Very clear, unambiguous
+   - 0.7-0.8: Mostly clear, minor assumptions
+   - 0.5-0.6: Some ambiguity, needs review
+   - 0.3-0.4: Unclear, definitely needs review
+   - 0.0-0.2: Very unclear, probably wrong
+
+6. **Review needed**: Set to true if:
+   - Overall confidence < 0.7
+   - Any ambiguous quantities or units
+   - Unusual or unclear item names
+   - Mixed actions (buying and consuming in same text)
+
+Examples:
+- "bought 2 gallons of milk and a loaf of bread" → add 2 milk (gallon), add 1 bread (loaf)
+- "used 3 eggs for breakfast" → subtract 3 eggs (count) or subtract 0.25 eggs (dozen)
+- "we're out of coffee" → set 0 coffee (bag)
+- "picked up some bananas at the store" → add 6 bananas (count, estimated)
+
+Be helpful and smart about interpreting context while being conservative about confidence when things are unclear.`;
+  }
+
+  /**
+   * Simple fallback parser when OpenAI is unavailable
+   */
+  private fallbackParse(text: string): Omit<ParseResult, 'error'> {
+    const items: ParsedItem[] = [];
+    const lowerText = text.toLowerCase();
+    
+    // Simple keyword-based parsing
+    const commonItems = [
+      { keywords: ['milk'], name: 'Milk', unit: 'gallon', category: 'dairy' },
+      { keywords: ['bread', 'loaf'], name: 'Bread', unit: 'loaf', category: 'bakery' },
+      { keywords: ['eggs'], name: 'Eggs', unit: 'dozen', category: 'dairy' },
+      { keywords: ['banana', 'bananas'], name: 'Bananas', unit: 'count', category: 'produce' },
+      { keywords: ['coffee'], name: 'Coffee', unit: 'bag', category: 'beverages' },
+      { keywords: ['chicken'], name: 'Chicken', unit: 'pound', category: 'meat' }
+    ];
+
+    // Determine action based on context
+    let action: 'add' | 'subtract' | 'set' = 'add';
+    if (lowerText.includes('bought') || lowerText.includes('got') || lowerText.includes('picked up')) {
+      action = 'add';
+    } else if (lowerText.includes('used') || lowerText.includes('ate') || lowerText.includes('finished')) {
+      action = 'subtract';
+    } else if (lowerText.includes('have') || lowerText.includes('left') || lowerText.includes('remaining')) {
+      action = 'set';
+    }
+
+    for (const item of commonItems) {
+      for (const keyword of item.keywords) {
+        if (lowerText.includes(keyword)) {
+          // Simple quantity extraction
+          const quantityMatch = text.match(new RegExp(`(\\d+)\\s*${keyword}`, 'i'));
+          const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+
+          items.push({
+            name: item.name,
+            quantity,
+            unit: item.unit,
+            action,
+            category: item.category,
+            confidence: 0.6 // Medium confidence for fallback
+          });
+          break;
+        }
+      }
+    }
+
+    return {
+      items,
+      confidence: items.length > 0 ? 0.6 : 0.2,
+      originalText: text,
+      needsReview: true // Always need review for fallback parsing
+    };
+  }
+
+  /**
+   * Validate and clean parsed items
+   */
+  validateItems(items: ParsedItem[]): ParsedItem[] {
+    return items.map(item => ({
+      ...item,
+      name: this.standardizeName(item.name),
+      quantity: Math.max(0, item.quantity), // Ensure non-negative
+      unit: this.standardizeUnit(item.unit),
+      category: this.standardizeCategory(item.category),
+      confidence: Math.min(1, Math.max(0, item.confidence)) // Clamp to 0-1
+    }));
+  }
+
+  private standardizeName(name: string): string {
+    return name.trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  private standardizeUnit(unit: string): string {
+    const unitMap: Record<string, string> = {
+      'gallon': 'gallon',
+      'gallons': 'gallon',
+      'gal': 'gallon',
+      'loaf': 'loaf',
+      'loaves': 'loaf',
+      'dozen': 'dozen',
+      'doz': 'dozen',
+      'count': 'count',
+      'each': 'count',
+      'piece': 'count',
+      'pieces': 'count',
+      'pound': 'pound',
+      'pounds': 'pound',
+      'lb': 'pound',
+      'lbs': 'pound',
+      'bag': 'bag',
+      'bags': 'bag',
+      'bottle': 'bottle',
+      'bottles': 'bottle',
+      'can': 'can',
+      'cans': 'can',
+      'box': 'box',
+      'boxes': 'box'
+    };
+
+    return unitMap[unit.toLowerCase()] || unit.toLowerCase();
+  }
+
+  private standardizeCategory(category?: string): string {
+    if (!category) return 'uncategorized';
+
+    const categoryMap: Record<string, string> = {
+      'dairy': 'dairy',
+      'produce': 'produce',
+      'meat': 'meat',
+      'pantry': 'pantry',
+      'frozen': 'frozen',
+      'beverages': 'beverages',
+      'snacks': 'snacks',
+      'bakery': 'bakery'
+    };
+
+    return categoryMap[category.toLowerCase()] || 'uncategorized';
+  }
+}

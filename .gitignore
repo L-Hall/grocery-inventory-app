@@ -1,0 +1,106 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Firebase
+.firebaserc
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+*.firebase-hosting-merge.*
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# API Keys and Secrets (DO NOT COMMIT!)
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+
+# MCP Server
+mcp-server/node_modules/
+mcp-server/dist/
+mcp-server/.env
+mcp-server/firebase-key.json
+mcp-server/*.log
+
+# Firebase Functions
+functions/node_modules/
+functions/lib/
+functions/.env
+functions/firebase-key.json
+functions/*.log
+
+# Backend directory
+backend/node_modules/
+backend/dist/
+backend/.env
+
+# npm/yarn
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Test coverage
+coverage/
+test/.test_coverage.dart
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
