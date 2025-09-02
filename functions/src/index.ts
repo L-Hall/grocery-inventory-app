@@ -11,7 +11,7 @@ import express from "express";
 import cors from "cors";
 import {GroceryParser} from "./ai-parser";
 import {getSecret, SECRETS, runtimeOpts} from "./secrets";
-import agentIntegration from "./agents/agent-integration";
+import { processGroceryRequest, updateInventoryWithConfirmation } from "./agents";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -596,7 +596,7 @@ app.post("/user/initialize", authenticate, async (req, res) => {
 
 // ============== OpenAI Agent Endpoints ==============
 
-// POST /agent/parse - Enhanced parsing with OpenAI Agents
+// POST /agent/parse - Parse inventory updates with confirmation
 app.post("/agent/parse", authenticate, async (req, res) => {
   try {
     const {text} = req.body;
@@ -608,18 +608,9 @@ app.post("/agent/parse", authenticate, async (req, res) => {
       });
     }
 
-    const apiKey = await getSecret(SECRETS.OPENAI_API_KEY);
-    const parser = new GroceryParser(apiKey);
-    
-    // Use agent-enhanced parsing
-    const result = await agentIntegration.parseWithAgent(text, parser);
+    const result = await updateInventoryWithConfirmation(req.user.uid, text);
 
-    res.json({
-      success: true,
-      items: result.items || result,
-      confidence: result.confidence || 0.9,
-      needsReview: result.needsReview || false,
-    });
+    res.json(result);
   } catch (error: any) {
     console.error("Error in agent parsing:", error);
     res.status(500).json({
@@ -629,57 +620,8 @@ app.post("/agent/parse", authenticate, async (req, res) => {
   }
 });
 
-// POST /agent/recipes - Get recipe suggestions based on inventory
-app.post("/agent/recipes", authenticate, async (req, res) => {
-  try {
-    const result = await agentIntegration.suggestRecipes(req.user.uid);
-
-    if (result.success) {
-      res.json(result);
-    } else {
-      res.status(500).json({
-        error: "Failed to get recipes",
-        message: (result as any).error || "Unknown error",
-      });
-    }
-  } catch (error: any) {
-    console.error("Error getting recipes:", error);
-    res.status(500).json({
-      error: "Internal Server Error",
-      message: error.message,
-    });
-  }
-});
-
-// POST /agent/shopping-list - Generate smart shopping list
-app.post("/agent/shopping-list", authenticate, async (req, res) => {
-  try {
-    const {preferences} = req.body;
-    
-    const result = await agentIntegration.generateSmartShoppingList(
-      req.user.uid,
-      preferences
-    );
-
-    if (result.success) {
-      res.json(result);
-    } else {
-      res.status(500).json({
-        error: "Failed to generate shopping list",
-        message: (result as any).error || "Unknown error",
-      });
-    }
-  } catch (error: any) {
-    console.error("Error generating shopping list:", error);
-    res.status(500).json({
-      error: "Internal Server Error",
-      message: error.message,
-    });
-  }
-});
-
-// POST /agent/chat - General grocery assistant chat
-app.post("/agent/chat", authenticate, async (req, res) => {
+// POST /agent/process - Process any grocery-related request
+app.post("/agent/process", authenticate, async (req, res) => {
   try {
     const {message, context} = req.body;
 
@@ -690,28 +632,22 @@ app.post("/agent/chat", authenticate, async (req, res) => {
       });
     }
 
-    const result = await agentIntegration.processGroceryRequest(
+    const result = await processGroceryRequest(
       req.user.uid,
       message,
       context
     );
 
-    if (result.success) {
-      res.json(result);
-    } else {
-      res.status(500).json({
-        error: "Failed to process request",
-        message: (result as any).error || "Unknown error",
-      });
-    }
+    res.json(result);
   } catch (error: any) {
-    console.error("Error in agent chat:", error);
+    console.error("Error processing request:", error);
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
     });
   }
 });
+
 
 // Export the Express app as a Firebase Function with secrets
 export const api = functions
