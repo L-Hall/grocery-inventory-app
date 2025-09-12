@@ -243,9 +243,9 @@ class DefaultViews {
       color: Colors.red,
       filters: [
         FilterRule(
-          field: 'isExpired',
+          field: 'expiryStatus',
           operator: FilterOperator.equals,
-          value: true,
+          value: 'Expired',
         ),
       ],
     ),

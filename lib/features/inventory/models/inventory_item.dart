@@ -5,6 +5,7 @@ class InventoryItem {
   final String unit;
   final String category;
   final String? location;
+  final String? size;
   final double lowStockThreshold;
   final DateTime? expirationDate;
   final String? notes;
@@ -18,6 +19,7 @@ class InventoryItem {
     required this.unit,
     required this.category,
     this.location,
+    this.size,
     required this.lowStockThreshold,
     this.expirationDate,
     this.notes,
@@ -53,6 +55,7 @@ class InventoryItem {
       unit: json['unit'] as String,
       category: json['category'] as String,
       location: json['location'] as String?,
+      size: json['size'] as String?,
       lowStockThreshold: (json['lowStockThreshold'] as num).toDouble(),
       expirationDate: json['expirationDate'] != null 
           ? DateTime.parse(json['expirationDate'] as String)
@@ -71,6 +74,7 @@ class InventoryItem {
       'unit': unit,
       'category': category,
       'location': location,
+      'size': size,
       'lowStockThreshold': lowStockThreshold,
       'expirationDate': expirationDate?.toIso8601String(),
       'notes': notes,
@@ -87,6 +91,7 @@ class InventoryItem {
     String? unit,
     String? category,
     String? location,
+    String? size,
     double? lowStockThreshold,
     DateTime? expirationDate,
     String? notes,
@@ -100,6 +105,7 @@ class InventoryItem {
       unit: unit ?? this.unit,
       category: category ?? this.category,
       location: location ?? this.location,
+      size: size ?? this.size,
       lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
       expirationDate: expirationDate ?? this.expirationDate,
       notes: notes ?? this.notes,
@@ -166,6 +172,7 @@ class InventoryUpdate {
   final UpdateAction action;
   final String? category;
   final String? location;
+  final String? size;
   final double? lowStockThreshold;
   final DateTime? expirationDate;
   final String? notes;
@@ -177,6 +184,7 @@ class InventoryUpdate {
     required this.action,
     this.category,
     this.location,
+    this.size,
     this.lowStockThreshold,
     this.expirationDate,
     this.notes,
@@ -190,6 +198,7 @@ class InventoryUpdate {
       'action': action.name,
       'category': category,
       'location': location,
+      'size': size,
       'lowStockThreshold': lowStockThreshold,
       'expirationDate': expirationDate?.toIso8601String(),
       'notes': notes,
@@ -207,6 +216,7 @@ class InventoryUpdate {
       ),
       category: json['category'] as String?,
       location: json['location'] as String?,
+      size: json['size'] as String?,
       lowStockThreshold: json['lowStockThreshold'] != null 
           ? (json['lowStockThreshold'] as num).toDouble()
           : null,
