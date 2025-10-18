@@ -744,3 +744,5 @@ app.post("/agent/process", authenticate, async (req, res) => {
 export const api = functions
   .runWith(runtimeOpts)
   .https.onRequest(app);
+
+export {app};
