@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "verify:deploy": "node scripts/verify-deployment.js"
+  },
   "devDependencies": {
     "eslint-config-google": "^0.14.0"
   },

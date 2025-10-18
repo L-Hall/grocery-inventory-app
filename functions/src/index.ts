@@ -9,10 +9,13 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import express from "express";
 import cors from "cors";
+import * as logger from "firebase-functions/logger";
 import {GroceryParser} from "./ai-parser";
 import {getSecret, SECRETS, runtimeOpts} from "./secrets";
 import {randomUUID} from "crypto";
 import {processGroceryRequest, updateInventoryWithConfirmation} from "./agents";
+import {formatInventoryItem, formatGroceryList} from "./utils/formatters";
+import {createAuthenticateMiddleware} from "./middleware/authenticate";
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
@@ -23,121 +26,15 @@ const auth = admin.auth();
 
 const app = express();
 
-const formatTimestamp = (value: any): string | null => {
-  if (!value) return null;
+const DEFAULT_QUERY_LIMIT = 100;
+const MAX_QUERY_LIMIT = 500;
 
-  if (value instanceof admin.firestore.Timestamp) {
-    return value.toDate().toISOString();
+const parseLimit = (value: any): number => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return DEFAULT_QUERY_LIMIT;
   }
-
-  if (value.toDate && typeof value.toDate === "function") {
-    return value.toDate().toISOString();
-  }
-
-  if (value._seconds && value._nanoseconds) {
-    return new Date(value._seconds * 1000 + value._nanoseconds / 1e6)
-      .toISOString();
-  }
-
-  if (typeof value === "string") {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString();
-    }
-    return null;
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  return null;
-};
-
-const formatInventoryItem = (
-  doc: admin.firestore.DocumentSnapshot,
-): Record<string, any> => {
-  const data = doc.data() ?? {};
-
-  const quantity =
-    typeof data.quantity === "number" ?
-      data.quantity :
-      Number(data.quantity ?? 0);
-  const lowStockThreshold =
-    typeof data.lowStockThreshold === "number" ?
-      data.lowStockThreshold :
-      Number(data.lowStockThreshold ?? 1);
-
-  const createdAt =
-    formatTimestamp(data.createdAt) ?? new Date().toISOString();
-  const updatedAt =
-    formatTimestamp(data.updatedAt ?? data.lastUpdated ?? data.createdAt) ??
-    createdAt;
-
-  return {
-    id: doc.id,
-    name: data.name ?? "",
-    quantity: Number.isFinite(quantity) ? quantity : 0,
-    unit: data.unit ?? "unit",
-    category: data.category ?? "uncategorized",
-    location: data.location ?? null,
-    size: data.size ?? null,
-    lowStockThreshold: Number.isFinite(lowStockThreshold) ?
-      lowStockThreshold :
-      1,
-    expirationDate: formatTimestamp(data.expirationDate),
-    notes: data.notes ?? null,
-    brand: data.brand ?? null,
-    createdAt,
-    updatedAt,
-  };
-};
-
-const formatGroceryListItem = (
-  listId: string,
-  item: Record<string, any>,
-  index: number,
-): Record<string, any> => {
-  const quantity =
-    typeof item.quantity === "number" ?
-      item.quantity :
-      Number(item.quantity ?? 0);
-
-  return {
-    id: item.id ?? `${listId}-item-${index}`,
-    name: item.name ?? "",
-    quantity: Number.isFinite(quantity) ? quantity : 0,
-    unit: item.unit ?? "unit",
-    category: item.category ?? "uncategorized",
-    isChecked: item.isChecked ?? item.checked ?? false,
-    notes: item.notes ?? null,
-    addedAt: formatTimestamp(item.addedAt),
-  };
-};
-
-const formatGroceryList = (
-  doc: admin.firestore.DocumentSnapshot,
-): Record<string, any> => {
-  const data = doc.data() ?? {};
-  const createdAt =
-    formatTimestamp(data.createdAt) ?? new Date().toISOString();
-  const updatedAt =
-    formatTimestamp(data.updatedAt ?? data.createdAt) ?? createdAt;
-
-  const itemsArray: any[] = Array.isArray(data.items) ? data.items : [];
-  const formattedItems = itemsArray.map((item, index) =>
-    formatGroceryListItem(doc.id, item, index),
-  );
-
-  return {
-    id: doc.id,
-    name: data.name ?? "Shopping List",
-    status: data.status ?? "active",
-    notes: data.notes ?? null,
-    items: formattedItems,
-    createdAt,
-    updatedAt,
-  };
+  return Math.min(Math.floor(numeric), MAX_QUERY_LIMIT);
 };
 
 // Configure CORS for Flutter app
@@ -149,29 +46,7 @@ app.use(cors({
 app.use(express.json());
 
 // Middleware to verify Firebase Auth token
-const authenticate = async (req: any, res: any, next: any) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Missing or invalid authorization header",
-      });
-    }
-
-    const token = authHeader.split("Bearer ")[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    req.user = decodedToken;
-    next();
-  } catch (error: any) {
-    console.error("Authentication error:", error);
-    res.status(401).json({
-      error: "Unauthorized",
-      message: "Invalid token",
-      details: error.message,
-    });
-  }
-};
+const authenticate = createAuthenticateMiddleware(auth);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -197,8 +72,10 @@ app.get("/inventory", authenticate, async (req, res) => {
       query = query.where("location", "==", location);
     }
 
-    // Order by last updated
+    // Order by last updated and apply limit for performance
     query = query.orderBy("lastUpdated", "desc");
+    const limit = parseLimit(req.query.limit);
+    query = query.limit(limit);
 
     const snapshot = await query.get();
     const items: any[] = [];
@@ -219,13 +96,28 @@ app.get("/inventory", authenticate, async (req, res) => {
       }
     });
 
+    logger.info("Inventory fetch complete", {
+      uid: req.user.uid,
+      params: {
+        category,
+        location,
+        lowStockOnly,
+        search: search ? "provided" : "not_provided",
+        limit,
+      },
+      itemCount: items.length,
+    });
+
     res.json({
       success: true,
       items,
       count: items.length,
     });
   } catch (error: any) {
-    console.error("Error listing inventory:", error);
+    logger.error("Error listing inventory", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -371,7 +263,10 @@ app.post("/inventory/update", authenticate, async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error("Error updating inventory:", error);
+    logger.error("Error updating inventory", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -419,7 +314,9 @@ app.post("/inventory/parse", authenticate, async (req, res) => {
     if (!apiKey) {
       // If no API key configured, use fallback parser for text only
       if (text) {
-        console.warn("OpenAI API key not configured, using fallback parser");
+        logger.warn("OPENAI_API_KEY missing - using fallback parser", {
+          uid: req.user.uid,
+        });
         const parser = new GroceryParser("");
         const parseResult = await parser.parseGroceryText(text);
 
@@ -487,7 +384,10 @@ app.post("/inventory/parse", authenticate, async (req, res) => {
           "Text parsed successfully with high confidence.",
     });
   } catch (error: any) {
-    console.error("Error parsing text:", error);
+    logger.error("Error parsing inventory text", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -499,9 +399,11 @@ app.post("/inventory/parse", authenticate, async (req, res) => {
 app.get("/inventory/low-stock", authenticate, async (req, res) => {
   try {
     const {includeOutOfStock = "true"} = req.query;
+    const limit = parseLimit(req.query.limit);
 
     const snapshot = await db.collection(`users/${req.user.uid}/inventory`)
       .orderBy("category")
+      .limit(limit)
       .get();
 
     const lowStock: any[] = [];
@@ -517,13 +419,23 @@ app.get("/inventory/low-stock", authenticate, async (req, res) => {
       }
     });
 
+    logger.info("Low stock fetch complete", {
+      uid: req.user.uid,
+      includeOutOfStock,
+      limit,
+      count: lowStock.length,
+    });
+
     res.json({
       success: true,
       items: lowStock,
       count: lowStock.length,
     });
   } catch (error: any) {
-    console.error("Error getting low stock items:", error);
+    logger.error("Error getting low stock items", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -604,7 +516,10 @@ app.post("/grocery-lists", authenticate, async (req, res) => {
       message: `Created grocery list "${name}" with ${listItems.length} items`,
     });
   } catch (error: any) {
-    console.error("Error creating grocery list:", error);
+    logger.error("Error creating grocery list", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -616,6 +531,7 @@ app.post("/grocery-lists", authenticate, async (req, res) => {
 app.get("/grocery-lists", authenticate, async (req, res) => {
   try {
     const {status} = req.query;
+    const limit = parseLimit(req.query.limit);
 
     let query: any = db.collection(`users/${req.user.uid}/grocery_lists`)
       .orderBy("createdAt", "desc");
@@ -624,11 +540,20 @@ app.get("/grocery-lists", authenticate, async (req, res) => {
       query = query.where("status", "==", status);
     }
 
+    query = query.limit(limit);
+
     const snapshot = await query.get();
     const lists: any[] = [];
 
     snapshot.forEach((doc) => {
       lists.push(formatGroceryList(doc));
+    });
+
+    logger.info("Grocery lists fetched", {
+      uid: req.user.uid,
+      status: status ?? "all",
+      limit,
+      count: lists.length,
     });
 
     res.json({
@@ -637,7 +562,10 @@ app.get("/grocery-lists", authenticate, async (req, res) => {
       count: lists.length,
     });
   } catch (error: any) {
-    console.error("Error getting grocery lists:", error);
+    logger.error("Error getting grocery lists", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -664,7 +592,10 @@ app.get("/categories", authenticate, async (req, res) => {
       count: categories.length,
     });
   } catch (error: any) {
-    console.error("Error getting categories:", error);
+    logger.error("Error getting categories", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -737,7 +668,10 @@ app.post("/user/initialize", authenticate, async (req, res) => {
       categoriesCreated: categories.length,
     });
   } catch (error: any) {
-    console.error("Error initializing user:", error);
+    logger.error("Error initializing user document", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -763,7 +697,10 @@ app.post("/agent/parse", authenticate, async (req, res) => {
 
     res.json(result);
   } catch (error: any) {
-    console.error("Error in agent parsing:", error);
+    logger.error("Error in agent parsing", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
@@ -791,7 +728,10 @@ app.post("/agent/process", authenticate, async (req, res) => {
 
     res.json(result);
   } catch (error: any) {
-    console.error("Error processing request:", error);
+    logger.error("Error processing agent request", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,

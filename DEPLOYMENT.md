@@ -176,6 +176,18 @@ curl -H "Authorization: Bearer [TOKEN]" \
   https://us-central1-helical-button-461921-v6.cloudfunctions.net/api/inventory
 ```
 
+### 2. Automated Deployment Verification
+
+Run the scripted health check after every deploy (locally or in CI):
+
+```bash
+npm run verify:deploy
+# or against an alternate environment
+FUNCTIONS_BASE_URL="https://<region>-<project>.cloudfunctions.net/api" npm run verify:deploy
+```
+
+The command fails with a non-zero exit code if the `/health` endpoint is unavailable or reports anything other than `healthy`.
+
 ### 2. Test Flutter App Connection
 
 Update Flutter app configuration:
@@ -212,14 +224,15 @@ jobs:
       - uses: actions/checkout@v2
       
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
           
       - name: Install dependencies
         run: |
           npm install -g firebase-tools
           cd functions && npm ci
+          npm ci
           
       - name: Build Functions
         run: cd functions && npm run build
@@ -228,6 +241,11 @@ jobs:
         run: firebase deploy --only functions,firestore
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      
+      - name: Verify deployment
+        run: npm run verify:deploy
+        env:
+          FUNCTIONS_BASE_URL: https://us-central1-helical-button-461921-v6.cloudfunctions.net/api
 ```
 
 Generate Firebase CI token:
@@ -235,6 +253,10 @@ Generate Firebase CI token:
 firebase login:ci
 # Add token to GitHub Secrets as FIREBASE_TOKEN
 ```
+
+### Rolling Updates in CI
+
+“Rolling updates into CI” means every change merged into the main branch automatically runs the build, tests, deployment, and post-deploy verification inside your Continuous Integration pipeline. By codifying those steps (lint → unit tests → `npm run build` → `firebase deploy` → `npm run verify:deploy`) you ensure the backend is always validated the same way, without relying on ad-hoc manual commands.
 
 ## Environment-Specific Configuration
 

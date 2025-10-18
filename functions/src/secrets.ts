@@ -6,6 +6,7 @@
  */
 
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
+import * as logger from "firebase-functions/logger";
 import * as functions from "firebase-functions";
 import * as fs from "fs";
 import * as path from "path";
@@ -58,10 +59,12 @@ export async function getSecret(secretName: string): Promise<string | undefined>
       return value;
     }
 
-    console.warn(`Secret ${secretName} not found in any source`);
+    logger.warn(`Secret ${secretName} not found in any source`);
     return undefined;
   } catch (error) {
-    console.error(`Error accessing secret ${secretName}:`, error);
+    logger.error(`Error accessing secret ${secretName}`, {
+      error,
+    });
     return undefined;
   }
 }
@@ -89,7 +92,9 @@ export async function getSecretFromManager(
 
     return undefined;
   } catch (error) {
-    console.error(`Error accessing secret ${secretName} from Secret Manager:`, error);
+    logger.error(`Error accessing secret ${secretName} from Secret Manager`, {
+      error,
+    });
     return undefined;
   }
 }
@@ -119,7 +124,7 @@ export async function validateSecrets(requiredSecrets: string[]): Promise<boolea
   for (const secretName of requiredSecrets) {
     const value = await getSecret(secretName);
     if (!value) {
-      console.error(`Required secret ${secretName} is not available`);
+      logger.error(`Required secret ${secretName} is not available`);
       return false;
     }
   }

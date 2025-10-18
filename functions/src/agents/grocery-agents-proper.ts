@@ -6,6 +6,7 @@
 import {Agent, tool, run} from "@openai/agents";
 import {z} from "zod";
 import * as admin from "firebase-admin";
+import * as logger from "firebase-functions/logger";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -405,7 +406,9 @@ export async function processGroceryRequest(
       response: result.finalOutput,
     };
   } catch (error) {
-    console.error("Error in agent processing:", error);
+    logger.error("Error in agent processing", {
+      error: error instanceof Error ? error.message : error,
+    });
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

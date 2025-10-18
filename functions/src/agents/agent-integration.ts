@@ -6,6 +6,7 @@
  */
 
 import * as admin from "firebase-admin";
+import * as logger from "firebase-functions/logger";
 import {
   parseInventoryUpdate,
   getRecipeSuggestions,
@@ -30,10 +31,12 @@ export async function parseWithAgent(text: string, existingParser: any) {
     }
 
     // Fall back to existing parser if agent fails
-    console.log("Agent parsing failed, falling back to existing parser");
+    logger.info("Agent parsing failed, using fallback parser");
     return await existingParser.parse(text);
   } catch (error) {
-    console.error("Error in agent parsing:", error);
+    logger.error("Error in agent parsing", {
+      error: error instanceof Error ? error.message : error,
+    });
     // Fall back to existing parser
     return await existingParser.parse(text);
   }
@@ -133,7 +136,9 @@ export async function suggestRecipes(userId: string) {
 
     return suggestions;
   } catch (error) {
-    console.error("Error suggesting recipes:", error);
+    logger.error("Error suggesting recipes", {
+      error: error instanceof Error ? error.message : error,
+    });
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -191,7 +196,9 @@ export async function generateSmartShoppingList(userId: string, preferences?: st
 
     return listResult;
   } catch (error) {
-    console.error("Error generating shopping list:", error);
+    logger.error("Error generating shopping list", {
+      error: error instanceof Error ? error.message : error,
+    });
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -257,7 +264,9 @@ export async function processGroceryRequest(
 
     return result;
   } catch (error) {
-    console.error("Error processing grocery request:", error);
+    logger.error("Error processing grocery request", {
+      error: error instanceof Error ? error.message : error,
+    });
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -320,7 +329,9 @@ async function logAgentInteraction(
       resultType: result.success ? "success" : "error",
     });
   } catch (error) {
-    console.error("Error logging interaction:", error);
+    logger.error("Error logging agent interaction", {
+      error: error instanceof Error ? error.message : error,
+    });
     // Don't throw - logging failure shouldn't break the main flow
   }
 }

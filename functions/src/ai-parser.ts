@@ -6,6 +6,7 @@
  */
 
 import OpenAI from "openai";
+import * as logger from "firebase-functions/logger";
 
 interface ParsedItem {
   name: string;
@@ -137,7 +138,9 @@ export class GroceryParser {
         needsReview: parsed.needsReview || false,
       };
     } catch (error: any) {
-      console.error("Error parsing grocery text:", error);
+      logger.error("Error parsing grocery text", {
+        error: error instanceof Error ? error.message : error,
+      });
 
       // Fallback to simple parsing if OpenAI fails
       const fallbackResult = this.fallbackParse(text);
@@ -326,7 +329,9 @@ Be helpful and smart about interpreting context while being conservative about c
         error: undefined,
       };
     } catch (error: any) {
-      console.error("Error parsing image with GPT-4V:", error);
+      logger.error("Error parsing image with GPT-4V", {
+        error: error instanceof Error ? error.message : error,
+      });
 
       return {
         items: [],
