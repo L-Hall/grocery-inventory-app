@@ -334,7 +334,16 @@ To rotate a secret:
 - Check Functions invocations
 - Review error logs
 
-### 2. Backup Strategy
+### 2. Structured Logging & Alerts
+
+- All Cloud Functions now emit structured entries via `firebase-functions/logger`.
+- Create log-based metrics in Google Cloud Logging to monitor fallback usage or errors (e.g., `jsonPayload.message="Agent parse fallback"`).
+- Wire Cloud Monitoring alert policies to notify when error counts exceed thresholds.
+- Quick Logging filters:
+  - `resource.type="cloud_function" jsonPayload.error!=""`
+  - `resource.type="cloud_function" jsonPayload.message="Agent parse fallback"`
+
+### 3. Backup Strategy
 
 ```bash
 # Export Firestore data
@@ -347,7 +356,7 @@ gcloud firestore operations schedule-recurring-backup \
   --retention=7d
 ```
 
-### 3. Update Dependencies
+### 4. Update Dependencies
 
 ```bash
 # Check for updates
