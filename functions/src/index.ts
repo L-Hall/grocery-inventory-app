@@ -11,14 +11,134 @@ import express from "express";
 import cors from "cors";
 import {GroceryParser} from "./ai-parser";
 import {getSecret, SECRETS, runtimeOpts} from "./secrets";
-import { processGroceryRequest, updateInventoryWithConfirmation } from "./agents";
+import {randomUUID} from "crypto";
+import {processGroceryRequest, updateInventoryWithConfirmation} from "./agents";
 
 // Initialize Firebase Admin SDK
-admin.initializeApp();
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
 const db = admin.firestore();
 const auth = admin.auth();
 
 const app = express();
+
+const formatTimestamp = (value: any): string | null => {
+  if (!value) return null;
+
+  if (value instanceof admin.firestore.Timestamp) {
+    return value.toDate().toISOString();
+  }
+
+  if (value.toDate && typeof value.toDate === "function") {
+    return value.toDate().toISOString();
+  }
+
+  if (value._seconds && value._nanoseconds) {
+    return new Date(value._seconds * 1000 + value._nanoseconds / 1e6)
+      .toISOString();
+  }
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return null;
+};
+
+const formatInventoryItem = (
+  doc: admin.firestore.DocumentSnapshot,
+): Record<string, any> => {
+  const data = doc.data() ?? {};
+
+  const quantity =
+    typeof data.quantity === "number" ?
+      data.quantity :
+      Number(data.quantity ?? 0);
+  const lowStockThreshold =
+    typeof data.lowStockThreshold === "number" ?
+      data.lowStockThreshold :
+      Number(data.lowStockThreshold ?? 1);
+
+  const createdAt =
+    formatTimestamp(data.createdAt) ?? new Date().toISOString();
+  const updatedAt =
+    formatTimestamp(data.updatedAt ?? data.lastUpdated ?? data.createdAt) ??
+    createdAt;
+
+  return {
+    id: doc.id,
+    name: data.name ?? "",
+    quantity: Number.isFinite(quantity) ? quantity : 0,
+    unit: data.unit ?? "unit",
+    category: data.category ?? "uncategorized",
+    location: data.location ?? null,
+    size: data.size ?? null,
+    lowStockThreshold: Number.isFinite(lowStockThreshold) ?
+      lowStockThreshold :
+      1,
+    expirationDate: formatTimestamp(data.expirationDate),
+    notes: data.notes ?? null,
+    brand: data.brand ?? null,
+    createdAt,
+    updatedAt,
+  };
+};
+
+const formatGroceryListItem = (
+  listId: string,
+  item: Record<string, any>,
+  index: number,
+): Record<string, any> => {
+  const quantity =
+    typeof item.quantity === "number" ?
+      item.quantity :
+      Number(item.quantity ?? 0);
+
+  return {
+    id: item.id ?? `${listId}-item-${index}`,
+    name: item.name ?? "",
+    quantity: Number.isFinite(quantity) ? quantity : 0,
+    unit: item.unit ?? "unit",
+    category: item.category ?? "uncategorized",
+    isChecked: item.isChecked ?? item.checked ?? false,
+    notes: item.notes ?? null,
+    addedAt: formatTimestamp(item.addedAt),
+  };
+};
+
+const formatGroceryList = (
+  doc: admin.firestore.DocumentSnapshot,
+): Record<string, any> => {
+  const data = doc.data() ?? {};
+  const createdAt =
+    formatTimestamp(data.createdAt) ?? new Date().toISOString();
+  const updatedAt =
+    formatTimestamp(data.updatedAt ?? data.createdAt) ?? createdAt;
+
+  const itemsArray: any[] = Array.isArray(data.items) ? data.items : [];
+  const formattedItems = itemsArray.map((item, index) =>
+    formatGroceryListItem(doc.id, item, index),
+  );
+
+  return {
+    id: doc.id,
+    name: data.name ?? "Shopping List",
+    status: data.status ?? "active",
+    notes: data.notes ?? null,
+    items: formattedItems,
+    createdAt,
+    updatedAt,
+  };
+};
 
 // Configure CORS for Flutter app
 app.use(cors({
@@ -84,20 +204,18 @@ app.get("/inventory", authenticate, async (req, res) => {
     const items: any[] = [];
 
     snapshot.forEach((doc) => {
-      const data = doc.data();
+      const item = formatInventoryItem(doc);
 
-      // Apply search filter
-      if (search && !data.name.toLowerCase().includes((search as string).toLowerCase())) {
+      if (search && !item.name.toLowerCase().includes((search as string).toLowerCase())) {
         return;
       }
 
-      // Apply low stock filter
       if (lowStockOnly === "true") {
-        if (data.quantity <= (data.lowStockThreshold || 1)) {
-          items.push({id: doc.id, ...data});
+        if (item.quantity <= item.lowStockThreshold) {
+          items.push(item);
         }
       } else {
-        items.push({id: doc.id, ...data});
+        items.push(item);
       }
     });
 
@@ -153,18 +271,23 @@ app.post("/inventory/update", authenticate, async (req, res) => {
         }
 
         if (!existingDoc) {
+          const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
           // Create new item
           const newItem = {
             name: update.name,
             quantity: update.quantity,
-            unit: update.unit || "unit",
-            category: update.category || "uncategorized",
-            location: update.location || "pantry",
-            lowStockThreshold: update.lowStockThreshold || 1,
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            ...(update.brand && {brand: update.brand}),
-            ...(update.notes && {notes: update.notes}),
+            unit: update.unit ?? "unit",
+            category: update.category ?? "uncategorized",
+            location: update.location ?? "pantry",
+            lowStockThreshold: update.lowStockThreshold ?? 1,
+            notes: update.notes ?? null,
+            brand: update.brand ?? null,
+            size: update.size ?? null,
+            expirationDate: update.expirationDate ?? null,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            lastUpdated: timestamp,
           };
 
           const docRef = await db.collection(`users/${req.user.uid}/inventory`).add(newItem);
@@ -198,15 +321,18 @@ app.post("/inventory/update", authenticate, async (req, res) => {
 
           const updateData: any = {
             quantity: newQuantity,
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           };
+          updateData.lastUpdated = updateData.updatedAt;
 
           // Update optional fields if provided
-          if (update.unit) updateData.unit = update.unit;
-          if (update.category) updateData.category = update.category;
-          if (update.location) updateData.location = update.location;
-          if (update.brand) updateData.brand = update.brand;
-          if (update.notes) updateData.notes = update.notes;
+          if (update.unit !== undefined) updateData.unit = update.unit;
+          if (update.category !== undefined) updateData.category = update.category;
+          if (update.location !== undefined) updateData.location = update.location;
+          if (update.brand !== undefined) updateData.brand = update.brand;
+          if (update.notes !== undefined) updateData.notes = update.notes;
+          if (update.size !== undefined) updateData.size = update.size;
+          if (update.expirationDate !== undefined) updateData.expirationDate = update.expirationDate;
           if (update.lowStockThreshold !== undefined) updateData.lowStockThreshold = update.lowStockThreshold;
 
           await existingDoc.ref.update(updateData);
@@ -220,7 +346,7 @@ app.post("/inventory/update", authenticate, async (req, res) => {
             success: true,
             action: "updated",
             quantity: newQuantity,
-            message: `${actionText} ${update.name}: now ${newQuantity} ${currentData.unit || "unit"}`,
+            message: `${actionText} ${update.name}: now ${newQuantity} ${update.unit ?? currentData.unit ?? "unit"}`,
           });
         }
       } catch (error: any) {
@@ -297,9 +423,23 @@ app.post("/inventory/parse", authenticate, async (req, res) => {
         const parser = new GroceryParser("");
         const parseResult = await parser.parseGroceryText(text);
 
+        const validatedItems = parser.validateItems(parseResult.items);
+        const warnings: string[] = ["Using basic parser. Configure OPENAI_API_KEY for better results."];
+        if (parseResult.needsReview) {
+          warnings.push("Review recommended before applying updates.");
+        }
+        if (parseResult.error) {
+          warnings.push(parseResult.error);
+        }
+
         return res.json({
           success: true,
-          parsed: parseResult,
+          updates: validatedItems,
+          confidence: parseResult.confidence ?? 0,
+          warnings: warnings.join(" "),
+          usedFallback: true,
+          originalText: parseResult.originalText,
+          needsReview: parseResult.needsReview,
           message: "Using basic parser. Configure OPENAI_API_KEY for better results.",
         });
       } else {
@@ -322,23 +462,30 @@ app.post("/inventory/parse", authenticate, async (req, res) => {
       parseResult = await parser.parseGroceryImage(image, imageType || "receipt");
     }
 
-    // Validate and clean the items
     const validatedItems = parser.validateItems(parseResult.items);
 
-    const response = {
+    const warnings: string[] = [];
+    if (parseResult.needsReview) {
+      warnings.push("Review recommended before applying updates.");
+    }
+    if (parseResult.error) {
+      warnings.push(parseResult.error);
+    }
+
+    res.json({
       success: true,
-      parsed: {
-        ...parseResult,
-        items: validatedItems,
-      },
+      updates: validatedItems,
+      confidence: parseResult.confidence ?? 0,
+      warnings: warnings.length > 0 ? warnings.join(" ") : undefined,
+      usedFallback: Boolean(parseResult.error),
+      originalText: parseResult.originalText,
+      needsReview: parseResult.needsReview,
       message: parseResult.error ?
         "Parsed using fallback method. Please review carefully." :
         parseResult.needsReview ?
           "Text parsed successfully. Please review the items before confirming." :
           "Text parsed successfully with high confidence.",
-    };
-
-    res.json(response);
+    });
   } catch (error: any) {
     console.error("Error parsing text:", error);
     res.status(500).json({
@@ -360,14 +507,13 @@ app.get("/inventory/low-stock", authenticate, async (req, res) => {
     const lowStock: any[] = [];
 
     snapshot.forEach((doc) => {
-      const data = doc.data();
-      const threshold = data.lowStockThreshold || 1;
+      const item = formatInventoryItem(doc);
 
-      if (data.quantity <= threshold) {
-        if (includeOutOfStock === "false" && data.quantity === 0) {
+      if (item.quantity <= item.lowStockThreshold) {
+        if (includeOutOfStock === "false" && item.quantity === 0) {
           return; // Skip out of stock items if not requested
         }
-        lowStock.push({id: doc.id, ...data});
+        lowStock.push(item);
       }
     });
 
@@ -399,15 +545,17 @@ app.post("/grocery-lists", authenticate, async (req, res) => {
         .get();
 
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.quantity <= (data.lowStockThreshold || 1)) {
+        const item = formatInventoryItem(doc);
+        if (item.quantity <= item.lowStockThreshold) {
           listItems.push({
-            name: data.name,
-            quantity: (data.lowStockThreshold || 1) - data.quantity + 1,
-            unit: data.unit,
-            category: data.category,
-            checked: false,
-            notes: data.quantity === 0 ? "Out of stock" : "Running low",
+            id: randomUUID(),
+            name: item.name,
+            quantity: Math.max(item.lowStockThreshold - item.quantity + 1, 1),
+            unit: item.unit,
+            category: item.category,
+            isChecked: false,
+            notes: item.quantity === 0 ? "Out of stock" : "Running low",
+            addedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
         }
       });
@@ -416,12 +564,14 @@ app.post("/grocery-lists", authenticate, async (req, res) => {
     // Add custom items
     for (const item of customItems) {
       listItems.push({
+        id: randomUUID(),
         name: item.name,
         quantity: item.quantity,
         unit: item.unit || "unit",
         category: item.category || "uncategorized",
-        checked: false,
+        isChecked: false,
         notes: item.notes || "",
+        addedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
 
@@ -434,22 +584,23 @@ app.post("/grocery-lists", authenticate, async (req, res) => {
     }
 
     // Create the grocery list in database
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
     const docRef = await db.collection(`users/${req.user.uid}/grocery_lists`).add({
       name,
       status: "active",
       items: listItems,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      notes: "",
+      createdAt: timestamp,
+      updatedAt: timestamp,
     });
+
+    const createdDoc = await docRef.get();
+    const formattedList = formatGroceryList(createdDoc);
 
     res.json({
       success: true,
-      list: {
-        id: docRef.id,
-        name,
-        status: "active",
-        items: listItems,
-        itemCount: listItems.length,
-      },
+      list: formattedList,
+      itemCount: formattedList.items.length,
       message: `Created grocery list "${name}" with ${listItems.length} items`,
     });
   } catch (error: any) {
@@ -477,7 +628,7 @@ app.get("/grocery-lists", authenticate, async (req, res) => {
     const lists: any[] = [];
 
     snapshot.forEach((doc) => {
-      lists.push({id: doc.id, ...doc.data()});
+      lists.push(formatGroceryList(doc));
     });
 
     res.json({

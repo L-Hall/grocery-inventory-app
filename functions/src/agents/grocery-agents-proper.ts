@@ -3,9 +3,13 @@
  * Following the official OpenAI Agents SDK patterns
  */
 
-import { Agent, tool, run } from '@openai/agents';
-import { z } from 'zod';
-import * as admin from 'firebase-admin';
+import {Agent, tool, run} from "@openai/agents";
+import {z} from "zod";
+import * as admin from "firebase-admin";
+
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
 
 const db = admin.firestore();
 
@@ -15,12 +19,12 @@ const db = admin.firestore();
  * Tool to parse natural language inventory updates
  */
 const parseInventoryTool = tool({
-  name: 'parse_inventory',
-  description: 'Parse natural language text into structured inventory updates',
+  name: "parse_inventory",
+  description: "Parse natural language text into structured inventory updates",
   parameters: z.object({
-    text: z.string().describe('Natural language text describing inventory changes'),
+    text: z.string().describe("Natural language text describing inventory changes"),
   }),
-  execute: async ({ text }) => {
+  execute: async ({text}) => {
     // Parse common patterns
     const patterns = {
       bought: /(?:bought|purchased|got|added)\s+(\d+)\s*([a-z]+)?\s+(?:of\s+)?(.+)/i,
@@ -29,7 +33,7 @@ const parseInventoryTool = tool({
     };
 
     const items = [];
-    
+
     for (const [action, pattern] of Object.entries(patterns)) {
       const match = text.match(pattern);
       if (match) {
@@ -37,17 +41,17 @@ const parseInventoryTool = tool({
         items.push({
           name: name.trim(),
           quantity: parseFloat(quantity),
-          unit: unit || 'count',
-          action: action === 'bought' ? 'add' : action === 'used' ? 'subtract' : 'set',
+          unit: unit || "count",
+          action: action === "bought" ? "add" : action === "used" ? "subtract" : "set",
         });
       }
     }
 
     if (items.length === 0) {
-      return { error: 'Could not parse inventory update from text' };
+      return {error: "Could not parse inventory update from text"};
     }
 
-    return { items };
+    return {items};
   },
 });
 
@@ -55,34 +59,34 @@ const parseInventoryTool = tool({
  * Tool to fetch current inventory from Firebase
  */
 const getInventoryTool = tool({
-  name: 'get_inventory',
-  description: 'Fetch current inventory items from the database',
+  name: "get_inventory",
+  description: "Fetch current inventory items from the database",
   parameters: z.object({
-    userId: z.string().describe('User ID to fetch inventory for'),
-    lowStockOnly: z.boolean().optional().describe('Only return low stock items'),
+    userId: z.string().describe("User ID to fetch inventory for"),
+    lowStockOnly: z.boolean().nullish().describe("Only return low stock items"),
   }),
-  execute: async ({ userId, lowStockOnly }) => {
+  execute: async ({userId, lowStockOnly}) => {
     try {
       const snapshot = await db
         .collection(`users/${userId}/inventory`)
         .get();
-      
-      let items = snapshot.docs.map(doc => ({
+
+      let items = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
 
       if (lowStockOnly) {
-        items = items.filter((item: any) => 
+        items = items.filter((item: any) =>
           item.quantity <= item.lowStockThreshold
         );
       }
 
-      return { items };
+      return {items};
     } catch (error) {
-      return { 
+      return {
         error: `Failed to fetch inventory: ${error}`,
-        items: [] 
+        items: [],
       };
     }
   },
@@ -92,26 +96,26 @@ const getInventoryTool = tool({
  * Tool to update inventory in Firebase
  */
 const updateInventoryTool = tool({
-  name: 'update_inventory',
-  description: 'Update inventory quantities in the database',
+  name: "update_inventory",
+  description: "Update inventory quantities in the database",
   parameters: z.object({
     userId: z.string(),
     updates: z.array(z.object({
       name: z.string(),
       quantity: z.number(),
-      action: z.enum(['add', 'subtract', 'set']),
-      unit: z.string().optional(),
+      action: z.enum(["add", "subtract", "set"]),
+      unit: z.string().nullish(),
     })),
   }),
-  execute: async ({ userId, updates }) => {
+  execute: async ({userId, updates}) => {
     const results = [];
-    
+
     for (const update of updates) {
       try {
         // Find existing item
         const query = await db
           .collection(`users/${userId}/inventory`)
-          .where('name', '==', update.name)
+          .where("name", "==", update.name)
           .limit(1)
           .get();
 
@@ -120,21 +124,21 @@ const updateInventoryTool = tool({
           const newItem = {
             name: update.name,
             quantity: update.quantity,
-            unit: update.unit || 'count',
-            category: 'Other',
+            unit: update.unit || "count",
+            category: "Other",
             lowStockThreshold: 1,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           };
-          
+
           const docRef = await db
             .collection(`users/${userId}/inventory`)
             .add(newItem);
-          
+
           results.push({
             success: true,
             itemId: docRef.id,
-            action: 'created',
+            action: "created",
             name: update.name,
           });
         } else {
@@ -144,15 +148,15 @@ const updateInventoryTool = tool({
           let newQuantity = currentData.quantity;
 
           switch (update.action) {
-            case 'add':
-              newQuantity += update.quantity;
-              break;
-            case 'subtract':
-              newQuantity = Math.max(0, newQuantity - update.quantity);
-              break;
-            case 'set':
-              newQuantity = update.quantity;
-              break;
+          case "add":
+            newQuantity += update.quantity;
+            break;
+          case "subtract":
+            newQuantity = Math.max(0, newQuantity - update.quantity);
+            break;
+          case "set":
+            newQuantity = update.quantity;
+            break;
           }
 
           await doc.ref.update({
@@ -163,7 +167,7 @@ const updateInventoryTool = tool({
           results.push({
             success: true,
             itemId: doc.id,
-            action: 'updated',
+            action: "updated",
             name: update.name,
             newQuantity,
           });
@@ -172,12 +176,12 @@ const updateInventoryTool = tool({
         results.push({
           success: false,
           name: update.name,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }
 
-    return { results };
+    return {results};
   },
 });
 
@@ -185,53 +189,53 @@ const updateInventoryTool = tool({
  * Tool to generate recipe suggestions
  */
 const suggestRecipesTool = tool({
-  name: 'suggest_recipes',
-  description: 'Generate recipe suggestions based on available inventory',
+  name: "suggest_recipes",
+  description: "Generate recipe suggestions based on available inventory",
   parameters: z.object({
     ingredients: z.array(z.object({
       name: z.string(),
       quantity: z.number(),
       unit: z.string(),
     })),
-    preferences: z.string().optional(),
+    preferences: z.string().nullish(),
   }),
-  execute: async ({ ingredients, preferences }) => {
+  execute: async ({ingredients, preferences}) => {
     // Simple recipe matching logic
     const recipes = [];
-    
+
     // Check for common recipe patterns
-    const hasChicken = ingredients.some(i => i.name.toLowerCase().includes('chicken'));
-    const hasPasta = ingredients.some(i => i.name.toLowerCase().includes('pasta'));
-    const hasRice = ingredients.some(i => i.name.toLowerCase().includes('rice'));
-    
+    const hasChicken = ingredients.some((i) => i.name.toLowerCase().includes("chicken"));
+    const hasPasta = ingredients.some((i) => i.name.toLowerCase().includes("pasta"));
+    const hasRice = ingredients.some((i) => i.name.toLowerCase().includes("rice"));
+
     if (hasChicken && hasRice) {
       recipes.push({
-        name: 'Chicken Fried Rice',
-        ingredients: ['chicken', 'rice', 'eggs', 'soy sauce'],
-        time: '25 minutes',
-        difficulty: 'easy',
+        name: "Chicken Fried Rice",
+        ingredients: ["chicken", "rice", "eggs", "soy sauce"],
+        time: "25 minutes",
+        difficulty: "easy",
       });
     }
-    
+
     if (hasPasta) {
       recipes.push({
-        name: 'Simple Pasta',
-        ingredients: ['pasta', 'tomato sauce', 'cheese'],
-        time: '20 minutes',
-        difficulty: 'easy',
+        name: "Simple Pasta",
+        ingredients: ["pasta", "tomato sauce", "cheese"],
+        time: "20 minutes",
+        difficulty: "easy",
       });
     }
 
     if (recipes.length === 0) {
       recipes.push({
-        name: 'Mixed Stir Fry',
-        ingredients: ingredients.slice(0, 5).map(i => i.name),
-        time: '30 minutes',
-        difficulty: 'medium',
+        name: "Mixed Stir Fry",
+        ingredients: ingredients.slice(0, 5).map((i) => i.name),
+        time: "30 minutes",
+        difficulty: "medium",
       });
     }
 
-    return { 
+    return {
       recipes,
       message: `Found ${recipes.length} recipes based on your ingredients`,
     };
@@ -242,26 +246,26 @@ const suggestRecipesTool = tool({
  * Tool to create shopping lists
  */
 const createShoppingListTool = tool({
-  name: 'create_shopping_list',
-  description: 'Create a shopping list from low stock items',
+  name: "create_shopping_list",
+  description: "Create a shopping list from low stock items",
   parameters: z.object({
     userId: z.string(),
-    includeCategories: z.array(z.string()).optional(),
+    includeCategories: z.array(z.string()).nullish(),
   }),
-  execute: async ({ userId, includeCategories }) => {
+  execute: async ({userId, includeCategories}) => {
     try {
       // Get low stock items
       const snapshot = await db
         .collection(`users/${userId}/inventory`)
         .get();
-      
+
       const lowStockItems = snapshot.docs
-        .map(doc => ({
+        .map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }))
         .filter((item: any) => item.quantity <= item.lowStockThreshold)
-        .filter((item: any) => 
+        .filter((item: any) =>
           !includeCategories || includeCategories.includes(item.category)
         );
 
@@ -296,7 +300,7 @@ const createShoppingListTool = tool({
  * Handles all inventory-related operations
  */
 export const inventoryAgent = new Agent({
-  name: 'Inventory Manager',
+  name: "Inventory Manager",
   instructions: `You are an inventory management specialist. You help users:
     1. Parse and update inventory from natural language
     2. Check current stock levels
@@ -310,7 +314,7 @@ export const inventoryAgent = new Agent({
     getInventoryTool,
     updateInventoryTool,
   ],
-  model: 'gpt-3.5-turbo',
+  model: "gpt-3.5-turbo",
 });
 
 /**
@@ -318,7 +322,7 @@ export const inventoryAgent = new Agent({
  * Provides recipe suggestions and meal planning
  */
 export const recipeAgent = new Agent({
-  name: 'Recipe Assistant',
+  name: "Recipe Assistant",
   instructions: `You are a culinary expert who suggests recipes based on available ingredients.
     Consider:
     - Using ingredients that are expiring soon
@@ -331,7 +335,7 @@ export const recipeAgent = new Agent({
     getInventoryTool,
     suggestRecipesTool,
   ],
-  model: 'gpt-3.5-turbo',
+  model: "gpt-3.5-turbo",
 });
 
 /**
@@ -339,7 +343,7 @@ export const recipeAgent = new Agent({
  * Creates and manages shopping lists
  */
 export const shoppingAgent = new Agent({
-  name: 'Shopping Assistant',
+  name: "Shopping Assistant",
   instructions: `You create smart shopping lists by:
     1. Identifying low stock items
     2. Organizing by store sections
@@ -351,7 +355,7 @@ export const shoppingAgent = new Agent({
     getInventoryTool,
     createShoppingListTool,
   ],
-  model: 'gpt-3.5-turbo',
+  model: "gpt-3.5-turbo",
 });
 
 /**
@@ -359,7 +363,7 @@ export const shoppingAgent = new Agent({
  * Routes requests to appropriate specialist agents
  */
 export const mainAgent = new Agent({
-  name: 'Grocery Assistant',
+  name: "Grocery Assistant",
   instructions: `You are the main grocery management assistant. 
     You coordinate between different specialized agents:
     - Inventory Manager: For stock updates and checking
@@ -369,7 +373,7 @@ export const mainAgent = new Agent({
     Understand what the user needs and delegate to the appropriate specialist.
     Always be helpful, friendly, and efficient.`,
   handoffs: [inventoryAgent, recipeAgent, shoppingAgent],
-  model: 'gpt-4-turbo-preview',
+  model: "gpt-4-turbo-preview",
 });
 
 // ============= Helper Functions =============
@@ -401,10 +405,10 @@ export async function processGroceryRequest(
       response: result.finalOutput,
     };
   } catch (error) {
-    console.error('Error in agent processing:', error);
+    console.error("Error in agent processing:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }
@@ -421,7 +425,7 @@ export async function updateInventoryWithConfirmation(
     const parseResult = await run(
       inventoryAgent,
       `Parse this inventory update but don't apply it yet: "${updateText}"`,
-      { context: { userId } }
+      {context: {userId}}
     );
 
     // Return parsed items for user confirmation
@@ -433,7 +437,7 @@ export async function updateInventoryWithConfirmation(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }
