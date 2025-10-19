@@ -364,6 +364,20 @@ To rotate a secret:
   - `resource.type="cloud_function" jsonPayload.error!=""`
   - `resource.type="cloud_function" jsonPayload.message="Agent parse fallback"`
 
+You can automate metric creation with the gcloud CLI:
+
+```bash
+gcloud logging metrics create agent-fallback-count \
+  --description="Count of agent parse fallbacks" \
+  --log-filter='resource.type="cloud_function" jsonPayload.message="Agent parse fallback"'
+
+gcloud logging metrics create function-errors \
+  --description="Cloud Function error count" \
+  --log-filter='resource.type="cloud_function" jsonPayload.error!=""'
+```
+
+After metrics exist, create alerting policies in Cloud Monitoring targeting those metrics so you are notified when fallbacks or errors spike.
+
 ### 3. Backup Strategy
 
 ```bash
