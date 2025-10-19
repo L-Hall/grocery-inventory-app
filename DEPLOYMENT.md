@@ -196,7 +196,18 @@ Update Flutter app configuration:
 const String apiBaseUrl = 'https://us-central1-helical-button-461921-v6.cloudfunctions.net/api';
 ```
 
-### 3. Monitor Functions
+### 3. Run Firestore Rule Tests
+
+Rules can be exercised locally via the Firestore emulator:
+
+```bash
+# From the project root
+firebase emulators:exec --only firestore "npm --prefix functions run test:rules"
+```
+
+The security-rule suite is skipped automatically when the emulator is not running.
+
+### 4. Monitor Functions
 
 ```bash
 # View logs
