@@ -28,6 +28,9 @@ jobs:
       - name: Test Functions
         run: cd functions && npm run test
 
+      - name: Run Firestore rule tests
+        run: firebase emulators:exec --only firestore "npm --prefix functions run test:rules"
+
       - name: Build Functions
         run: cd functions && npm run build
 

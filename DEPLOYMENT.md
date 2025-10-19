@@ -202,7 +202,7 @@ Rules can be exercised locally via the Firestore emulator:
 
 ```bash
 # From the project root
-firebase emulators:exec --only firestore "npm --prefix functions run test:rules"
+firebase emulators:exec --only firestore "npm run test:rules --prefix functions"
 ```
 
 The security-rule suite is skipped automatically when the emulator is not running.
