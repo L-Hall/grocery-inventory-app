@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/inventory_provider.dart';
 import '../models/inventory_item.dart';
 import '../models/category.dart';
+import '../widgets/inventory_item_editor.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({Key? key}) : super(key: key);
@@ -14,7 +15,6 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen>
     with AutomaticKeepAliveClientMixin {
-  
   @override
   bool get wantKeepAlive => true;
 
@@ -23,7 +23,10 @@ class _InventoryScreenState extends State<InventoryScreen>
     super.initState();
     // Initialize inventory data
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
+      final inventoryProvider = Provider.of<InventoryProvider>(
+        context,
+        listen: false,
+      );
       if (inventoryProvider.isEmpty) {
         inventoryProvider.initialize();
       }
@@ -34,11 +37,14 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
-          final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
+          final inventoryProvider = Provider.of<InventoryProvider>(
+            context,
+            listen: false,
+          );
           await inventoryProvider.refresh();
         },
         child: Consumer<InventoryProvider>(
@@ -59,15 +65,13 @@ class _InventoryScreenState extends State<InventoryScreen>
               children: [
                 // Search and filter bar
                 _buildSearchAndFilters(context, inventoryProvider),
-                
+
                 // Statistics summary
                 if (inventoryProvider.stats != null)
                   _buildStatsSection(context, inventoryProvider),
-                
+
                 // Items list or categories
-                Expanded(
-                  child: _buildItemsList(context, inventoryProvider),
-                ),
+                Expanded(child: _buildItemsList(context, inventoryProvider)),
               ],
             );
           },
@@ -76,20 +80,19 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildErrorState(BuildContext context, InventoryProvider inventoryProvider) {
+  Widget _buildErrorState(
+    BuildContext context,
+    InventoryProvider inventoryProvider,
+  ) {
     final theme = Theme.of(context);
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 80,
-              color: theme.colorScheme.error,
-            ),
+            Icon(Icons.error_outline, size: 80, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
               'Failed to Load Inventory',
@@ -120,7 +123,7 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   Widget _buildEmptyState(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -150,15 +153,7 @@ class _InventoryScreenState extends State<InventoryScreen>
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () {
-                // This would trigger navigation to text input screen
-                // For now, just show a message
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Tap the "Add Items" tab to get started'),
-                  ),
-                );
-              },
+              onPressed: () => _openItemEditor(context),
               icon: const Icon(Icons.add_shopping_cart),
               label: const Text('Get Started'),
             ),
@@ -168,9 +163,12 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildSearchAndFilters(BuildContext context, InventoryProvider inventoryProvider) {
+  Widget _buildSearchAndFilters(
+    BuildContext context,
+    InventoryProvider inventoryProvider,
+  ) {
     final theme = Theme.of(context);
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -194,9 +192,9 @@ class _InventoryScreenState extends State<InventoryScreen>
             ),
             onChanged: inventoryProvider.setSearchQuery,
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -211,14 +209,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                       ? const Icon(Icons.warning, size: 16)
                       : null,
                 ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 // Category filter
                 if (inventoryProvider.categories.isNotEmpty)
                   PopupMenuButton<String>(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: theme.colorScheme.outline),
                         borderRadius: BorderRadius.circular(20),
@@ -232,14 +233,21 @@ class _InventoryScreenState extends State<InventoryScreen>
                           Icon(
                             Icons.category,
                             size: 16,
-                            color: inventoryProvider.selectedCategoryFilter != null
+                            color:
+                                inventoryProvider.selectedCategoryFilter != null
                                 ? theme.primaryColor
                                 : theme.colorScheme.onSurface,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             inventoryProvider.selectedCategoryFilter != null
-                                ? inventoryProvider.getCategoryById(inventoryProvider.selectedCategoryFilter!)?.name ?? 'Category'
+                                ? inventoryProvider
+                                          .getCategoryById(
+                                            inventoryProvider
+                                                .selectedCategoryFilter!,
+                                          )
+                                          ?.name ??
+                                      'Category'
                                 : 'Category',
                           ),
                           const SizedBox(width: 4),
@@ -252,23 +260,25 @@ class _InventoryScreenState extends State<InventoryScreen>
                         value: '',
                         child: Text('All Categories'),
                       ),
-                      ...inventoryProvider.categories.map((category) => PopupMenuItem<String>(
-                        value: category.id,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: category.colorValue,
-                                shape: BoxShape.circle,
+                      ...inventoryProvider.categories.map(
+                        (category) => PopupMenuItem<String>(
+                          value: category.id,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: category.colorValue,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(category.name),
-                          ],
+                              const SizedBox(width: 8),
+                              Text(category.name),
+                            ],
+                          ),
                         ),
-                      )),
+                      ),
                     ],
                     onSelected: (categoryId) {
                       inventoryProvider.setCategoryFilter(
@@ -276,14 +286,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                       );
                     },
                   ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 // Location filter
                 if (inventoryProvider.availableLocations.isNotEmpty)
                   PopupMenuButton<String>(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: theme.colorScheme.outline),
                         borderRadius: BorderRadius.circular(20),
@@ -297,12 +310,16 @@ class _InventoryScreenState extends State<InventoryScreen>
                           Icon(
                             Icons.location_on,
                             size: 16,
-                            color: inventoryProvider.selectedLocationFilter != null
+                            color:
+                                inventoryProvider.selectedLocationFilter != null
                                 ? theme.primaryColor
                                 : theme.colorScheme.onSurface,
                           ),
                           const SizedBox(width: 4),
-                          Text(inventoryProvider.selectedLocationFilter ?? 'Location'),
+                          Text(
+                            inventoryProvider.selectedLocationFilter ??
+                                'Location',
+                          ),
                           const SizedBox(width: 4),
                           const Icon(Icons.arrow_drop_down, size: 16),
                         ],
@@ -313,10 +330,12 @@ class _InventoryScreenState extends State<InventoryScreen>
                         value: '',
                         child: Text('All Locations'),
                       ),
-                      ...inventoryProvider.availableLocations.map((location) => PopupMenuItem<String>(
-                        value: location,
-                        child: Text(location),
-                      )),
+                      ...inventoryProvider.availableLocations.map(
+                        (location) => PopupMenuItem<String>(
+                          value: location,
+                          child: Text(location),
+                        ),
+                      ),
                     ],
                     onSelected: (location) {
                       inventoryProvider.setLocationFilter(
@@ -324,7 +343,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                       );
                     },
                   ),
-                
+
                 // Clear filters
                 if (inventoryProvider.searchQuery.isNotEmpty ||
                     inventoryProvider.selectedCategoryFilter != null ||
@@ -348,10 +367,13 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildStatsSection(BuildContext context, InventoryProvider inventoryProvider) {
+  Widget _buildStatsSection(
+    BuildContext context,
+    InventoryProvider inventoryProvider,
+  ) {
     final theme = Theme.of(context);
     final stats = inventoryProvider.stats!;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
@@ -402,9 +424,15 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildStatItem(BuildContext context, String label, String value, IconData icon, Color color) {
+  Widget _buildStatItem(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     final theme = Theme.of(context);
-    
+
     return Column(
       children: [
         Icon(icon, color: color, size: 20),
@@ -427,13 +455,16 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildItemsList(BuildContext context, InventoryProvider inventoryProvider) {
+  Widget _buildItemsList(
+    BuildContext context,
+    InventoryProvider inventoryProvider,
+  ) {
     final items = inventoryProvider.items;
-    
+
     if (items.isEmpty) {
       return _buildNoResultsState(context);
     }
-    
+
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
@@ -446,7 +477,7 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   Widget _buildNoResultsState(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -478,13 +509,18 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildItemCard(BuildContext context, InventoryItem item, InventoryProvider inventoryProvider) {
+  Widget _buildItemCard(
+    BuildContext context,
+    InventoryItem item,
+    InventoryProvider inventoryProvider,
+  ) {
     final theme = Theme.of(context);
     final category = inventoryProvider.getCategoryById(item.category);
-    
+
     return Card(
       elevation: 1,
       child: ListTile(
+        onTap: () => _openItemEditor(context, item: item),
         contentPadding: const EdgeInsets.all(16),
         leading: _buildStockStatusIndicator(item.stockStatus),
         title: Text(
@@ -510,10 +546,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    category.name,
-                    style: theme.textTheme.labelSmall,
-                  ),
+                  Text(category.name, style: theme.textTheme.labelSmall),
                 ],
                 if (item.location != null) ...[
                   if (category != null) const Text(' • '),
@@ -523,10 +556,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 2),
-                  Text(
-                    item.location!,
-                    style: theme.textTheme.labelSmall,
-                  ),
+                  Text(item.location!, style: theme.textTheme.labelSmall),
                 ],
               ],
             ),
@@ -554,7 +584,8 @@ class _InventoryScreenState extends State<InventoryScreen>
           ],
         ),
         trailing: PopupMenuButton<String>(
-          onSelected: (action) => _handleItemAction(context, action, item, inventoryProvider),
+          onSelected: (action) =>
+              _handleItemAction(context, action, item, inventoryProvider),
           itemBuilder: (context) => [
             const PopupMenuItem(
               value: 'edit',
@@ -595,7 +626,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget _buildStockStatusIndicator(StockStatus status) {
     Color color;
     IconData icon;
-    
+
     switch (status) {
       case StockStatus.good:
         color = Colors.green;
@@ -610,7 +641,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         icon = Icons.error;
         break;
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -618,18 +649,19 @@ class _InventoryScreenState extends State<InventoryScreen>
         shape: BoxShape.circle,
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 20,
-      ),
+      child: Icon(icon, color: color, size: 20),
     );
   }
 
-  void _handleItemAction(BuildContext context, String action, InventoryItem item, InventoryProvider inventoryProvider) {
+  void _handleItemAction(
+    BuildContext context,
+    String action,
+    InventoryItem item,
+    InventoryProvider inventoryProvider,
+  ) {
     switch (action) {
       case 'edit':
-        _showEditQuantityDialog(context, item, inventoryProvider);
+        _openItemEditor(context, item: item);
         break;
       case 'details':
         _showItemDetailsDialog(context, item);
@@ -640,91 +672,13 @@ class _InventoryScreenState extends State<InventoryScreen>
     }
   }
 
-  void _showEditQuantityDialog(BuildContext context, InventoryItem item, InventoryProvider inventoryProvider) {
-    final quantityController = TextEditingController(text: item.quantity.toString());
-    UpdateAction selectedAction = UpdateAction.set;
-    
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text('Edit ${item.name}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: quantityController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<UpdateAction>(
-                value: selectedAction,
-                decoration: const InputDecoration(
-                  labelText: 'Action',
-                  border: OutlineInputBorder(),
-                ),
-                items: UpdateAction.values.map((action) {
-                  return DropdownMenuItem(
-                    value: action,
-                    child: Text(action.displayName),
-                  );
-                }).toList(),
-                onChanged: (action) {
-                  if (action != null) {
-                    setState(() {
-                      selectedAction = action;
-                    });
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final quantity = double.tryParse(quantityController.text);
-                if (quantity != null) {
-                  final success = await inventoryProvider.updateItem(
-                    item,
-                    newQuantity: quantity,
-                    action: selectedAction,
-                  );
-                  
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
-                    
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          success 
-                              ? 'Updated ${item.name}' 
-                              : 'Failed to update ${item.name}',
-                        ),
-                        backgroundColor: success ? Colors.green : Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _openItemEditor(BuildContext context, {InventoryItem? item}) {
+    return showInventoryItemEditorSheet(context, item: item);
   }
 
   void _showItemDetailsDialog(BuildContext context, InventoryItem item) {
     final theme = Theme.of(context);
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -736,13 +690,26 @@ class _InventoryScreenState extends State<InventoryScreen>
             _buildDetailRow('Quantity', '${item.quantity} ${item.unit}'),
             _buildDetailRow('Stock Status', item.stockStatus.displayName),
             _buildDetailRow('Category', item.category),
-            if (item.location != null) _buildDetailRow('Location', item.location!),
-            _buildDetailRow('Low Stock Threshold', '${item.lowStockThreshold} ${item.unit}'),
+            if (item.location != null)
+              _buildDetailRow('Location', item.location!),
+            _buildDetailRow(
+              'Low Stock Threshold',
+              '${item.lowStockThreshold} ${item.unit}',
+            ),
             if (item.expirationDate != null)
-              _buildDetailRow('Expiration', item.expirationDate!.toLocal().toString().split(' ')[0]),
+              _buildDetailRow(
+                'Expiration',
+                item.expirationDate!.toLocal().toString().split(' ')[0],
+              ),
             if (item.notes != null) _buildDetailRow('Notes', item.notes!),
-            _buildDetailRow('Created', item.createdAt.toLocal().toString().split(' ')[0]),
-            _buildDetailRow('Updated', item.updatedAt.toLocal().toString().split(' ')[0]),
+            _buildDetailRow(
+              'Created',
+              item.createdAt.toLocal().toString().split(' ')[0],
+            ),
+            _buildDetailRow(
+              'Updated',
+              item.updatedAt.toLocal().toString().split(' ')[0],
+            ),
           ],
         ),
         actions: [
@@ -774,12 +741,18 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, InventoryItem item, InventoryProvider inventoryProvider) {
+  void _showDeleteConfirmation(
+    BuildContext context,
+    InventoryItem item,
+    InventoryProvider inventoryProvider,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Item'),
-        content: Text('Are you sure you want to remove "${item.name}" from your inventory?'),
+        content: Text(
+          'Are you sure you want to remove "${item.name}" from your inventory?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -788,15 +761,15 @@ class _InventoryScreenState extends State<InventoryScreen>
           ElevatedButton(
             onPressed: () async {
               final success = await inventoryProvider.removeItem(item.name);
-              
+
               if (context.mounted) {
                 Navigator.of(context).pop();
-                
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      success 
-                          ? 'Removed ${item.name}' 
+                      success
+                          ? 'Removed ${item.name}'
                           : 'Failed to remove ${item.name}',
                     ),
                     backgroundColor: success ? Colors.green : Colors.red,

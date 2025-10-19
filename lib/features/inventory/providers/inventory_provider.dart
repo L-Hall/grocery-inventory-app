@@ -36,19 +36,19 @@ class InventoryProvider with ChangeNotifier {
   bool get showLowStockOnly => _showLowStockOnly;
 
   // Computed properties
-  List<InventoryItem> get lowStockItems => 
+  List<InventoryItem> get lowStockItems =>
       _items.where((item) => item.stockStatus == StockStatus.low).toList();
-  
-  List<InventoryItem> get outOfStockItems => 
+
+  List<InventoryItem> get outOfStockItems =>
       _items.where((item) => item.stockStatus == StockStatus.out).toList();
-  
-  List<InventoryItem> get goodStockItems => 
+
+  List<InventoryItem> get goodStockItems =>
       _items.where((item) => item.stockStatus == StockStatus.good).toList();
-  
-  List<InventoryItem> get expiringItems => 
+
+  List<InventoryItem> get expiringItems =>
       _items.where((item) => item.isExpiringSoon).toList();
-  
-  List<InventoryItem> get expiredItems => 
+
+  List<InventoryItem> get expiredItems =>
       _items.where((item) => item.isExpired).toList();
 
   // Available locations from current items
@@ -79,11 +79,7 @@ class InventoryProvider with ChangeNotifier {
 
   // Load all data
   Future<void> initialize() async {
-    await Future.wait([
-      loadInventory(),
-      loadCategories(),
-      loadStats(),
-    ]);
+    await Future.wait([loadInventory(), loadCategories(), loadStats()]);
   }
 
   // Load inventory items
@@ -136,11 +132,11 @@ class InventoryProvider with ChangeNotifier {
       _setError(null);
 
       await _repository.updateInventory(updates);
-      
+
       // Reload inventory to get updated data
       await loadInventory(refresh: true);
       await loadStats();
-      
+
       return true;
     } catch (e) {
       _setError('Failed to update inventory: $e');
@@ -160,12 +156,16 @@ class InventoryProvider with ChangeNotifier {
       _setLoading(true);
       _setError(null);
 
-      await _repository.updateItem(item, newQuantity: newQuantity, action: action);
-      
+      await _repository.updateItem(
+        item,
+        newQuantity: newQuantity,
+        action: action,
+      );
+
       // Reload inventory to get updated data
       await loadInventory(refresh: true);
       await loadStats();
-      
+
       return true;
     } catch (e) {
       _setError('Failed to update item: $e');
@@ -200,10 +200,10 @@ class InventoryProvider with ChangeNotifier {
         expirationDate: expirationDate,
         notes: notes,
       );
-      
+
       await loadInventory(refresh: true);
       await loadStats();
-      
+
       return true;
     } catch (e) {
       _setError('Failed to add item: $e');
@@ -220,13 +220,66 @@ class InventoryProvider with ChangeNotifier {
       _setError(null);
 
       await _repository.removeItem(itemName);
-      
+
       await loadInventory(refresh: true);
       await loadStats();
-      
+
       return true;
     } catch (e) {
       _setError('Failed to remove item: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> saveItem({
+    InventoryItem? existingItem,
+    required String name,
+    required double quantity,
+    required String unit,
+    required String category,
+    String? location,
+    double? lowStockThreshold,
+    DateTime? expirationDate,
+    String? notes,
+  }) async {
+    try {
+      _setLoading(true);
+      _setError(null);
+
+      if (existingItem == null) {
+        await _repository.addItem(
+          name: name,
+          quantity: quantity,
+          unit: unit,
+          category: category,
+          location: location,
+          lowStockThreshold: lowStockThreshold ?? 1.0,
+          expirationDate: expirationDate,
+          notes: notes,
+        );
+      } else {
+        await _repository.updateInventory([
+          InventoryUpdate(
+            name: existingItem.name,
+            quantity: quantity,
+            unit: unit,
+            action: UpdateAction.set,
+            category: category,
+            location: location,
+            lowStockThreshold: lowStockThreshold,
+            expirationDate: expirationDate,
+            notes: notes,
+          ),
+        ]);
+      }
+
+      await loadInventory(refresh: true);
+      await loadStats();
+      return true;
+    } catch (e) {
+      _setError('Failed to save item: $e');
       return false;
     } finally {
       _setLoading(false);
@@ -268,34 +321,54 @@ class InventoryProvider with ChangeNotifier {
 
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((item) =>
-          item.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          item.category.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (item.location?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-          (item.notes?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false)
-      ).toList();
+      filtered = filtered
+          .where(
+            (item) =>
+                item.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                item.category.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
+                ) ||
+                (item.location?.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) ??
+                    false) ||
+                (item.notes?.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) ??
+                    false),
+          )
+          .toList();
     }
 
     // Apply category filter
     if (_selectedCategoryFilter != null) {
-      filtered = filtered.where((item) => item.category == _selectedCategoryFilter).toList();
+      filtered = filtered
+          .where((item) => item.category == _selectedCategoryFilter)
+          .toList();
     }
 
     // Apply location filter
     if (_selectedLocationFilter != null) {
-      filtered = filtered.where((item) => item.location == _selectedLocationFilter).toList();
+      filtered = filtered
+          .where((item) => item.location == _selectedLocationFilter)
+          .toList();
     }
 
     // Apply low stock filter
     if (_showLowStockOnly) {
-      filtered = filtered.where((item) => 
-          item.stockStatus == StockStatus.low || 
-          item.stockStatus == StockStatus.out
-      ).toList();
+      filtered = filtered
+          .where(
+            (item) =>
+                item.stockStatus == StockStatus.low ||
+                item.stockStatus == StockStatus.out,
+          )
+          .toList();
     }
 
     // Sort by name for consistent display
-    filtered.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    filtered.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
 
     return filtered;
   }
@@ -327,34 +400,38 @@ class InventoryProvider with ChangeNotifier {
   // Get items that need attention (low stock, expired, expiring soon)
   List<InventoryItem> getItemsNeedingAttention() {
     final needsAttention = <InventoryItem>[];
-    
+
     needsAttention.addAll(outOfStockItems);
     needsAttention.addAll(lowStockItems);
     needsAttention.addAll(expiredItems);
     needsAttention.addAll(expiringItems);
-    
+
     // Remove duplicates and sort by priority
     final uniqueItems = needsAttention.toSet().toList();
     uniqueItems.sort((a, b) {
       // Expired items first
       if (a.isExpired && !b.isExpired) return -1;
       if (!a.isExpired && b.isExpired) return 1;
-      
+
       // Out of stock items second
-      if (a.stockStatus == StockStatus.out && b.stockStatus != StockStatus.out) return -1;
-      if (a.stockStatus != StockStatus.out && b.stockStatus == StockStatus.out) return 1;
-      
+      if (a.stockStatus == StockStatus.out && b.stockStatus != StockStatus.out)
+        return -1;
+      if (a.stockStatus != StockStatus.out && b.stockStatus == StockStatus.out)
+        return 1;
+
       // Low stock items third
-      if (a.stockStatus == StockStatus.low && b.stockStatus != StockStatus.low) return -1;
-      if (a.stockStatus != StockStatus.low && b.stockStatus == StockStatus.low) return 1;
-      
+      if (a.stockStatus == StockStatus.low && b.stockStatus != StockStatus.low)
+        return -1;
+      if (a.stockStatus != StockStatus.low && b.stockStatus == StockStatus.low)
+        return 1;
+
       // Expiring soon items last
       if (a.isExpiringSoon && !b.isExpiringSoon) return -1;
       if (!a.isExpiringSoon && b.isExpiringSoon) return 1;
-      
+
       return 0;
     });
-    
+
     return uniqueItems;
   }
 }
