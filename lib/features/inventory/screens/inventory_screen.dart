@@ -61,17 +61,48 @@ class _InventoryScreenState extends State<InventoryScreen>
               return _buildEmptyState(context);
             }
 
-            return Column(
-              children: [
-                // Search and filter bar
-                _buildSearchAndFilters(context, inventoryProvider),
-
-                // Statistics summary
+            return CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _FilterHeaderDelegate(
+                    minExtentHeight: 140,
+                    maxExtentHeight: 164,
+                    child: _buildSearchAndFilters(context, inventoryProvider),
+                  ),
+                ),
                 if (inventoryProvider.stats != null)
-                  _buildStatsSection(context, inventoryProvider),
-
-                // Items list or categories
-                Expanded(child: _buildItemsList(context, inventoryProvider)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12, bottom: 4),
+                      child: _buildStatsSection(context, inventoryProvider),
+                    ),
+                  ),
+                if (items.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildNoResultsState(context),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = items[index];
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: index == items.length - 1 ? 0 : 8,
+                          ),
+                          child: _buildItemCard(
+                            context,
+                            item,
+                            inventoryProvider,
+                          ),
+                        );
+                      }, childCount: items.length),
+                    ),
+                  ),
               ],
             );
           },
@@ -169,105 +200,79 @@ class _InventoryScreenState extends State<InventoryScreen>
   ) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
+    return Material(
+      color: theme.colorScheme.surface,
+      elevation: 1,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Search bar
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Search items...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: inventoryProvider.searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => inventoryProvider.setSearchQuery(''),
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
-              fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-            ),
-            onChanged: inventoryProvider.setSearchQuery,
-          ),
-
           const SizedBox(height: 12),
-
-          // Filter chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search items...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: inventoryProvider.searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => inventoryProvider.setSearchQuery(''),
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+              ),
+              onChanged: inventoryProvider.setSearchQuery,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 36,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
               children: [
-                // Low stock filter
                 FilterChip(
-                  label: const Text('Low Stock Only'),
+                  label: const Text('Low Stock'),
                   selected: inventoryProvider.showLowStockOnly,
                   onSelected: inventoryProvider.setLowStockFilter,
                   avatar: inventoryProvider.showLowStockOnly
                       ? const Icon(Icons.warning, size: 16)
                       : null,
                 ),
-
                 const SizedBox(width: 8),
-
-                // Category filter
                 if (inventoryProvider.categories.isNotEmpty)
-                  PopupMenuButton<String>(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: theme.colorScheme.outline),
-                        borderRadius: BorderRadius.circular(20),
-                        color: inventoryProvider.selectedCategoryFilter != null
-                            ? theme.primaryColor.withOpacity(0.1)
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.category,
-                            size: 16,
-                            color:
-                                inventoryProvider.selectedCategoryFilter != null
-                                ? theme.primaryColor
-                                : theme.colorScheme.onSurface,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            inventoryProvider.selectedCategoryFilter != null
-                                ? inventoryProvider
-                                          .getCategoryById(
-                                            inventoryProvider
-                                                .selectedCategoryFilter!,
-                                          )
-                                          ?.name ??
-                                      'Category'
-                                : 'Category',
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.arrow_drop_down, size: 16),
-                        ],
-                      ),
-                    ),
-                    itemBuilder: (context) => [
+                  _FilterChipButton(
+                    label: inventoryProvider.selectedCategoryFilter != null
+                        ? inventoryProvider
+                                  .getCategoryById(
+                                    inventoryProvider.selectedCategoryFilter!,
+                                  )
+                                  ?.name ??
+                              'Category'
+                        : 'Category',
+                    icon: Icons.category,
+                    onSelected: (value) {
+                      inventoryProvider.setCategoryFilter(
+                        value.isEmpty ? null : value,
+                      );
+                    },
+                    items: [
                       const PopupMenuItem(
                         value: '',
                         child: Text('All Categories'),
                       ),
                       ...inventoryProvider.categories.map(
-                        (category) => PopupMenuItem<String>(
+                        (category) => PopupMenuItem(
                           value: category.id,
                           child: Row(
                             children: [
                               Container(
-                                width: 16,
-                                height: 16,
+                                width: 12,
+                                height: 12,
                                 decoration: BoxDecoration(
                                   color: category.colorValue,
                                   shape: BoxShape.circle,
@@ -280,88 +285,44 @@ class _InventoryScreenState extends State<InventoryScreen>
                         ),
                       ),
                     ],
-                    onSelected: (categoryId) {
-                      inventoryProvider.setCategoryFilter(
-                        categoryId!.isEmpty ? null : categoryId,
+                  ),
+                if (inventoryProvider.categories.isNotEmpty)
+                  const SizedBox(width: 8),
+                if (inventoryProvider.availableLocations.isNotEmpty)
+                  _FilterChipButton(
+                    label:
+                        inventoryProvider.selectedLocationFilter ?? 'Location',
+                    icon: Icons.location_on,
+                    onSelected: (value) {
+                      inventoryProvider.setLocationFilter(
+                        value.isEmpty ? null : value,
                       );
                     },
-                  ),
-
-                const SizedBox(width: 8),
-
-                // Location filter
-                if (inventoryProvider.availableLocations.isNotEmpty)
-                  PopupMenuButton<String>(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: theme.colorScheme.outline),
-                        borderRadius: BorderRadius.circular(20),
-                        color: inventoryProvider.selectedLocationFilter != null
-                            ? theme.primaryColor.withOpacity(0.1)
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            size: 16,
-                            color:
-                                inventoryProvider.selectedLocationFilter != null
-                                ? theme.primaryColor
-                                : theme.colorScheme.onSurface,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            inventoryProvider.selectedLocationFilter ??
-                                'Location',
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.arrow_drop_down, size: 16),
-                        ],
-                      ),
-                    ),
-                    itemBuilder: (context) => [
+                    items: [
                       const PopupMenuItem(
                         value: '',
                         child: Text('All Locations'),
                       ),
                       ...inventoryProvider.availableLocations.map(
-                        (location) => PopupMenuItem<String>(
-                          value: location,
-                          child: Text(location),
-                        ),
+                        (loc) => PopupMenuItem(value: loc, child: Text(loc)),
                       ),
                     ],
-                    onSelected: (location) {
-                      inventoryProvider.setLocationFilter(
-                        location!.isEmpty ? null : location,
-                      );
-                    },
                   ),
-
-                // Clear filters
+                if (inventoryProvider.availableLocations.isNotEmpty)
+                  const SizedBox(width: 8),
                 if (inventoryProvider.searchQuery.isNotEmpty ||
                     inventoryProvider.selectedCategoryFilter != null ||
                     inventoryProvider.selectedLocationFilter != null ||
-                    inventoryProvider.showLowStockOnly) ...[
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: inventoryProvider.clearAllFilters,
-                    icon: const Icon(Icons.clear_all, size: 16),
+                    inventoryProvider.showLowStockOnly)
+                  ActionChip(
+                    avatar: const Icon(Icons.clear_all, size: 16),
                     label: const Text('Clear'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    onPressed: inventoryProvider.clearAllFilters,
                   ),
-                ],
               ],
             ),
           ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -452,26 +413,6 @@ class _InventoryScreenState extends State<InventoryScreen>
           textAlign: TextAlign.center,
         ),
       ],
-    );
-  }
-
-  Widget _buildItemsList(
-    BuildContext context,
-    InventoryProvider inventoryProvider,
-  ) {
-    final items = inventoryProvider.items;
-
-    if (items.isEmpty) {
-      return _buildNoResultsState(context);
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: items.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        return _buildItemCard(context, items[index], inventoryProvider);
-      },
     );
   }
 
@@ -786,5 +727,89 @@ class _InventoryScreenState extends State<InventoryScreen>
         ],
       ),
     );
+  }
+}
+
+class _FilterChipButton extends StatelessWidget {
+  const _FilterChipButton({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    required this.items,
+    this.isActive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final void Function(String value) onSelected;
+  final List<PopupMenuEntry<String>> items;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return PopupMenuButton<String>(
+      onSelected: onSelected,
+      itemBuilder: (context) => items,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.4)),
+          borderRadius: BorderRadius.circular(20),
+          color: isActive ? theme.colorScheme.primary.withOpacity(0.1) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isActive
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 6),
+            Text(label),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _FilterHeaderDelegate({
+    required this.child,
+    required this.minExtentHeight,
+    required this.maxExtentHeight,
+  });
+
+  final Widget child;
+  final double minExtentHeight;
+  final double maxExtentHeight;
+
+  @override
+  double get minExtent => minExtentHeight;
+
+  @override
+  double get maxExtent => maxExtentHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(covariant _FilterHeaderDelegate oldDelegate) {
+    return child != oldDelegate.child ||
+        minExtentHeight != oldDelegate.minExtentHeight ||
+        maxExtentHeight != oldDelegate.maxExtentHeight;
   }
 }
