@@ -15,6 +15,7 @@ import {getSecret, SECRETS, runtimeOpts} from "./secrets";
 import {randomUUID} from "crypto";
 import {processGroceryRequest, updateInventoryWithConfirmation} from "./agents";
 import {formatInventoryItem, formatGroceryList} from "./utils/formatters";
+import {generateSearchKeywords} from "./utils/search";
 import {createAuthenticateMiddleware} from "./middleware/authenticate";
 
 // Initialize Firebase Admin SDK
@@ -181,6 +182,7 @@ app.post("/inventory/update", authenticate, async (req, res) => {
             brand: update.brand ?? null,
             size: update.size ?? null,
             expirationDate: update.expirationDate ?? null,
+            searchKeywords: generateSearchKeywords(update.name),
             createdAt: timestamp,
             updatedAt: timestamp,
             lastUpdated: timestamp,
@@ -220,6 +222,7 @@ app.post("/inventory/update", authenticate, async (req, res) => {
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           };
           updateData.lastUpdated = updateData.updatedAt;
+          updateData.searchKeywords = generateSearchKeywords(update.name);
 
           // Update optional fields if provided
           if (update.unit !== undefined) updateData.unit = update.unit;
