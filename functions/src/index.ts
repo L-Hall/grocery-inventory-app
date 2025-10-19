@@ -61,9 +61,13 @@ app.get("/health", (req, res) => {
 app.get("/inventory", authenticate, async (req, res) => {
   try {
     const {category, location, lowStockOnly, search} = req.query;
-    let query: any = db.collection(`users/${req.user.uid}/inventory`);
+    const searchTerm = typeof search === "string" ? search.trim().toLowerCase() : "";
+    const wantsSearch = searchTerm.length > 0;
 
-    // Apply filters
+    let query: FirebaseFirestore.Query = db
+      .collection(`users/${req.user.uid}/inventory`)
+      .orderBy("lastUpdated", "desc");
+
     if (category) {
       query = query.where("category", "==", category);
     }
@@ -72,8 +76,12 @@ app.get("/inventory", authenticate, async (req, res) => {
       query = query.where("location", "==", location);
     }
 
-    // Order by last updated and apply limit for performance
-    query = query.orderBy("lastUpdated", "desc");
+    if (wantsSearch) {
+      // Firestore doesn't support native LIKE queries; we approximate by filtering on an exact match field.
+      // Consider maintaining a searchKeywords array per document for more sophisticated matching.
+      query = query.where("searchKeywords", "array-contains", searchTerm);
+    }
+
     const limit = parseLimit(req.query.limit);
     query = query.limit(limit);
 
@@ -82,10 +90,6 @@ app.get("/inventory", authenticate, async (req, res) => {
 
     snapshot.forEach((doc) => {
       const item = formatInventoryItem(doc);
-
-      if (search && !item.name.toLowerCase().includes((search as string).toLowerCase())) {
-        return;
-      }
 
       if (lowStockOnly === "true") {
         if (item.quantity <= item.lowStockThreshold) {
