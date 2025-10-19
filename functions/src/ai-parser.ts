@@ -1,17 +1,18 @@
 /**
  * AI-powered grocery list parser
- * 
+ *
  * Uses OpenAI's GPT models to parse natural language grocery text
  * into structured inventory updates
  */
 
-import OpenAI from 'openai';
+import OpenAI from "openai";
+import * as logger from "firebase-functions/logger";
 
 interface ParsedItem {
   name: string;
   quantity: number;
   unit: string;
-  action: 'add' | 'subtract' | 'set';
+  action: "add" | "subtract" | "set";
   category?: string;
   brand?: string;
   notes?: string;
@@ -32,7 +33,7 @@ export class GroceryParser {
   constructor(apiKey: string) {
     if (apiKey) {
       this.openai = new OpenAI({
-        apiKey: apiKey
+        apiKey: apiKey,
       });
     }
   }
@@ -42,7 +43,7 @@ export class GroceryParser {
    */
   async parseGroceryText(text: string): Promise<ParseResult> {
     if (!this.openai) {
-      return this.fallbackParser(text);
+      return this.fallbackParse(text);
     }
     try {
       const completion = await this.openai.chat.completions.create({
@@ -50,12 +51,12 @@ export class GroceryParser {
         messages: [
           {
             role: "system",
-            content: this.getSystemPrompt()
+            content: this.getSystemPrompt(),
           },
           {
             role: "user",
-            content: text
-          }
+            content: text,
+          },
         ],
         functions: [
           {
@@ -72,79 +73,80 @@ export class GroceryParser {
                     properties: {
                       name: {
                         type: "string",
-                        description: "Item name (standardized, e.g. 'Milk', 'Bread')"
+                        description: "Item name (standardized, e.g. 'Milk', 'Bread')",
                       },
                       quantity: {
                         type: "number",
-                        description: "Quantity of the item"
+                        description: "Quantity of the item",
                       },
                       unit: {
                         type: "string",
-                        description: "Unit of measurement (gallon, loaf, dozen, count, bag, etc.)"
+                        description: "Unit of measurement (gallon, loaf, dozen, count, bag, etc.)",
                       },
                       action: {
                         type: "string",
                         enum: ["add", "subtract", "set"],
-                        description: "Action: 'add' for purchases, 'subtract' for consumption, 'set' for exact inventory"
+                        description: "Action: 'add' for purchases, 'subtract' for consumption, 'set' for exact inventory",
                       },
                       category: {
                         type: "string",
-                        description: "Category: dairy, produce, meat, pantry, frozen, beverages, snacks, bakery, or uncategorized"
+                        description: "Category: dairy, produce, meat, pantry, frozen, beverages, snacks, bakery, or uncategorized",
                       },
                       brand: {
                         type: "string",
-                        description: "Brand name or specific variety if mentioned"
+                        description: "Brand name or specific variety if mentioned",
                       },
                       notes: {
                         type: "string",
-                        description: "Additional notes or specifications"
+                        description: "Additional notes or specifications",
                       },
                       confidence: {
                         type: "number",
-                        description: "Confidence level from 0-1 for this parsing"
-                      }
+                        description: "Confidence level from 0-1 for this parsing",
+                      },
                     },
-                    required: ["name", "quantity", "unit", "action", "confidence"]
-                  }
+                    required: ["name", "quantity", "unit", "action", "confidence"],
+                  },
                 },
                 overallConfidence: {
                   type: "number",
-                  description: "Overall confidence in the parsing from 0-1"
+                  description: "Overall confidence in the parsing from 0-1",
                 },
                 needsReview: {
                   type: "boolean",
-                  description: "Whether items need human review before applying"
-                }
+                  description: "Whether items need human review before applying",
+                },
               },
-              required: ["items", "overallConfidence", "needsReview"]
-            }
-          }
+              required: ["items", "overallConfidence", "needsReview"],
+            },
+          },
         ],
-        function_call: { name: "parse_grocery_items" }
+        function_call: {name: "parse_grocery_items"},
       });
 
       const functionCall = completion.choices[0].message.function_call;
       if (!functionCall || !functionCall.arguments) {
-        throw new Error('No function call returned from OpenAI');
+        throw new Error("No function call returned from OpenAI");
       }
 
       const parsed = JSON.parse(functionCall.arguments);
-      
+
       return {
         items: parsed.items || [],
         confidence: parsed.overallConfidence || 0,
         originalText: text,
-        needsReview: parsed.needsReview || false
+        needsReview: parsed.needsReview || false,
       };
-
     } catch (error: any) {
-      console.error('Error parsing grocery text:', error);
-      
+      logger.error("Error parsing grocery text", {
+        error: error instanceof Error ? error.message : error,
+      });
+
       // Fallback to simple parsing if OpenAI fails
       const fallbackResult = this.fallbackParse(text);
       return {
         ...fallbackResult,
-        error: `AI parsing failed: ${error.message}. Using fallback parser.`
+        error: `AI parsing failed: ${error.message}. Using fallback parser.`,
       };
     }
   }
@@ -153,7 +155,8 @@ export class GroceryParser {
    * System prompt for the OpenAI model
    */
   private getSystemPrompt(): string {
-    return `You are an expert grocery inventory assistant. Your job is to parse natural language text about grocery shopping, cooking, or food consumption into structured inventory updates.
+    return `You are an expert grocery inventory assistant. Your job is to parse natural language text about 
+grocery shopping, cooking, or food consumption into structured inventory updates.
 
 Key guidelines:
 1. **Actions**: 
@@ -206,35 +209,35 @@ Be helpful and smart about interpreting context while being conservative about c
   /**
    * Simple fallback parser when OpenAI is unavailable
    */
-  private fallbackParse(text: string): Omit<ParseResult, 'error'> {
+  private fallbackParse(text: string): Omit<ParseResult, "error"> {
     const items: ParsedItem[] = [];
     const lowerText = text.toLowerCase();
-    
+
     // Simple keyword-based parsing
     const commonItems = [
-      { keywords: ['milk'], name: 'Milk', unit: 'gallon', category: 'dairy' },
-      { keywords: ['bread', 'loaf'], name: 'Bread', unit: 'loaf', category: 'bakery' },
-      { keywords: ['eggs'], name: 'Eggs', unit: 'dozen', category: 'dairy' },
-      { keywords: ['banana', 'bananas'], name: 'Bananas', unit: 'count', category: 'produce' },
-      { keywords: ['coffee'], name: 'Coffee', unit: 'bag', category: 'beverages' },
-      { keywords: ['chicken'], name: 'Chicken', unit: 'pound', category: 'meat' }
+      {keywords: ["milk"], name: "Milk", unit: "gallon", category: "dairy"},
+      {keywords: ["bread", "loaf"], name: "Bread", unit: "loaf", category: "bakery"},
+      {keywords: ["eggs"], name: "Eggs", unit: "dozen", category: "dairy"},
+      {keywords: ["banana", "bananas"], name: "Bananas", unit: "count", category: "produce"},
+      {keywords: ["coffee"], name: "Coffee", unit: "bag", category: "beverages"},
+      {keywords: ["chicken"], name: "Chicken", unit: "pound", category: "meat"},
     ];
 
     // Determine action based on context
-    let action: 'add' | 'subtract' | 'set' = 'add';
-    if (lowerText.includes('bought') || lowerText.includes('got') || lowerText.includes('picked up')) {
-      action = 'add';
-    } else if (lowerText.includes('used') || lowerText.includes('ate') || lowerText.includes('finished')) {
-      action = 'subtract';
-    } else if (lowerText.includes('have') || lowerText.includes('left') || lowerText.includes('remaining')) {
-      action = 'set';
+    let action: "add" | "subtract" | "set" = "add";
+    if (lowerText.includes("bought") || lowerText.includes("got") || lowerText.includes("picked up")) {
+      action = "add";
+    } else if (lowerText.includes("used") || lowerText.includes("ate") || lowerText.includes("finished")) {
+      action = "subtract";
+    } else if (lowerText.includes("have") || lowerText.includes("left") || lowerText.includes("remaining")) {
+      action = "set";
     }
 
     for (const item of commonItems) {
       for (const keyword of item.keywords) {
         if (lowerText.includes(keyword)) {
           // Simple quantity extraction
-          const quantityMatch = text.match(new RegExp(`(\\d+)\\s*${keyword}`, 'i'));
+          const quantityMatch = text.match(new RegExp(`(\\d+)\\s*${keyword}`, "i"));
           const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
 
           items.push({
@@ -243,7 +246,7 @@ Be helpful and smart about interpreting context while being conservative about c
             unit: item.unit,
             action,
             category: item.category,
-            confidence: 0.6 // Medium confidence for fallback
+            confidence: 0.6, // Medium confidence for fallback
           });
           break;
         }
@@ -254,7 +257,7 @@ Be helpful and smart about interpreting context while being conservative about c
       items,
       confidence: items.length > 0 ? 0.6 : 0.2,
       originalText: text,
-      needsReview: true // Always need review for fallback parsing
+      needsReview: true, // Always need review for fallback parsing
     };
   }
 
@@ -264,21 +267,21 @@ Be helpful and smart about interpreting context while being conservative about c
   /**
    * Parse grocery receipt or list image using GPT-4V
    */
-  async parseGroceryImage(imageBase64: string, imageType: string = 'receipt'): Promise<ParseResult> {
+  async parseGroceryImage(imageBase64: string, imageType: string = "receipt"): Promise<ParseResult> {
     if (!this.openai) {
       return {
         items: [],
         confidence: 0,
-        originalText: '[Image processing requires OpenAI API]',
+        originalText: "[Image processing requires OpenAI API]",
         needsReview: true,
-        error: 'OpenAI API key not configured'
+        error: "OpenAI API key not configured",
       };
     }
 
     try {
-      const prompt = imageType === 'receipt' 
-        ? this.getReceiptPrompt()
-        : this.getGroceryListImagePrompt();
+      const prompt = imageType === "receipt" ?
+        this.getReceiptPrompt() :
+        this.getGroceryListImagePrompt();
 
       const completion = await this.openai.chat.completions.create({
         model: "gpt-4-vision-preview",
@@ -288,52 +291,54 @@ Be helpful and smart about interpreting context while being conservative about c
             content: [
               {
                 type: "text",
-                text: prompt
+                text: prompt,
               },
               {
                 type: "image_url",
                 image_url: {
                   url: `data:image/jpeg;base64,${imageBase64}`,
-                  detail: "high"
-                }
-              }
-            ]
-          }
+                  detail: "high",
+                },
+              },
+            ],
+          },
         ],
         max_tokens: 1000,
-        temperature: 0.3
+        temperature: 0.3,
       });
 
       const response = completion.choices[0]?.message?.content;
-      
+
       if (!response) {
-        throw new Error('No response from OpenAI Vision API');
+        throw new Error("No response from OpenAI Vision API");
       }
 
       // Parse the JSON response
       const parsedData = JSON.parse(response);
-      
+
       // Calculate overall confidence
-      const avgConfidence = parsedData.items?.length > 0
-        ? parsedData.items.reduce((sum: number, item: ParsedItem) => sum + (item.confidence || 0.8), 0) / parsedData.items.length
-        : 0;
+      const avgConfidence = parsedData.items?.length > 0 ?
+        parsedData.items.reduce((sum: number, item: ParsedItem) => sum + (item.confidence || 0.8), 0) / parsedData.items.length :
+        0;
 
       return {
         items: parsedData.items || [],
         confidence: avgConfidence,
         originalText: `[Parsed from ${imageType} image]`,
         needsReview: avgConfidence < 0.7 || parsedData.items?.some((item: ParsedItem) => item.confidence < 0.6),
-        error: undefined
+        error: undefined,
       };
     } catch (error: any) {
-      console.error('Error parsing image with GPT-4V:', error);
-      
+      logger.error("Error parsing image with GPT-4V", {
+        error: error instanceof Error ? error.message : error,
+      });
+
       return {
         items: [],
         confidence: 0,
         originalText: `[Failed to process ${imageType} image]`,
         needsReview: true,
-        error: error.message || 'Failed to parse image'
+        error: error.message || "Failed to parse image",
       };
     }
   }
@@ -399,67 +404,67 @@ Extract ALL visible items, even if handwriting is unclear (use lower confidence 
   }
 
   validateItems(items: ParsedItem[]): ParsedItem[] {
-    return items.map(item => ({
+    return items.map((item) => ({
       ...item,
       name: this.standardizeName(item.name),
       quantity: Math.max(0, item.quantity), // Ensure non-negative
       unit: this.standardizeUnit(item.unit),
       category: this.standardizeCategory(item.category),
-      confidence: Math.min(1, Math.max(0, item.confidence)) // Clamp to 0-1
+      confidence: Math.min(1, Math.max(0, item.confidence)), // Clamp to 0-1
     }));
   }
 
   private standardizeName(name: string): string {
     return name.trim()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
   }
 
   private standardizeUnit(unit: string): string {
     const unitMap: Record<string, string> = {
-      'gallon': 'gallon',
-      'gallons': 'gallon',
-      'gal': 'gallon',
-      'loaf': 'loaf',
-      'loaves': 'loaf',
-      'dozen': 'dozen',
-      'doz': 'dozen',
-      'count': 'count',
-      'each': 'count',
-      'piece': 'count',
-      'pieces': 'count',
-      'pound': 'pound',
-      'pounds': 'pound',
-      'lb': 'pound',
-      'lbs': 'pound',
-      'bag': 'bag',
-      'bags': 'bag',
-      'bottle': 'bottle',
-      'bottles': 'bottle',
-      'can': 'can',
-      'cans': 'can',
-      'box': 'box',
-      'boxes': 'box'
+      "gallon": "gallon",
+      "gallons": "gallon",
+      "gal": "gallon",
+      "loaf": "loaf",
+      "loaves": "loaf",
+      "dozen": "dozen",
+      "doz": "dozen",
+      "count": "count",
+      "each": "count",
+      "piece": "count",
+      "pieces": "count",
+      "pound": "pound",
+      "pounds": "pound",
+      "lb": "pound",
+      "lbs": "pound",
+      "bag": "bag",
+      "bags": "bag",
+      "bottle": "bottle",
+      "bottles": "bottle",
+      "can": "can",
+      "cans": "can",
+      "box": "box",
+      "boxes": "box",
     };
 
     return unitMap[unit.toLowerCase()] || unit.toLowerCase();
   }
 
   private standardizeCategory(category?: string): string {
-    if (!category) return 'uncategorized';
+    if (!category) return "uncategorized";
 
     const categoryMap: Record<string, string> = {
-      'dairy': 'dairy',
-      'produce': 'produce',
-      'meat': 'meat',
-      'pantry': 'pantry',
-      'frozen': 'frozen',
-      'beverages': 'beverages',
-      'snacks': 'snacks',
-      'bakery': 'bakery'
+      "dairy": "dairy",
+      "produce": "produce",
+      "meat": "meat",
+      "pantry": "pantry",
+      "frozen": "frozen",
+      "beverages": "beverages",
+      "snacks": "snacks",
+      "bakery": "bakery",
     };
 
-    return categoryMap[category.toLowerCase()] || 'uncategorized';
+    return categoryMap[category.toLowerCase()] || "uncategorized";
   }
 }

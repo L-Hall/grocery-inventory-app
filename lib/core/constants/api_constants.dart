@@ -1,9 +1,9 @@
 class ApiConstants {
   // Base URL for the API - update this with your Firebase Functions URL
-  static const String baseUrl = 'https://us-central1-your-project-id.cloudfunctions.net/api';
+  static const String baseUrl = 'https://us-central1-helical-button-461921-v6.cloudfunctions.net/api';
   
   // Local development URL (for testing with Firebase emulators)
-  static const String localBaseUrl = 'http://localhost:5001/your-project-id/us-central1/api';
+  static const String localBaseUrl = 'http://localhost:5001/helical-button-461921-v6/us-central1/api';
   
   // Endpoints
   static const String inventory = '/inventory';
