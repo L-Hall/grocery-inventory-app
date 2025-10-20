@@ -5,6 +5,7 @@ import '../providers/inventory_provider.dart';
 import '../models/inventory_item.dart';
 import '../models/category.dart';
 import '../widgets/inventory_item_editor.dart';
+import '../widgets/inventory_item_details.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({Key? key}) : super(key: key);
@@ -605,7 +606,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         _openItemEditor(context, item: item);
         break;
       case 'details':
-        _showItemDetailsDialog(context, item);
+        _openItemDetails(context, item, inventoryProvider);
         break;
       case 'delete':
         _showDeleteConfirmation(context, item, inventoryProvider);
@@ -617,68 +618,15 @@ class _InventoryScreenState extends State<InventoryScreen>
     return showInventoryItemEditorSheet(context, item: item);
   }
 
-  void _showItemDetailsDialog(BuildContext context, InventoryItem item) {
-    final theme = Theme.of(context);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(item.name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow('Quantity', '${item.quantity} ${item.unit}'),
-            _buildDetailRow('Stock Status', item.stockStatus.displayName),
-            _buildDetailRow('Category', item.category),
-            if (item.location != null)
-              _buildDetailRow('Location', item.location!),
-            _buildDetailRow(
-              'Low Stock Threshold',
-              '${item.lowStockThreshold} ${item.unit}',
-            ),
-            if (item.expirationDate != null)
-              _buildDetailRow(
-                'Expiration',
-                item.expirationDate!.toLocal().toString().split(' ')[0],
-              ),
-            if (item.notes != null) _buildDetailRow('Notes', item.notes!),
-            _buildDetailRow(
-              'Created',
-              item.createdAt.toLocal().toString().split(' ')[0],
-            ),
-            _buildDetailRow(
-              'Updated',
-              item.updatedAt.toLocal().toString().split(' ')[0],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(child: Text(value)),
-        ],
-      ),
+  Future<void> _openItemDetails(
+    BuildContext context,
+    InventoryItem item,
+    InventoryProvider provider,
+  ) {
+    return showInventoryItemDetailsSheet(
+      context,
+      item: item,
+      provider: provider,
     );
   }
 
