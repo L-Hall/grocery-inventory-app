@@ -243,7 +243,9 @@ class _InventoryItemDetailsSheetState
   Future<void> _applyQuantityChange(BuildContext context, double delta) async {
     setState(() => _isProcessing = true);
 
-    final newQuantity = (item.quantity + delta).clamp(0, double.infinity);
+    final newQuantity = (item.quantity + delta)
+        .clamp(0, double.infinity)
+        .toDouble();
     final success = await widget.provider.updateItem(
       item,
       newQuantity: newQuantity,
@@ -315,37 +317,7 @@ class _InventoryItemDetailsSheetState
   }
 
   Future<void> _openEditor(BuildContext context) async {
-    await Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: false,
-        barrierColor: Colors.black45,
-        pageBuilder: (_, __, ___) => ChangeNotifierProvider.value(
-          value: widget.provider,
-          child: Builder(
-            builder: (context) => Scaffold(
-              backgroundColor: Colors.transparent,
-              body: SafeArea(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: FractionallySizedBox(
-                    heightFactor: 0.9,
-                    child: Material(
-                      color: Theme.of(context).colorScheme.surface,
-                      elevation: 4,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(24),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: showInventoryItemEditorSheet(context, item: item),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    await showInventoryItemEditorSheet(context, item: item);
   }
 
   Future<void> _confirmDelete(BuildContext context) async {

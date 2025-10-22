@@ -6,6 +6,7 @@ import '../models/inventory_item.dart';
 import '../models/category.dart';
 import '../widgets/inventory_item_editor.dart';
 import '../widgets/inventory_item_details.dart';
+import '../widgets/inventory_table.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({Key? key}) : super(key: key);
@@ -16,22 +17,34 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen>
     with AutomaticKeepAliveClientMixin {
+  late final TextEditingController _searchController;
+
   @override
   bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    // Initialize inventory data
+    _searchController = TextEditingController();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final inventoryProvider = Provider.of<InventoryProvider>(
         context,
         listen: false,
       );
+      if (_searchController.text != inventoryProvider.searchQuery) {
+        _searchController.text = inventoryProvider.searchQuery;
+      }
       if (inventoryProvider.isEmpty) {
         inventoryProvider.initialize();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -62,6 +75,18 @@ class _InventoryScreenState extends State<InventoryScreen>
               return _buildEmptyState(context);
             }
 
+            final items = inventoryProvider.items;
+
+            if (_searchController.text != inventoryProvider.searchQuery) {
+              _searchController.value = _searchController.value.copyWith(
+                text: inventoryProvider.searchQuery,
+                selection: TextSelection.collapsed(
+                  offset: inventoryProvider.searchQuery.length,
+                ),
+                composing: TextRange.empty,
+              );
+            }
+
             return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -86,22 +111,21 @@ class _InventoryScreenState extends State<InventoryScreen>
                     child: _buildNoResultsState(context),
                   )
                 else
-                  SliverPadding(
-                    padding: const EdgeInsets.all(16),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final item = items[index];
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index == items.length - 1 ? 0 : 8,
-                          ),
-                          child: _buildItemCard(
-                            context,
-                            item,
-                            inventoryProvider,
-                          ),
-                        );
-                      }, childCount: items.length),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: InventoryTable(
+                        items: items,
+                        provider: inventoryProvider,
+                        onEdit: (item) => _openItemEditor(context, item: item),
+                        onDetails: (item) =>
+                            _openItemDetails(context, item, inventoryProvider),
+                        onDelete: (item) => _showDeleteConfirmation(
+                          context,
+                          item,
+                          inventoryProvider,
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -211,13 +235,17 @@ class _InventoryScreenState extends State<InventoryScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search items...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: inventoryProvider.searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear),
-                        onPressed: () => inventoryProvider.setSearchQuery(''),
+                        onPressed: () {
+                          _searchController.clear();
+                          inventoryProvider.setSearchQuery('');
+                        },
                       )
                     : null,
                 border: OutlineInputBorder(
@@ -256,6 +284,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                               'Category'
                         : 'Category',
                     icon: Icons.category,
+                    isActive: inventoryProvider.selectedCategoryFilter != null,
                     onSelected: (value) {
                       inventoryProvider.setCategoryFilter(
                         value.isEmpty ? null : value,
@@ -294,6 +323,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     label:
                         inventoryProvider.selectedLocationFilter ?? 'Location',
                     icon: Icons.location_on,
+                    isActive: inventoryProvider.selectedLocationFilter != null,
                     onSelected: (value) {
                       inventoryProvider.setLocationFilter(
                         value.isEmpty ? null : value,
@@ -451,169 +481,6 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildItemCard(
-    BuildContext context,
-    InventoryItem item,
-    InventoryProvider inventoryProvider,
-  ) {
-    final theme = Theme.of(context);
-    final category = inventoryProvider.getCategoryById(item.category);
-
-    return Card(
-      elevation: 1,
-      child: ListTile(
-        onTap: () => _openItemEditor(context, item: item),
-        contentPadding: const EdgeInsets.all(16),
-        leading: _buildStockStatusIndicator(item.stockStatus),
-        title: Text(
-          item.name,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${item.quantity} ${item.unit}'),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (category != null) ...[
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: category.colorValue,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(category.name, style: theme.textTheme.labelSmall),
-                ],
-                if (item.location != null) ...[
-                  if (category != null) const Text(' • '),
-                  Icon(
-                    Icons.location_on,
-                    size: 12,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 2),
-                  Text(item.location!, style: theme.textTheme.labelSmall),
-                ],
-              ],
-            ),
-            if (item.isExpired || item.isExpiringSoon) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(
-                    item.isExpired ? Icons.error : Icons.warning,
-                    size: 14,
-                    color: item.isExpired ? Colors.red : Colors.orange,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    item.isExpired
-                        ? 'Expired ${item.daysUntilExpiration!.abs()} days ago'
-                        : 'Expires in ${item.daysUntilExpiration} days',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: item.isExpired ? Colors.red : Colors.orange,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (action) =>
-              _handleItemAction(context, action, item, inventoryProvider),
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit),
-                  SizedBox(width: 8),
-                  Text('Edit Quantity'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'details',
-              child: Row(
-                children: [
-                  Icon(Icons.info),
-                  SizedBox(width: 8),
-                  Text('View Details'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Remove Item', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStockStatusIndicator(StockStatus status) {
-    Color color;
-    IconData icon;
-
-    switch (status) {
-      case StockStatus.good:
-        color = Colors.green;
-        icon = Icons.check_circle;
-        break;
-      case StockStatus.low:
-        color = Colors.orange;
-        icon = Icons.warning;
-        break;
-      case StockStatus.out:
-        color = Colors.red;
-        icon = Icons.error;
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        shape: BoxShape.circle,
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Icon(icon, color: color, size: 20),
-    );
-  }
-
-  void _handleItemAction(
-    BuildContext context,
-    String action,
-    InventoryItem item,
-    InventoryProvider inventoryProvider,
-  ) {
-    switch (action) {
-      case 'edit':
-        _openItemEditor(context, item: item);
-        break;
-      case 'details':
-        _openItemDetails(context, item, inventoryProvider);
-        break;
-      case 'delete':
-        _showDeleteConfirmation(context, item, inventoryProvider);
-        break;
-    }
-  }
-
   Future<void> _openItemEditor(BuildContext context, {InventoryItem? item}) {
     return showInventoryItemEditorSheet(context, item: item);
   }
@@ -751,7 +618,17 @@ class _FilterHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return child;
+    final availableScrollRange = (maxExtentHeight - minExtentHeight).clamp(
+      0,
+      double.infinity,
+    );
+    final t = availableScrollRange == 0
+        ? 0.0
+        : (shrinkOffset / availableScrollRange).clamp(0.0, 1.0);
+    final currentHeight =
+        maxExtentHeight - (maxExtentHeight - minExtentHeight) * t;
+
+    return SizedBox(height: currentHeight, child: child);
   }
 
   @override
