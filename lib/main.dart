@@ -55,8 +55,7 @@ class GroceryInventoryApp extends StatelessWidget {
             title: 'Grocery Inventory',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: ThemeMode.system,
+            themeMode: ThemeMode.light,
             home: const AuthWrapper(),
           );
         },
@@ -78,8 +77,7 @@ class InventoryPreviewApp extends StatelessWidget {
         title: 'Inventory Preview',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+        themeMode: ThemeMode.light,
         home: const InventoryScreen(),
       ),
     );

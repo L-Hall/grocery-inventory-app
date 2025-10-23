@@ -41,16 +41,17 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
 
   static const List<String> _units = <String>[
     'item',
-    'count',
-    'piece',
-    'package',
-    'box',
+    'pcs',
+    'pack',
     'bag',
     'bottle',
-    'gallon',
-    'liter',
-    'lb',
+    'jar',
+    'tin',
+    'litre',
+    'pint',
+    'ml',
     'kg',
+    'g',
   ];
 
   @override
