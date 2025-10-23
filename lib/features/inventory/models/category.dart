@@ -81,10 +81,11 @@ class Category {
 
 // Predefined categories with neurodivergent-friendly colors
 class DefaultCategories {
+  // NOTE: Keep user-facing labels in UK English going forward.
   static const List<Map<String, dynamic>> categories = [
     {
       'id': 'produce',
-      'name': 'Produce',
+      'name': 'Fruit & veg',
       'color': '4CAF50', // Green
       'icon': 'local_grocery_store',
       'sortOrder': 1,
@@ -98,14 +99,14 @@ class DefaultCategories {
     },
     {
       'id': 'meat',
-      'name': 'Meat & Seafood',
+      'name': 'Meat & fish',
       'color': 'F44336', // Red
       'icon': 'set_meal',
       'sortOrder': 3,
     },
     {
       'id': 'pantry',
-      'name': 'Pantry',
+      'name': 'Food cupboard',
       'color': 'FF9800', // Orange
       'icon': 'kitchen',
       'sortOrder': 4,
@@ -119,7 +120,7 @@ class DefaultCategories {
     },
     {
       'id': 'beverages',
-      'name': 'Beverages',
+      'name': 'Drinks',
       'color': '2196F3', // Blue
       'icon': 'local_drink',
       'sortOrder': 6,
