@@ -2,15 +2,40 @@ import '../../../core/services/api_service.dart';
 import '../models/grocery_list.dart';
 import '../models/parsed_item.dart';
 
-class GroceryListRepository {
+abstract class GroceryListDataSource {
+  Future<ParseResult> parseGroceryText({required String text});
+  Future<ParseResult> parseGroceryImage({
+    required String imageBase64,
+    String imageType,
+  });
+  Future<GroceryList> createGroceryList({
+    String? name,
+    bool fromLowStock,
+    List<GroceryListItemTemplate>? customItems,
+  });
+  Future<List<GroceryList>> getGroceryLists({GroceryListStatus? status});
+  Future<List<GroceryList>> getActiveGroceryLists();
+  Future<List<GroceryList>> getCompletedGroceryLists();
+  Future<GroceryList> createGroceryListFromLowStock({String? name});
+  Future<GroceryList> createCustomGroceryList({
+    required String name,
+    required List<GroceryListItemTemplate> items,
+  });
+  Future<void> applyParsedItemsToInventory(List<ParsedItem> items);
+  Future<List<String>> getItemSuggestions({String? query});
+  List<String> validateParsedItems(List<ParsedItem> items);
+  List<String> getParsingTips();
+  Future<ParseResult> parseCommonFormats(String text);
+}
+
+class GroceryListRepository implements GroceryListDataSource {
   final ApiService _apiService;
 
   GroceryListRepository(this._apiService);
 
   // Parse natural language text into structured updates
-  Future<ParseResult> parseGroceryText({
-    required String text,
-  }) async {
+  @override
+  Future<ParseResult> parseGroceryText({required String text}) async {
     try {
       final response = await _apiService.parseGroceryText(
         text: text,
@@ -23,6 +48,7 @@ class GroceryListRepository {
   }
   
   // Parse image (receipt or grocery list photo) into structured updates
+  @override
   Future<ParseResult> parseGroceryImage({
     required String imageBase64,
     String imageType = 'receipt',
@@ -40,6 +66,7 @@ class GroceryListRepository {
   }
 
   // Create new grocery list
+  @override
   Future<GroceryList> createGroceryList({
     String? name,
     bool fromLowStock = true,
@@ -61,6 +88,7 @@ class GroceryListRepository {
   }
 
   // Get all grocery lists
+  @override
   Future<List<GroceryList>> getGroceryLists({
     GroceryListStatus? status,
   }) async {
@@ -78,16 +106,19 @@ class GroceryListRepository {
   }
 
   // Get active grocery lists
+  @override
   Future<List<GroceryList>> getActiveGroceryLists() async {
     return getGroceryLists(status: GroceryListStatus.active);
   }
 
   // Get completed grocery lists
+  @override
   Future<List<GroceryList>> getCompletedGroceryLists() async {
     return getGroceryLists(status: GroceryListStatus.completed);
   }
 
   // Create grocery list from low stock items
+  @override
   Future<GroceryList> createGroceryListFromLowStock({
     String? name,
   }) async {
@@ -98,6 +129,7 @@ class GroceryListRepository {
   }
 
   // Create custom grocery list
+  @override
   Future<GroceryList> createCustomGroceryList({
     required String name,
     required List<GroceryListItemTemplate> items,
@@ -110,6 +142,7 @@ class GroceryListRepository {
   }
 
   // Process parsed items and apply to inventory
+  @override
   Future<void> applyParsedItemsToInventory(List<ParsedItem> items) async {
     try {
       final updates = items.map((item) => item.toInventoryUpdate()).toList();
@@ -120,15 +153,17 @@ class GroceryListRepository {
   }
 
   // Get suggestions based on purchase history or commonly bought items
+  @override
   Future<List<String>> getItemSuggestions({String? query}) async {
     // This would typically query purchase history or common items
     // For now, return some common grocery items as suggestions
     final commonItems = [
-      'milk', 'bread', 'eggs', 'butter', 'cheese', 'yogurt',
-      'chicken', 'beef', 'fish', 'rice', 'pasta', 'potatoes',
-      'onions', 'garlic', 'tomatoes', 'carrots', 'broccoli',
-      'apples', 'bananas', 'oranges', 'strawberries',
-      'olive oil', 'salt', 'pepper', 'sugar', 'flour'
+      'milk', 'bread', 'eggs', 'butter', 'cheddar', 'yoghurt',
+      'chicken', 'beef mince', 'salmon fillets', 'rice',
+      'pasta', 'potatoes', 'onions', 'garlic', 'tomatoes',
+      'carrots', 'broccoli', 'apples', 'bananas', 'oranges',
+      'strawberries', 'olive oil', 'salt', 'pepper', 'caster sugar',
+      'plain flour'
     ];
 
     if (query == null || query.isEmpty) {
@@ -142,6 +177,7 @@ class GroceryListRepository {
   }
 
   // Validate parsed items before applying
+  @override
   List<String> validateParsedItems(List<ParsedItem> items) {
     final warnings = <String>[];
 
@@ -166,20 +202,22 @@ class GroceryListRepository {
   }
 
   // Get parsing suggestions based on common patterns
+  @override
   List<String> getParsingTips() {
     return [
-      'Try: "bought 2 gallons of milk"',
-      'Try: "used 3 eggs for cooking"',
-      'Try: "have 5 apples left"',
-      'Try: "finished the bread"',
-      'Try: "picked up 1 lb ground beef"',
+      'Try: "bought 2 litres of semi-skimmed milk"',
+      'Try: "used 3 eggs making a cake"',
+      'Try: "have 5 apples left in the fruit bowl"',
+      'Try: "finished the sliced bread"',
+      'Try: "picked up 500 g beef mince"',
       'Use clear action words: bought, used, have, finished',
-      'Include quantities and units when possible',
+      'Include quantities and UK units when possible (kg, g, litres, packs)',
       'Separate multiple items with commas or new lines',
     ];
   }
 
   // Process common grocery text formats
+  @override
   Future<ParseResult> parseCommonFormats(String text) async {
     // Try to enhance the text with common patterns before sending to API
     final enhancedText = _enhanceTextForParsing(text);
@@ -206,13 +244,21 @@ class GroceryListRepository {
 
   bool _looksLikeShoppingList(String text) {
     // Check if text has quantity patterns like "2 milk", "3 lb beef"
-    final quantityPattern = RegExp(r'\d+\s*(lb|lbs|oz|gallon|quart|pint|cup|piece|jar|box|bag|bottle)', 
+    final quantityPattern = RegExp(r'\d+(\.\d+)?\s*(kg|g|litre|litres|ml|pack|packs|tin|tins|jar|box|bag|bottle|loaf|loaves|tray)', 
         caseSensitive: false);
     return quantityPattern.hasMatch(text);
   }
 
   bool _containsConsumptionWords(String text) {
-    final consumptionWords = ['used', 'ate', 'finished', 'consumed', 'drank', 'cooked'];
+    final consumptionWords = [
+      'used',
+      'ate',
+      'finished',
+      'consumed',
+      'drank',
+      'cooked',
+      'made'
+    ];
     return consumptionWords.any((word) => text.contains(word));
   }
 }

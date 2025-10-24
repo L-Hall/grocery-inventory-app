@@ -6,7 +6,7 @@ import '../repositories/grocery_list_repository.dart';
 import '../../inventory/models/inventory_item.dart';
 
 class GroceryListProvider with ChangeNotifier {
-  final GroceryListRepository _repository;
+  final GroceryListDataSource _repository;
 
   List<GroceryList> _groceryLists = [];
   ParseResult? _lastParseResult;
