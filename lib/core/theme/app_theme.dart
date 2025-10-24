@@ -14,40 +14,44 @@ class AppTheme {
   static const Color peachBlush = Color(0xFFFFCDB2);
   static const Color peachSoft = Color(0xFFFFB4A1);
 
-  // Supporting tones
-  static const Color successGreen = Color(0xFF2F8F6B);
-  static const Color warningAmber = Color(0xFFF3A847);
-  static const Color infoTeal = Color(0xFF3BA4A0);
-  static const Color errorDeep = Color(0xFFD64545);
-  static const Color neutralSlate = Color(0xFF433533);
-  static const Color neutralOutline = Color(0xFFF2DED7);
+  // Derived accents (alpha variations taken from palette foundations)
+  static const Color roseWineOutline = Color(0x336B3E3E);
+  static const Color roseWineOutlineStrong = Color(0x4D6B3E3E);
+  static const Color roseWineShadow = Color(0x206B3E3E);
+  static const Color roseWineScrim = Color(0xB36B3E3E);
 
   static ThemeData get lightTheme {
     final textTheme = GoogleFonts.interTextTheme();
 
-    const colourScheme = ColorScheme(
+    final colourScheme = ColorScheme(
       brightness: Brightness.light,
       primary: rosePrimary,
       onPrimary: Colors.white,
+      primaryContainer: roseSoft,
+      onPrimaryContainer: roseWine,
       secondary: peachSoft,
       onSecondary: roseWine,
-      tertiary: roseSoft,
-      onTertiary: Colors.white,
-      error: errorDeep,
+      secondaryContainer: peachBlush,
+      onSecondaryContainer: roseWine,
+      tertiary: roseWarm,
+      onTertiary: roseWine,
+      tertiaryContainer: roseSoft,
+      onTertiaryContainer: roseWine,
+      error: roseDeep,
       onError: Colors.white,
-      background: creamBackground,
-      onBackground: neutralSlate,
+      errorContainer: roseWarm,
+      onErrorContainer: roseWine,
       surface: Colors.white,
-      onSurface: neutralSlate,
-      surfaceVariant: peachBlush,
+      onSurface: roseWine,
+      surfaceContainerHighest: peachBlush,
       onSurfaceVariant: roseWine,
-      outline: neutralOutline,
-      outlineVariant: Color(0xFFEFD2CA),
-      shadow: Colors.black26,
-      scrim: Colors.black54,
+      outline: roseWineOutline,
+      outlineVariant: roseWineOutlineStrong,
+      shadow: roseWineShadow,
+      scrim: roseWineScrim,
       inverseSurface: roseWine,
-      onInverseSurface: Colors.white,
-      inversePrimary: peachSoft,
+      onInverseSurface: creamBackground,
+      inversePrimary: roseSoft,
     );
 
     return ThemeData(
@@ -56,36 +60,34 @@ class AppTheme {
       textTheme: textTheme.copyWith(
         headlineLarge: textTheme.headlineLarge?.copyWith(
           fontWeight: FontWeight.w600,
-          color: neutralSlate,
+          color: roseWine,
         ),
         headlineMedium: textTheme.headlineMedium?.copyWith(
           fontWeight: FontWeight.w600,
-          color: neutralSlate,
+          color: roseWine,
         ),
         headlineSmall: textTheme.headlineSmall?.copyWith(
           fontWeight: FontWeight.w500,
-          color: neutralSlate,
+          color: roseWine,
         ),
-        bodyLarge: textTheme.bodyLarge?.copyWith(color: neutralSlate),
-        bodyMedium: textTheme.bodyMedium?.copyWith(color: neutralSlate),
+        bodyLarge: textTheme.bodyLarge?.copyWith(color: roseWine),
+        bodyMedium: textTheme.bodyMedium?.copyWith(color: roseWine),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: neutralSlate,
+        backgroundColor: creamBackground,
+        foregroundColor: roseWine,
         elevation: 0,
         titleTextStyle: textTheme.titleLarge?.copyWith(
-          color: neutralSlate,
+          color: roseWine,
           fontWeight: FontWeight.w600,
         ),
       ),
       scaffoldBackgroundColor: creamBackground,
       cardTheme: CardThemeData(
         elevation: 1,
-        color: Colors.white,
-        shadowColor: neutralOutline,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        color: colourScheme.surface,
+        shadowColor: roseWineShadow,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -96,7 +98,9 @@ class AppTheme {
             borderRadius: BorderRadius.circular(10),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -122,11 +126,11 @@ class AppTheme {
         fillColor: creamBackground,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: neutralOutline),
+          borderSide: const BorderSide(color: roseWineOutline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: neutralOutline),
+          borderSide: const BorderSide(color: roseWineOutline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -134,27 +138,30 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: errorDeep, width: 1),
+          borderSide: const BorderSide(color: roseDeep, width: 1),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 18,
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        indicatorColor: rosePrimary.withOpacity(0.15),
+        backgroundColor: creamBackground,
+        surfaceTintColor: creamBackground,
+        indicatorColor: rosePrimary.withValues(alpha: 0.15),
         height: 70,
-        labelTextStyle: MaterialStateProperty.resolveWith(
+        labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => textTheme.labelMedium?.copyWith(
-            fontWeight: states.contains(MaterialState.selected)
+            fontWeight: states.contains(WidgetState.selected)
                 ? FontWeight.w600
                 : FontWeight.w400,
           ),
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: creamBackground,
         selectedItemColor: rosePrimary,
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: roseWine.withValues(alpha: 0.6),
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
@@ -164,54 +171,53 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: peachBlush,
-        selectedColor: rosePrimary.withOpacity(0.18),
-        secondarySelectedColor: infoTeal.withOpacity(0.2),
-        labelStyle: textTheme.labelMedium?.copyWith(color: neutralSlate),
-        secondaryLabelStyle: textTheme.labelMedium?.copyWith(color: Colors.white),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+        selectedColor: rosePrimary.withValues(alpha: 0.18),
+        secondarySelectedColor: roseWarm.withValues(alpha: 0.18),
+        labelStyle: textTheme.labelMedium?.copyWith(color: roseWine),
+        secondaryLabelStyle: textTheme.labelMedium?.copyWith(
+          color: Colors.white,
         ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: rosePrimary,
         contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
       ),
-      dividerColor: neutralOutline,
+      dividerColor: roseWineOutline,
     );
   }
 
   static ThemeData get darkTheme {
     final textTheme = GoogleFonts.interTextTheme(ThemeData.dark().textTheme);
 
-    const colourScheme = ColorScheme(
+    const darkBackground = Color(0xFF201A1A);
+    final colourScheme = ColorScheme(
       brightness: Brightness.dark,
       primary: roseSoft,
       onPrimary: roseWine,
       secondary: peachSoft,
       onSecondary: roseWine,
       tertiary: roseWarm,
-      onTertiary: Colors.black,
-      error: errorDeep,
-      onError: Colors.white,
-      background: Color(0xFF201A1A),
-      onBackground: Colors.white70,
+      onTertiary: creamBackground,
+      error: roseDeep,
+      onError: creamBackground,
       surface: Color(0xFF272020),
       onSurface: Colors.white70,
-      surfaceVariant: Color(0xFF3A2E2D),
+      surfaceContainerHighest: Color(0xFF3A2E2D),
       onSurfaceVariant: Colors.white60,
-      outline: Color(0xFF4F3F3E),
+      outline: roseWineOutlineStrong,
       outlineVariant: Color(0xFF3A2E2D),
-      shadow: Colors.black,
-      scrim: Colors.black87,
+      shadow: roseWineShadow,
+      scrim: roseWineScrim,
       inverseSurface: creamBackground,
-      onInverseSurface: neutralSlate,
+      onInverseSurface: roseWine,
       inversePrimary: peachSoft,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colourScheme,
-      scaffoldBackgroundColor: colourScheme.background,
+      scaffoldBackgroundColor: darkBackground,
       textTheme: textTheme.copyWith(
         headlineLarge: textTheme.headlineLarge?.copyWith(
           fontWeight: FontWeight.w600,
@@ -225,7 +231,7 @@ class AppTheme {
         bodyMedium: textTheme.bodyMedium?.copyWith(color: Colors.white70),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: colourScheme.background,
+        backgroundColor: darkBackground,
         foregroundColor: Colors.white,
         elevation: 0,
         titleTextStyle: textTheme.titleLarge?.copyWith(
@@ -236,9 +242,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: colourScheme.surface,
         elevation: 1,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: roseSoft,
@@ -246,28 +250,28 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Color(0xFF3A2E2D),
-        selectedColor: roseSoft.withOpacity(0.25),
-        secondarySelectedColor: infoTeal.withOpacity(0.25),
+        selectedColor: roseSoft.withValues(alpha: 0.25),
+        secondarySelectedColor: roseWarm.withValues(alpha: 0.25),
         labelStyle: textTheme.labelMedium,
-        secondaryLabelStyle: textTheme.labelMedium?.copyWith(color: Colors.black),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+        secondaryLabelStyle: textTheme.labelMedium?.copyWith(
+          color: Colors.black,
         ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     );
   }
 
   // Category colours for visual organisation (UK English labels)
-  static const Map<String, Color> categoryColors = {
-    'dairy': Color(0xFFFFE4B5),
-    'fruit & veg': Color(0xFF90EE90),
-    'meat & fish': Color(0xFFFFB6C1),
-    'food cupboard': Color(0xFFDEB887),
-    'frozen': Color(0xFFB0E0E6),
-    'drinks': Color(0xFFFFFFE0),
-    'snacks': Color(0xFFF0E68C),
-    'bakery': Color(0xFFFFDAB9),
-    'uncategorized': Color(0xFFE0E0E0),
+  static final Map<String, Color> categoryColors = {
+    'dairy': peachBlush,
+    'fruit & veg': roseSoft,
+    'meat & fish': rosePrimary,
+    'food cupboard': roseDeep,
+    'frozen': peachSoft,
+    'drinks': roseWarm,
+    'snacks': peachSoft.withValues(alpha: 0.8),
+    'bakery': peachBlush.withValues(alpha: 0.8),
+    'uncategorized': roseWine.withValues(alpha: 0.5),
   };
 
   static Color getCategoryColor(String category) {
@@ -276,9 +280,9 @@ class AppTheme {
   }
 
   // Stock status helpers
-  static const Color stockGood = successGreen;
-  static const Color stockLow = warningAmber;
-  static const Color stockOut = errorDeep;
+  static const Color stockGood = roseDeep;
+  static const Color stockLow = roseWarm;
+  static const Color stockOut = rosePrimary;
 
   static Color getStockStatusColor(int quantity, int threshold) {
     if (quantity == 0) return stockOut;

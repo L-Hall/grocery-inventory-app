@@ -9,6 +9,7 @@ class ParsedItem {
   final String? category;
   final String? location;
   final String? notes;
+  final DateTime? expiryDate;
   final bool isEdited;
 
   ParsedItem({
@@ -20,6 +21,7 @@ class ParsedItem {
     this.category,
     this.location,
     this.notes,
+    this.expiryDate,
     this.isEdited = false,
   });
 
@@ -43,6 +45,7 @@ class ParsedItem {
       category: json['category'] as String?,
       location: json['location'] as String?,
       notes: json['notes'] as String?,
+      expiryDate: _parseExpiryDate(json),
       isEdited: json['isEdited'] as bool? ?? false,
     );
   }
@@ -57,6 +60,7 @@ class ParsedItem {
       'category': category,
       'location': location,
       'notes': notes,
+      'expiryDate': expiryDate?.toIso8601String(),
       'isEdited': isEdited,
     };
   }
@@ -71,6 +75,7 @@ class ParsedItem {
       category: category,
       location: location,
       notes: notes,
+      expirationDate: expiryDate,
     );
   }
 
@@ -83,6 +88,8 @@ class ParsedItem {
     String? category,
     String? location,
     String? notes,
+    DateTime? expiryDate,
+    bool keepExistingExpiry = true,
     bool? isEdited,
   }) {
     return ParsedItem(
@@ -94,6 +101,7 @@ class ParsedItem {
       category: category ?? this.category,
       location: location ?? this.location,
       notes: notes ?? this.notes,
+      expiryDate: expiryDate ?? (keepExistingExpiry ? this.expiryDate : null),
       isEdited: isEdited ?? this.isEdited,
     );
   }
@@ -105,17 +113,26 @@ class ParsedItem {
         other.name == name &&
         other.quantity == quantity &&
         other.unit == unit &&
-        other.action == action;
+        other.action == action &&
+        other.expiryDate == expiryDate;
   }
 
   @override
   int get hashCode {
-    return Object.hash(name, quantity, unit, action);
+    return Object.hash(name, quantity, unit, action, expiryDate);
   }
 
   @override
   String toString() {
-    return 'ParsedItem(name: $name, quantity: $quantity, unit: $unit, action: ${action.name}, confidence: $confidence)';
+    return 'ParsedItem(name: $name, quantity: $quantity, unit: $unit, action: ${action.name}, confidence: $confidence, expiry: $expiryDate)';
+  }
+
+  static DateTime? _parseExpiryDate(Map<String, dynamic> json) {
+    final raw = json['expiryDate'] ?? json['expirationDate'];
+    if (raw is String && raw.isNotEmpty) {
+      return DateTime.tryParse(raw);
+    }
+    return null;
   }
 }
 
@@ -165,7 +182,7 @@ class ParseResult {
 
   factory ParseResult.fromJson(Map<String, dynamic> json) {
     final itemsJson = json['updates'] as List<dynamic>? ?? [];
-    
+
     return ParseResult(
       items: itemsJson
           .map((item) => ParsedItem.fromJson(item as Map<String, dynamic>))
@@ -193,8 +210,9 @@ class ParseResult {
   bool get hasLowConfidenceItems =>
       items.any((item) => item.confidenceLevel == ConfidenceLevel.low);
 
-  int get highConfidenceCount =>
-      items.where((item) => item.confidenceLevel == ConfidenceLevel.high).length;
+  int get highConfidenceCount => items
+      .where((item) => item.confidenceLevel == ConfidenceLevel.high)
+      .length;
 
   int get lowConfidenceCount =>
       items.where((item) => item.confidenceLevel == ConfidenceLevel.low).length;
