@@ -89,6 +89,15 @@ const SAMPLE_INVENTORY = [
   { name: 'Dish Soap', quantity: 1, unit: 'bottle', category: 'household', location: 'pantry', lowStockThreshold: 1 }
 ];
 
+const DEFAULT_LOCATIONS = [
+  { id: 'fridge', name: 'Fridge', color: '#B0E0E6', icon: 'kitchen', temperature: 'refrigerated', sortOrder: 0 },
+  { id: 'freezer', name: 'Indoor Freezer', color: '#AFDBF5', icon: 'ac_unit', temperature: 'frozen', sortOrder: 1 },
+  { id: 'pantry', name: 'Pantry', color: '#DEB887', icon: 'inventory', temperature: 'room', sortOrder: 2 },
+  { id: 'larder', name: 'Larder', color: '#F5DEB3', icon: 'restaurant', temperature: 'room', sortOrder: 3 },
+  { id: 'counter', name: 'Counter', color: '#FFE4C4', icon: 'countertops', temperature: 'room', sortOrder: 4 },
+  { id: 'garage', name: 'Garage', color: '#D3D3D3', icon: 'garage', temperature: 'room', sortOrder: 5 }
+];
+
 async function initializeDatabase() {
   console.log('🚀 Starting database initialization...\n');
   
@@ -131,7 +140,23 @@ async function initializeDatabase() {
     await batch.commit();
     console.log(`✅ Created ${DEFAULT_CATEGORIES.length} categories\n`);
     
-    // Step 3: Create sample inventory items
+    // Step 3: Create default storage locations
+    console.log('📍 Creating storage locations...');
+    const locationBatch = db.batch();
+    
+    for (const location of DEFAULT_LOCATIONS) {
+      const locationRef = db.doc(`users/${testUserId}/locations/${location.id}`);
+      locationBatch.set(locationRef, {
+        ...location,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+    
+    await locationBatch.commit();
+    console.log(`✅ Created ${DEFAULT_LOCATIONS.length} locations\n`);
+    
+    // Step 4: Create sample inventory items
     console.log('📦 Creating sample inventory items...');
     const inventoryBatch = db.batch();
     
@@ -142,7 +167,9 @@ async function initializeDatabase() {
       
       inventoryBatch.set(itemRef, {
         ...item,
+        searchKeywords: [item.name.toLowerCase()],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
     }
@@ -150,7 +177,7 @@ async function initializeDatabase() {
     await inventoryBatch.commit();
     console.log(`✅ Created ${SAMPLE_INVENTORY.length} inventory items\n`);
     
-    // Step 4: Create a sample grocery list from low stock items
+    // Step 5: Create a sample grocery list from low stock items
     console.log('📋 Creating sample grocery list...');
     
     const lowStockItems = SAMPLE_INVENTORY.filter(item => 
@@ -177,12 +204,72 @@ async function initializeDatabase() {
       console.log(`✅ Created grocery list with ${listItems.length} items\n`);
     }
     
+    // Step 6: Seed user preferences and saved searches
+    console.log('⚙️  Creating user preferences...');
+    const preferencesDoc = db.doc(`users/${testUserId}/user_preferences/preferences`);
+    await preferencesDoc.set({
+      defaultView: 'inventory',
+      searchHistory: [],
+      exportPreferences: {
+        includeNotes: true,
+        delimiter: ','
+      },
+      bulkOperationHistory: []
+    }, { merge: true });
+    
+    await preferencesDoc.collection('saved_searches').doc('low-stock').set({
+      name: 'Low stock items',
+      config: {
+        query: '',
+        filters: [
+          { field: 'quantity', op: '<=', value: 1 }
+        ],
+        searchFields: ['name', 'category'],
+        fuzzyMatch: false
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      useCount: 0
+    });
+    
+    await preferencesDoc.collection('custom_views').doc('expiring-soon').set({
+      name: 'Expiring soon',
+      type: 'expiration',
+      filters: [
+        { field: 'expirationDate', op: 'withinDays', value: 3 }
+      ],
+      sortConfig: {
+        field: 'expirationDate',
+        direction: 'asc'
+      },
+      isDefault: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log('✅ User preferences configured\n');
+    
+    // Step 7: Seed audit log sample entry
+    console.log('🧾 Creating audit log entry...');
+    await db.collection(`users/${testUserId}/audit_logs`).add({
+      action: 'seed_import',
+      description: 'Initial database seed executed via init-db script',
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      itemIds: SAMPLE_INVENTORY.slice(0, 5).map(item => item.name.toLowerCase().replace(/\s+/g, '-')),
+      metadata: {
+        scriptVersion: 'v2',
+        inventorySeedCount: SAMPLE_INVENTORY.length
+      }
+    });
+    console.log('✅ Audit log entry created\n');
+    
     // Step 5: Display summary
     console.log('🎉 Database initialization complete!\n');
     console.log('📊 Summary:');
     console.log(`   • User ID: ${testUserId}`);
     console.log(`   • Categories: ${DEFAULT_CATEGORIES.length}`);
     console.log(`   • Inventory Items: ${SAMPLE_INVENTORY.length}`);
+    console.log(`   • Locations: ${DEFAULT_LOCATIONS.length}`);
     console.log(`   • Low Stock Items: ${lowStockItems.length}`);
     
     console.log('\n📱 To use this database:');
@@ -196,6 +283,7 @@ async function initializeDatabase() {
       testUserId,
       initialized: new Date().toISOString(),
       categories: DEFAULT_CATEGORIES.length,
+      locations: DEFAULT_LOCATIONS.length,
       inventory: SAMPLE_INVENTORY.length
     };
     
