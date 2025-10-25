@@ -145,8 +145,41 @@ class GroceryListRepository implements GroceryListDataSource {
   @override
   Future<void> applyParsedItemsToInventory(List<ParsedItem> items) async {
     try {
-      final updates = items.map((item) => item.toInventoryUpdate()).toList();
-      await _apiService.updateInventory(updates: updates.map((u) => u.toJson()).toList());
+      final updates = items
+          .map((item) => item.toInventoryUpdate().toJson())
+          .toList();
+
+      final response = await _apiService.applyParsedUpdates(
+        updates: updates,
+      );
+
+      if (response['success'] != true) {
+        final errors = <String>[];
+
+        final validationErrors = response['validationErrors'];
+        if (validationErrors is List) {
+          errors.addAll(validationErrors.whereType<String>());
+        }
+
+        final results = response['results'];
+        if (results is List) {
+          for (final result in results.whereType<Map<String, dynamic>>()) {
+            final success = result['success'] as bool? ?? true;
+            final error = result['error'];
+            if (!success && error is String && error.isNotEmpty) {
+              final name = result['name'] ?? 'unknown item';
+              errors.add('$name: $error');
+            }
+          }
+        }
+
+        final message = errors.isNotEmpty
+            ? errors.join('; ')
+            : 'Unknown validation error';
+        throw GroceryListRepositoryException(
+          'Failed to apply inventory updates: $message',
+        );
+      }
     } catch (e) {
       throw GroceryListRepositoryException('Failed to apply inventory updates: $e');
     }

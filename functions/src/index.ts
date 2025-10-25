@@ -38,6 +38,403 @@ const parseLimit = (value: any): number => {
   return Math.min(Math.floor(numeric), MAX_QUERY_LIMIT);
 };
 
+const normalizeExpirationDateValue = (
+  value: any,
+): string | null | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null || value === "") {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+    throw new Error(
+      `Invalid expiration date: "${value}" (expected ISO 8601 format)`,
+    );
+  }
+
+  if (typeof value === "number") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+    throw new Error(
+      "Invalid expiration date: numeric value could not be parsed",
+    );
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (value?.seconds) {
+    const milliseconds = value.seconds * 1000 + (value.nanoseconds ?? 0) / 1e6;
+    const parsed = new Date(milliseconds);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  if (value?._seconds) {
+    const milliseconds =
+      value._seconds * 1000 + (value._nanoseconds ?? 0) / 1e6;
+    const parsed = new Date(milliseconds);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  throw new Error(
+    "Invalid expiration date format: provide ISO string or timestamp",
+  );
+};
+
+const ensureArrayPayload = (payload: any, field: string) => {
+  if (!Array.isArray(payload)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `${field} must be an array`,
+    );
+  }
+};
+
+async function processInventoryUpdate(
+  uid: string,
+  update: Record<string, any>,
+): Promise<Record<string, any>> {
+  if (!update || typeof update !== "object") {
+    return {
+      name: update?.name ?? "unknown",
+      success: false,
+      error: "Invalid update payload",
+    };
+  }
+
+  const name = String(update.name ?? "").trim();
+  const providedQuantity = update.quantity;
+  const action = String(update.action ?? "").toLowerCase();
+
+  if (!name || providedQuantity === undefined || !action) {
+    return {
+      name: name || update.name || "unknown",
+      success: false,
+      error: "Missing required fields: name, quantity, action",
+    };
+  }
+
+  if (!["add", "subtract", "set"].includes(action)) {
+    return {
+      name,
+      success: false,
+      error: `Invalid action "${action}". Use add, subtract, or set.`,
+    };
+  }
+
+  const quantity = Number(providedQuantity);
+  if (!Number.isFinite(quantity) || quantity < 0) {
+    return {
+      name,
+      success: false,
+      error: "Quantity must be a non-negative number",
+    };
+  }
+
+  let normalizedExpiration: string | null | undefined;
+  try {
+    normalizedExpiration = normalizeExpirationDateValue(
+      update.expirationDate ?? update.expiryDate,
+    );
+  } catch (error: any) {
+    return {
+      name,
+      success: false,
+      error: error.message ?? "Invalid expiration date",
+    };
+  }
+
+  const inventoryCollection = db.collection(`users/${uid}/inventory`);
+  const snapshot = await inventoryCollection.get();
+
+  let existingDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+  for (const doc of snapshot.docs) {
+    const docName = String(doc.data().name ?? "").toLowerCase();
+    if (docName === name.toLowerCase()) {
+      existingDoc = doc;
+      break;
+    }
+  }
+
+  const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+  if (!existingDoc) {
+    const newItem: Record<string, any> = {
+      name,
+      quantity,
+      unit: update.unit ?? "unit",
+      category: update.category ?? "uncategorized",
+      location: update.location ?? null,
+      lowStockThreshold:
+        Number.isFinite(Number(update.lowStockThreshold)) ?
+          Number(update.lowStockThreshold) :
+          1,
+      notes: update.notes ?? null,
+      brand: update.brand ?? null,
+      size: update.size ?? null,
+      expirationDate: normalizedExpiration ?? null,
+      searchKeywords: generateSearchKeywords(name),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      lastUpdated: timestamp,
+    };
+
+    const docRef = await inventoryCollection.add(newItem);
+
+    return {
+      id: docRef.id,
+      name,
+      success: true,
+      action: "created",
+      quantity,
+      expirationDate: newItem.expirationDate,
+      message: `Added ${name}: ${quantity} ${newItem.unit}`,
+    };
+  }
+
+  const currentData = existingDoc.data();
+  let newQuantity = Number(currentData.quantity ?? 0);
+
+  switch (action) {
+  case "add":
+    newQuantity += quantity;
+    break;
+  case "subtract":
+    newQuantity = Math.max(0, newQuantity - quantity);
+    break;
+  case "set":
+    newQuantity = quantity;
+    break;
+  default:
+    newQuantity = quantity;
+  }
+
+  const updateData: Record<string, any> = {
+    quantity: newQuantity,
+    updatedAt: timestamp,
+    lastUpdated: timestamp,
+    searchKeywords: generateSearchKeywords(name),
+  };
+
+  if (update.unit !== undefined) updateData.unit = update.unit;
+  if (update.category !== undefined) updateData.category = update.category;
+  if (update.location !== undefined) updateData.location = update.location;
+  if (update.brand !== undefined) updateData.brand = update.brand;
+  if (update.notes !== undefined) updateData.notes = update.notes;
+  if (update.size !== undefined) updateData.size = update.size;
+  if (update.lowStockThreshold !== undefined) {
+    updateData.lowStockThreshold = Number(update.lowStockThreshold);
+  }
+  if (normalizedExpiration !== undefined) {
+    updateData.expirationDate = normalizedExpiration;
+  }
+
+  await existingDoc.ref.update(updateData);
+
+  const actionText =
+    action === "add" ?
+      "Added" :
+      action === "subtract" ?
+        "Used" :
+        "Set";
+
+  return {
+    id: existingDoc.id,
+    name,
+    success: true,
+    action: "updated",
+    quantity: newQuantity,
+    expirationDate:
+      updateData.expirationDate ??
+      normalizeExpirationDateValue(currentData.expirationDate) ??
+      null,
+    message: `${actionText} ${name}: now ${newQuantity} ${update.unit ?? currentData.unit ?? "unit"}`,
+  };
+}
+
+async function applyInventoryUpdatesForUser(
+  uid: string,
+  updates: any[],
+): Promise<{
+  results: Record<string, any>[];
+  summary: {total: number; successful: number; failed: number};
+  validationErrors: string[];
+}> {
+  const results: Record<string, any>[] = [];
+
+  for (const update of updates) {
+    try {
+      const result = await processInventoryUpdate(uid, update);
+      results.push(result);
+    } catch (error: any) {
+      results.push({
+        name: update?.name ?? "unknown",
+        success: false,
+        error: error.message ?? "Failed to process update",
+      });
+    }
+  }
+
+  const successful = results.filter((r) => r.success).length;
+  const failed = results.length - successful;
+  const validationErrors = results
+    .filter((r) => !r.success && r.error)
+    .map((r) => `${r.name}: ${r.error}`);
+
+  return {
+    results,
+    summary: {
+      total: results.length,
+      successful,
+      failed,
+    },
+    validationErrors,
+  };
+}
+
+type ParsePayload = {
+  text?: string;
+  image?: string;
+  imageType?: string;
+};
+
+async function handleParseInventoryRequest(
+  req: functions.Request & {user: {uid: string}},
+  res: functions.Response,
+  payload: ParsePayload,
+) {
+  try {
+    const {text, image, imageType} = payload;
+
+    if (!text && !image) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Either text or image field is required",
+      });
+    }
+
+    if (text && image) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Provide either text or image, not both",
+      });
+    }
+
+    if (text && typeof text !== "string") {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Text field must be a string",
+      });
+    }
+
+    if (image && typeof image !== "string") {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Image field must be a base64 encoded string",
+      });
+    }
+
+    const apiKey = await getSecret(SECRETS.OPENAI_API_KEY);
+
+    if (!apiKey) {
+      if (text) {
+        logger.warn("OPENAI_API_KEY missing - using fallback parser", {
+          uid: req.user.uid,
+        });
+        const parser = new GroceryParser("");
+        const parseResult = await parser.parseGroceryText(text);
+
+        const validatedItems = parser.validateItems(parseResult.items);
+        const warnings: string[] = [
+          "Using basic parser. Configure OPENAI_API_KEY for better results.",
+        ];
+        if (parseResult.needsReview) {
+          warnings.push("Review recommended before applying updates.");
+        }
+        if (parseResult.error) {
+          warnings.push(parseResult.error);
+        }
+
+        return res.json({
+          success: true,
+          updates: validatedItems,
+          confidence: parseResult.confidence ?? 0,
+          warnings: warnings.join(" "),
+          usedFallback: true,
+          originalText: parseResult.originalText,
+          needsReview: parseResult.needsReview,
+          message:
+            "Using basic parser. Configure OPENAI_API_KEY for better results.",
+        });
+      }
+
+      return res.status(500).json({
+        error: "Configuration Error",
+        message: "Image processing requires OpenAI API key to be configured",
+      });
+    }
+
+    const parser = new GroceryParser(apiKey);
+
+    let parseResult;
+    if (text) {
+      parseResult = await parser.parseGroceryText(text);
+    } else {
+      parseResult = await parser.parseGroceryImage(
+        image as string,
+        imageType || "receipt",
+      );
+    }
+
+    const validatedItems = parser.validateItems(parseResult.items);
+
+    const warnings: string[] = [];
+    if (parseResult.needsReview) {
+      warnings.push("Review recommended before applying updates.");
+    }
+    if (parseResult.error) {
+      warnings.push(parseResult.error);
+    }
+
+    res.json({
+      success: true,
+      updates: validatedItems,
+      confidence: parseResult.confidence ?? 0,
+      warnings: warnings.length > 0 ? warnings.join(" ") : undefined,
+      usedFallback: Boolean(parseResult.error),
+      originalText: parseResult.originalText,
+      needsReview: parseResult.needsReview,
+      message: parseResult.error ?
+        "Parsed using fallback method. Please review carefully." :
+        parseResult.needsReview ?
+          "Text parsed successfully. Please review the items before confirming." :
+          "Text parsed successfully with high confidence.",
+    });
+  } catch (error: any) {
+    logger.error("Error parsing inventory text", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error.message,
+    });
+  }
+}
+
 // Configure CORS for Flutter app
 app.use(cors({
   origin: true, // Allow all origins for development
@@ -130,146 +527,34 @@ app.get("/inventory", authenticate, async (req, res) => {
   }
 });
 
-// POST /inventory/update - Update inventory items
+// POST /inventory/update - Update inventory items (legacy endpoint)
 app.post("/inventory/update", authenticate, async (req, res) => {
   try {
     const {updates} = req.body;
+    ensureArrayPayload(updates, "updates");
 
-    if (!Array.isArray(updates)) {
+    const {results, summary, validationErrors} =
+      await applyInventoryUpdatesForUser(req.user.uid, updates);
+
+    logger.info("Inventory update processed", {
+      uid: req.user.uid,
+      summary,
+    });
+
+    res.json({
+      success: validationErrors.length === 0,
+      results,
+      summary,
+      validationErrors,
+    });
+  } catch (error: any) {
+    if (error instanceof functions.https.HttpsError) {
       return res.status(400).json({
         error: "Bad Request",
-        message: "Updates must be an array",
+        message: error.message,
       });
     }
 
-    const results: any[] = [];
-
-    for (const update of updates) {
-      try {
-        // Validate required fields
-        if (!update.name || update.quantity === undefined || !update.action) {
-          results.push({
-            name: update.name || "unknown",
-            success: false,
-            error: "Missing required fields: name, quantity, action",
-          });
-          continue;
-        }
-
-        // Search for existing item by name (case-insensitive)
-        const query = await db.collection(`users/${req.user.uid}/inventory`).get();
-
-        let existingDoc = null;
-        for (const doc of query.docs) {
-          if (doc.data().name.toLowerCase() === update.name.toLowerCase()) {
-            existingDoc = doc;
-            break;
-          }
-        }
-
-        if (!existingDoc) {
-          const timestamp = admin.firestore.FieldValue.serverTimestamp();
-
-          // Create new item
-          const newItem = {
-            name: update.name,
-            quantity: update.quantity,
-            unit: update.unit ?? "unit",
-            category: update.category ?? "uncategorized",
-            location: update.location ?? "pantry",
-            lowStockThreshold: update.lowStockThreshold ?? 1,
-            notes: update.notes ?? null,
-            brand: update.brand ?? null,
-            size: update.size ?? null,
-            expirationDate: update.expirationDate ?? null,
-            searchKeywords: generateSearchKeywords(update.name),
-            createdAt: timestamp,
-            updatedAt: timestamp,
-            lastUpdated: timestamp,
-          };
-
-          const docRef = await db.collection(`users/${req.user.uid}/inventory`).add(newItem);
-
-          results.push({
-            id: docRef.id,
-            name: update.name,
-            success: true,
-            action: "created",
-            quantity: update.quantity,
-            message: `Added ${update.name}: ${update.quantity} ${update.unit || "unit"}`,
-          });
-        } else {
-          // Update existing item
-          const currentData = existingDoc.data();
-          let newQuantity = currentData.quantity || 0;
-
-          switch (update.action) {
-          case "add":
-            newQuantity += update.quantity;
-            break;
-          case "subtract":
-            newQuantity = Math.max(0, newQuantity - update.quantity);
-            break;
-          case "set":
-            newQuantity = update.quantity;
-            break;
-          default:
-            throw new Error(`Invalid action: ${update.action}`);
-          }
-
-          const updateData: any = {
-            quantity: newQuantity,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          };
-          updateData.lastUpdated = updateData.updatedAt;
-          updateData.searchKeywords = generateSearchKeywords(update.name);
-
-          // Update optional fields if provided
-          if (update.unit !== undefined) updateData.unit = update.unit;
-          if (update.category !== undefined) updateData.category = update.category;
-          if (update.location !== undefined) updateData.location = update.location;
-          if (update.brand !== undefined) updateData.brand = update.brand;
-          if (update.notes !== undefined) updateData.notes = update.notes;
-          if (update.size !== undefined) updateData.size = update.size;
-          if (update.expirationDate !== undefined) updateData.expirationDate = update.expirationDate;
-          if (update.lowStockThreshold !== undefined) updateData.lowStockThreshold = update.lowStockThreshold;
-
-          await existingDoc.ref.update(updateData);
-
-          const actionText = update.action === "add" ? "Added" :
-            update.action === "subtract" ? "Used" : "Set";
-
-          results.push({
-            id: existingDoc.id,
-            name: update.name,
-            success: true,
-            action: "updated",
-            quantity: newQuantity,
-            message: `${actionText} ${update.name}: now ${newQuantity} ${update.unit ?? currentData.unit ?? "unit"}`,
-          });
-        }
-      } catch (error: any) {
-        results.push({
-          name: update.name,
-          success: false,
-          error: error.message,
-        });
-      }
-    }
-
-    const successCount = results.filter((r) => r.success).length;
-    const failureCount = results.filter((r) => !r.success).length;
-
-    res.json({
-      success: failureCount === 0,
-      results,
-      summary: {
-        total: results.length,
-        successful: successCount,
-        failed: failureCount,
-      },
-    });
-  } catch (error: any) {
     logger.error("Error updating inventory", {
       uid: req.user?.uid,
       error: error.message,
@@ -281,117 +566,36 @@ app.post("/inventory/update", authenticate, async (req, res) => {
   }
 });
 
-// POST /inventory/parse - Parse natural language input or image using OpenAI
-app.post("/inventory/parse", authenticate, async (req, res) => {
+// POST /inventory/apply - Apply parsed inventory updates with validation feedback
+app.post("/inventory/apply", authenticate, async (req, res) => {
   try {
-    const {text, image, imageType} = req.body;
+    const {updates} = req.body;
+    ensureArrayPayload(updates, "updates");
 
-    // Validate input - must have either text or image
-    if (!text && !image) {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: "Either text or image field is required",
-      });
-    }
+    const {results, summary, validationErrors} =
+      await applyInventoryUpdatesForUser(req.user.uid, updates);
 
-    if (text && image) {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: "Provide either text or image, not both",
-      });
-    }
-
-    if (text && typeof text !== "string") {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: "Text field must be a string",
-      });
-    }
-
-    if (image && typeof image !== "string") {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: "Image field must be a base64 encoded string",
-      });
-    }
-
-    // Get OpenAI API key from Secret Manager (never from client)
-    const apiKey = await getSecret(SECRETS.OPENAI_API_KEY);
-
-    if (!apiKey) {
-      // If no API key configured, use fallback parser for text only
-      if (text) {
-        logger.warn("OPENAI_API_KEY missing - using fallback parser", {
-          uid: req.user.uid,
-        });
-        const parser = new GroceryParser("");
-        const parseResult = await parser.parseGroceryText(text);
-
-        const validatedItems = parser.validateItems(parseResult.items);
-        const warnings: string[] = ["Using basic parser. Configure OPENAI_API_KEY for better results."];
-        if (parseResult.needsReview) {
-          warnings.push("Review recommended before applying updates.");
-        }
-        if (parseResult.error) {
-          warnings.push(parseResult.error);
-        }
-
-        return res.json({
-          success: true,
-          updates: validatedItems,
-          confidence: parseResult.confidence ?? 0,
-          warnings: warnings.join(" "),
-          usedFallback: true,
-          originalText: parseResult.originalText,
-          needsReview: parseResult.needsReview,
-          message: "Using basic parser. Configure OPENAI_API_KEY for better results.",
-        });
-      } else {
-        return res.status(500).json({
-          error: "Configuration Error",
-          message: "Image processing requires OpenAI API key to be configured",
-        });
-      }
-    }
-
-    // Initialize the grocery parser with server-side API key
-    const parser = new GroceryParser(apiKey);
-
-    // Parse based on input type
-    let parseResult;
-    if (text) {
-      parseResult = await parser.parseGroceryText(text);
-    } else {
-      // Parse image using GPT-4V
-      parseResult = await parser.parseGroceryImage(image, imageType || "receipt");
-    }
-
-    const validatedItems = parser.validateItems(parseResult.items);
-
-    const warnings: string[] = [];
-    if (parseResult.needsReview) {
-      warnings.push("Review recommended before applying updates.");
-    }
-    if (parseResult.error) {
-      warnings.push(parseResult.error);
-    }
+    logger.info("Inventory apply processed", {
+      uid: req.user.uid,
+      summary,
+      validationErrors,
+    });
 
     res.json({
-      success: true,
-      updates: validatedItems,
-      confidence: parseResult.confidence ?? 0,
-      warnings: warnings.length > 0 ? warnings.join(" ") : undefined,
-      usedFallback: Boolean(parseResult.error),
-      originalText: parseResult.originalText,
-      needsReview: parseResult.needsReview,
-      message: parseResult.error ?
-        "Parsed using fallback method. Please review carefully." :
-        parseResult.needsReview ?
-          "Text parsed successfully. Please review the items before confirming." :
-          "Text parsed successfully with high confidence.",
+      success: validationErrors.length === 0,
+      results,
+      summary,
+      validationErrors,
     });
   } catch (error: any) {
-    logger.error("Error parsing inventory text", {
+    if (error instanceof functions.https.HttpsError) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: error.message,
+      });
+    }
+
+    logger.error("Error applying inventory updates", {
       uid: req.user?.uid,
       error: error.message,
     });
@@ -400,6 +604,30 @@ app.post("/inventory/parse", authenticate, async (req, res) => {
       message: error.message,
     });
   }
+});
+
+// POST /inventory/parse/text - Parse natural language grocery text
+app.post("/inventory/parse/text", authenticate, async (req, res) => {
+  await handleParseInventoryRequest(req as any, res, {
+    text: req.body?.text,
+  });
+});
+
+// POST /inventory/parse/image - Parse grocery content from an image
+app.post("/inventory/parse/image", authenticate, async (req, res) => {
+  await handleParseInventoryRequest(req as any, res, {
+    image: req.body?.image,
+    imageType: req.body?.imageType,
+  });
+});
+
+// POST /inventory/parse - Backwards compatible combined endpoint
+app.post("/inventory/parse", authenticate, async (req, res) => {
+  await handleParseInventoryRequest(req as any, res, {
+    text: req.body?.text,
+    image: req.body?.image,
+    imageType: req.body?.imageType,
+  });
 });
 
 // GET /inventory/low-stock - Get low stock items

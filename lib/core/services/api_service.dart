@@ -109,7 +109,7 @@ class ApiService {
       final data = {'text': text};
 
       final response = await _dio.post(
-        '/inventory/parse',
+        '/inventory/parse/text',
         data: data,
       );
 
@@ -134,7 +134,7 @@ class ApiService {
       };
 
       final response = await _dio.post(
-        '/inventory/parse',
+        '/inventory/parse/image',
         data: data,
         options: Options(
           sendTimeout: const Duration(seconds: 60),
@@ -146,6 +146,25 @@ class ApiService {
         return response.data;
       } else {
         throw ApiException('Failed to parse grocery image', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> applyParsedUpdates({
+    required List<Map<String, dynamic>> updates,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/inventory/apply',
+        data: {'updates': updates},
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to apply inventory updates', response.statusCode);
       }
     } on DioException catch (e) {
       throw _handleDioException(e);

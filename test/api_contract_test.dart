@@ -16,6 +16,7 @@ void main() {
         'location': 'fridge',
         'lowStockThreshold': 1,
         'notes': 'Organic',
+        'expirationDate': '2024-03-20T12:00:00.000Z',
         'createdAt': '2024-03-10T12:00:00.000Z',
         'updatedAt': '2024-03-11T12:00:00.000Z',
       };
@@ -29,6 +30,7 @@ void main() {
       expect(item.category, 'dairy');
       expect(item.location, 'fridge');
       expect(item.lowStockThreshold, 1);
+      expect(item.expirationDate?.toIso8601String(), '2024-03-20T12:00:00.000Z');
       expect(item.createdAt.toIso8601String(), '2024-03-10T12:00:00.000Z');
       expect(item.updatedAt.toIso8601String(), '2024-03-11T12:00:00.000Z');
     });
@@ -43,7 +45,9 @@ void main() {
             'action': 'add',
             'confidence': 0.92,
             'category': 'dairy',
+            'location': 'fridge',
             'notes': 'Organic',
+            'expirationDate': '2024-04-20T00:00:00.000Z',
           },
         ],
         'confidence': 0.9,
@@ -58,6 +62,11 @@ void main() {
       expect(result.items.first.name, 'Milk');
       expect(result.items.first.action, UpdateAction.add);
       expect(result.items.first.confidence, 0.92);
+      expect(result.items.first.location, 'fridge');
+      expect(
+        result.items.first.expiryDate?.toIso8601String(),
+        '2024-04-20T00:00:00.000Z',
+      );
       expect(result.overallConfidence, 0.9);
       expect(result.originalText, 'bought a gallon of milk');
       expect(result.usedFallback, false);
@@ -98,6 +107,26 @@ void main() {
       expect(item.unit, 'dozen');
       expect(item.isChecked, false);
       expect(item.addedAt?.toIso8601String(), '2024-03-15T09:05:00.000Z');
+    });
+
+    test('ParsedItem serializes expiry when converting to inventory update', () {
+      final parsed = ParsedItem(
+        name: 'Yoghurt',
+        quantity: 4,
+        unit: 'pot',
+        action: UpdateAction.add,
+        confidence: 0.95,
+        category: 'dairy',
+        location: 'fridge',
+        expiryDate: DateTime.parse('2024-05-01T00:00:00.000Z'),
+      );
+
+      final update = parsed.toInventoryUpdate();
+      final json = update.toJson();
+
+      expect(json['expirationDate'], '2024-05-01T00:00:00.000Z');
+      expect(json['name'], 'Yoghurt');
+      expect(json['location'], 'fridge');
     });
   });
 }
