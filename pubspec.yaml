@@ -61,7 +61,7 @@ dependencies:
   
   # Image handling
   image_picker: ^1.0.7
-  file_picker: ^6.1.1
+  file_picker: ^6.2.1
   permission_handler: ^11.2.0
   speech_to_text: ^6.4.0
   meta: ^1.16.0
@@ -76,6 +76,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+
+dependency_overrides:
+  file_picker:
+    path: third_party/file_picker
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

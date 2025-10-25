@@ -216,7 +216,7 @@ bought 1.5 kg potatoes
       if (match == null) continue;
 
       final quantityString = match.group(1);
-      final quantity = quantityString != null
+      final double quantity = quantityString != null
           ? double.tryParse(quantityString) ?? 1
           : 1;
       final unit = (match.group(2) ??

@@ -89,12 +89,12 @@ class InventoryPreviewApp extends StatelessWidget {
           value: dependencies.groceryListProvider,
         ),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         title: 'Inventory Preview',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         themeMode: ThemeMode.light,
-        home: PreviewNavigationShell(),
+        home: const PreviewNavigationShell(),
       ),
     );
   }
