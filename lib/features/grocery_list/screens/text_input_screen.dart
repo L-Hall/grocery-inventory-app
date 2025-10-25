@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../providers/grocery_list_provider.dart';
 import 'review_screen.dart';
@@ -21,10 +23,15 @@ class _TextInputScreenState extends State<TextInputScreen> {
   late final TextEditingController _textController;
   late final FocusNode _focusNode;
   final ImagePicker _imagePicker = ImagePicker();
+  late final stt.SpeechToText _speechToText;
+  bool _isSpeechAvailable = false;
+  bool _isListening = false;
+  String _interimTranscript = '';
   
   // Input mode state
   InputMode _inputMode = InputMode.text;
-  File? _selectedImage;
+  File? _selectedFile;
+  String? _selectedFileName;
   String? _imageBase64;
   bool _showTips = false;
 
@@ -33,6 +40,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
     super.initState();
     _textController = TextEditingController();
     _focusNode = FocusNode();
+    _speechToText = stt.SpeechToText();
+    _initSpeechEngine();
     
     // Initialize with any existing text from provider
     final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
@@ -41,6 +50,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
   @override
   void dispose() {
+    _speechToText.stop();
+    _speechToText.cancel();
     _textController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -94,17 +105,17 @@ class _TextInputScreenState extends State<TextInputScreen> {
               children: [
                 Icon(
                   Icons.lightbulb_outline,
-                  color: theme.primaryColor,
+                  color: theme.colorScheme.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _inputMode == InputMode.text 
-                      ? 'Natural Language Input'
-                      : 'Receipt Scanner',
+                  _inputMode == InputMode.text
+                      ? 'Natural language input'
+                      : 'Receipt scanner',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: theme.primaryColor,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
                 const Spacer(),
@@ -139,13 +150,13 @@ class _TextInputScreenState extends State<TextInputScreen> {
   String _getInstructionText() {
     switch (_inputMode) {
       case InputMode.text:
-        return 'Type or paste your grocery text below. Use natural language like "bought 2 gallons milk" or "used 3 eggs for cooking".';
+        return 'Type, paste, or dictate your grocery updates. Use natural language such as “bought 2 litres of semi-skimmed milk” or “used 3 eggs baking cupcakes”.';
       case InputMode.camera:
         return 'Take a photo of your grocery receipt or shopping list. The AI will read and extract items directly from the image.';
       case InputMode.gallery:
-        return 'Select a photo of your receipt or list from your gallery. The AI will analyze the image and extract grocery items.';
+        return 'Select a saved photo of your receipt or list. The AI will analyse the image and extract grocery items.';
       case InputMode.file:
-        return 'Upload a file containing your grocery list or receipt. Supports images and PDF files.';
+        return 'Upload an image or PDF of your receipt or list. We will scan it and suggest updates.';
     }
   }
 
@@ -264,8 +275,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
                   style: theme.textTheme.bodyLarge,
-                  decoration: InputDecoration(
-                    hintText: 'Examples:\n• bought 2 gallons milk and 3 loaves bread\n• used 4 eggs for cooking\n• have 5 apples left in fridge\n• finished the orange juice',
+                    decoration: InputDecoration(
+                      hintText:
+                          'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
                     hintStyle: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
                       height: 1.5,
@@ -292,44 +304,56 @@ class _TextInputScreenState extends State<TextInputScreen> {
                 ),
                 child: Row(
                   children: [
-                    // Character count
                     Text(
                       '${_textController.text.length} characters',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    
                     const Spacer(),
-                    
-                    // Clear button
-                    if (_textController.text.isNotEmpty)
-                      TextButton.icon(
-                        onPressed: () {
-                          _textController.clear();
-                          groceryProvider.setCurrentInputText('');
-                        },
-                        icon: const Icon(Icons.clear, size: 18),
-                        label: const Text('Clear'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    Wrap(
+                      spacing: 8,
+                      runAlignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (_textController.text.isNotEmpty)
+                          TextButton.icon(
+                            onPressed: () {
+                              _textController.clear();
+                              groceryProvider.setCurrentInputText('');
+                            },
+                            icon: const Icon(Icons.clear, size: 18),
+                            label: const Text('Clear'),
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        TextButton.icon(
+                          onPressed: _handlePaste,
+                          icon: const Icon(Icons.content_paste, size: 18),
+                          label: const Text('Paste'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                          ),
                         ),
-                      ),
-                    
-                    const SizedBox(width: 8),
-                    
-                    // Paste button
-                    TextButton.icon(
-                      onPressed: _handlePaste,
-                      icon: const Icon(Icons.content_paste, size: 18),
-                      label: const Text('Paste'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.primaryColor,
-                      ),
+                        FilledButton.icon(
+                          onPressed: _toggleListening,
+                          icon: Icon(
+                            _isListening ? Icons.mic_off : Icons.mic_none,
+                            size: 18,
+                          ),
+                          label: Text(_isListening ? 'Stop dictation' : 'Dictate'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+              if (_isListening || _interimTranscript.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildDictationBanner(theme),
+              ],
             ],
           ),
         );
@@ -337,8 +361,54 @@ class _TextInputScreenState extends State<TextInputScreen> {
     );
   }
 
+  Widget _buildDictationBanner(ThemeData theme) {
+    final message = _interimTranscript.isNotEmpty
+        ? _interimTranscript
+        : (_isListening
+            ? 'Listening… speak naturally and we will transcribe in UK English.'
+            : '');
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: (_isListening || _interimTranscript.isNotEmpty) ? 1 : 0,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              _isListening ? Icons.mic : Icons.mic_none,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message.isEmpty
+                    ? 'Listening idle'
+                    : message,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            if (_isListening)
+              TextButton(
+                onPressed: _toggleListening,
+                child: const Text('Stop'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildImageInput(ThemeData theme) {
-    if (_selectedImage != null) {
+    if (_selectedFile != null) {
       return _buildImagePreview(theme);
     }
     
@@ -394,6 +464,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildImagePreview(ThemeData theme) {
+    final filePath = _selectedFile!.path.toLowerCase();
+    final isPdf = filePath.endsWith('.pdf');
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
@@ -406,14 +478,39 @@ class _TextInputScreenState extends State<TextInputScreen> {
         children: [
           Expanded(
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.file(
-                    _selectedImage!,
-                    fit: BoxFit.contain,
-                  ),
+                  if (!isPdf)
+                    Image.file(
+                      _selectedFile!,
+                      fit: BoxFit.contain,
+                    )
+                  else
+                    Container(
+                      color:
+                          theme.colorScheme.surfaceVariant.withOpacity(0.25),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.picture_as_pdf,
+                              size: 64,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _selectedFileName ?? 'Receipt.pdf',
+                              style: theme.textTheme.bodyMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   Positioned(
                     top: 8,
                     right: 8,
@@ -436,23 +533,28 @@ class _TextInputScreenState extends State<TextInputScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(12)),
             ),
             child: Row(
               children: [
                 Icon(
-                  Icons.check_circle,
+                  isPdf ? Icons.picture_as_pdf : Icons.check_circle,
                   color: theme.colorScheme.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Image selected',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.primary,
+                Expanded(
+                  child: Text(
+                    _selectedFileName ?? 'Image selected',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: _handleImageSelection,
                   icon: const Icon(Icons.refresh, size: 18),
@@ -635,7 +737,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: theme.primaryColor.withOpacity(0.05),
+            color: theme.colorScheme.primary.withOpacity(0.05),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -645,7 +747,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                 'Tips for better results:',
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: theme.primaryColor,
+                  color: theme.colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -656,7 +758,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   children: [
                     Text(
                       '• ',
-                      style: TextStyle(color: theme.primaryColor),
+                      style: TextStyle(color: theme.colorScheme.primary),
                     ),
                     Expanded(
                       child: Text(
@@ -682,8 +784,94 @@ class _TextInputScreenState extends State<TextInputScreen> {
       // Clear image if switching to text mode
       if (mode == InputMode.text) {
         _clearImage();
+      } else if (_isListening) {
+        _speechToText.stop();
+        _isListening = false;
+        _interimTranscript = '';
       }
     });
+  }
+
+  Future<void> _initSpeechEngine() async {
+    final available = await _speechToText.initialize(
+      onStatus: (status) {
+        if (status == 'notListening' && mounted) {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (_) {
+        if (mounted) {
+          setState(() {
+            _isListening = false;
+            _interimTranscript = '';
+          });
+        }
+      },
+    );
+    if (mounted) {
+      setState(() => _isSpeechAvailable = available);
+    }
+  }
+
+  Future<void> _toggleListening() async {
+    if (!_isSpeechAvailable) {
+      await _initSpeechEngine();
+      if (!_isSpeechAvailable) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Speech recognition unavailable on this device.')),
+        );
+        return;
+      }
+    }
+
+    if (!_isListening) {
+      final micStatus = await Permission.microphone.request();
+      if (!micStatus.isGranted) {
+        _showPermissionDeniedDialog('Microphone');
+        return;
+      }
+      await _speechToText.listen(
+        localeId: 'en_GB',
+        onResult: _onSpeechResult,
+        listenMode: stt.ListenMode.dictation,
+      );
+      setState(() {
+        _isListening = true;
+        _interimTranscript = '';
+      });
+    } else {
+      await _speechToText.stop();
+      if (mounted) {
+        setState(() => _isListening = false);
+      }
+    }
+  }
+
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    if (!mounted) return;
+    setState(() {
+      _interimTranscript = result.recognizedWords;
+    });
+    if (result.finalResult) {
+      _appendRecognisedText(result.recognizedWords);
+      setState(() {
+        _interimTranscript = '';
+        _isListening = false;
+      });
+    }
+  }
+
+  void _appendRecognisedText(String recognised) {
+    if (recognised.trim().isEmpty) return;
+    final current = _textController.text.trimRight();
+    final newText = current.isEmpty ? recognised : '$current\n$recognised';
+    _textController.text = newText;
+    _textController.selection =
+        TextSelection.collapsed(offset: _textController.text.length);
+    final groceryProvider =
+        Provider.of<GroceryListProvider>(context, listen: false);
+    groceryProvider.setCurrentInputText(_textController.text);
   }
 
   Future<void> _handleImageSelection() async {
@@ -743,16 +931,19 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Future<void> _processImage(File image) async {
     final bytes = await image.readAsBytes();
     final base64String = base64Encode(bytes);
+    final fileName = image.path.split(Platform.pathSeparator).last;
     
     setState(() {
-      _selectedImage = image;
+      _selectedFile = image;
+      _selectedFileName = fileName;
       _imageBase64 = base64String;
     });
   }
 
   void _clearImage() {
     setState(() {
-      _selectedImage = null;
+      _selectedFile = null;
+      _selectedFileName = null;
       _imageBase64 = null;
     });
   }
@@ -763,12 +954,19 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (_inputMode == InputMode.text) {
       return _textController.text.trim().isNotEmpty;
     } else {
-      return _selectedImage != null && _imageBase64 != null;
+      return _selectedFile != null && _imageBase64 != null;
     }
   }
 
   Future<void> _handleProcess() async {
     final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+    if (_isListening) {
+      await _speechToText.stop();
+      setState(() {
+        _isListening = false;
+        _interimTranscript = '';
+      });
+    }
     
     bool success;
     if (_inputMode == InputMode.text) {

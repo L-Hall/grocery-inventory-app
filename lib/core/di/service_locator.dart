@@ -45,9 +45,10 @@ Future<void> setupServiceLocator() async {
     InventoryRepository(getIt<ApiService>()),
   );
 
-  getIt.registerSingleton<GroceryListRepository>(
-    GroceryListRepository(getIt<ApiService>()),
-  );
+  final groceryRepo = GroceryListRepository(getIt<ApiService>());
+  getIt
+    ..registerSingleton<GroceryListRepository>(groceryRepo)
+    ..registerSingleton<GroceryListDataSource>(groceryRepo);
 
   // Providers
   getIt.registerFactory<auth.AuthProvider>(
@@ -59,6 +60,6 @@ Future<void> setupServiceLocator() async {
   );
 
   getIt.registerFactory<GroceryListProvider>(
-    () => GroceryListProvider(getIt<GroceryListRepository>()),
+    () => GroceryListProvider(getIt<GroceryListDataSource>()),
   );
 }

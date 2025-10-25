@@ -1,11 +1,19 @@
+import 'package:meta/meta.dart';
+
 import '../../../core/services/api_service.dart';
 import '../models/inventory_item.dart';
-import '../models/category.dart';
+import '../models/category.dart' as inventory;
 
 class InventoryRepository {
-  final ApiService _apiService;
+  final ApiService? _apiService;
 
-  InventoryRepository(this._apiService);
+  InventoryRepository(ApiService apiService) : _apiService = apiService;
+
+  @protected
+  InventoryRepository.preview() : _apiService = null;
+
+  @protected
+  ApiService get api => _apiService!;
 
   // Get inventory items with optional filters
   Future<List<InventoryItem>> getInventory({
@@ -15,7 +23,7 @@ class InventoryRepository {
     String? search,
   }) async {
     try {
-      final response = await _apiService.getInventory(
+      final response = await api.getInventory(
         category: category,
         location: location,
         lowStockOnly: lowStockOnly,
@@ -34,7 +42,7 @@ class InventoryRepository {
   Future<void> updateInventory(List<InventoryUpdate> updates) async {
     try {
       final updateData = updates.map((update) => update.toJson()).toList();
-      await _apiService.updateInventory(updates: updateData);
+      await api.updateInventory(updates: updateData);
     } catch (e) {
       throw InventoryRepositoryException('Failed to update inventory: $e');
     }
@@ -45,7 +53,7 @@ class InventoryRepository {
     bool includeOutOfStock = true,
   }) async {
     try {
-      final response = await _apiService.getLowStockItems(
+      final response = await api.getLowStockItems(
         includeOutOfStock: includeOutOfStock,
       );
 
@@ -58,16 +66,19 @@ class InventoryRepository {
   }
 
   // Get categories
-  Future<List<Category>> getCategories() async {
+  Future<List<inventory.Category>> getCategories() async {
     try {
-      final response = await _apiService.getCategories();
+      final response = await api.getCategories();
 
       return response
-          .map((category) => Category.fromJson(category as Map<String, dynamic>))
+          .map(
+            (category) =>
+                inventory.Category.fromJson(category as Map<String, dynamic>),
+          )
           .toList();
     } catch (e) {
       // Fallback to default categories if API fails
-      return DefaultCategories.defaultCategories;
+      return inventory.DefaultCategories.defaultCategories;
     }
   }
 
@@ -97,7 +108,8 @@ class InventoryRepository {
   }
 
   // Bulk update single item
-  Future<void> updateItem(InventoryItem item, {
+  Future<void> updateItem(
+    InventoryItem item, {
     double? newQuantity,
     UpdateAction action = UpdateAction.set,
   }) async {
@@ -157,8 +169,7 @@ class InventoryRepository {
   Future<bool> itemExists(String name) async {
     try {
       final items = await getInventory(search: name);
-      return items.any((item) => 
-          item.name.toLowerCase() == name.toLowerCase());
+      return items.any((item) => item.name.toLowerCase() == name.toLowerCase());
     } catch (e) {
       return false;
     }
@@ -168,7 +179,7 @@ class InventoryRepository {
   Future<InventoryStats> getInventoryStats() async {
     try {
       final allItems = await getInventory();
-      final lowStockItems = await getLowStockItems();
+      final lowStockItems = await getLowStockItems(includeOutOfStock: false);
 
       return InventoryStats(
         totalItems: allItems.length,
@@ -203,7 +214,10 @@ class InventoryStats {
     required this.categoryCounts,
   });
 
-  int get goodStockItems => totalItems - lowStockItems - outOfStockItems;
+  int get goodStockItems {
+    final remaining = totalItems - lowStockItems - outOfStockItems;
+    return remaining < 0 ? 0 : remaining;
+  }
 
   @override
   String toString() {
