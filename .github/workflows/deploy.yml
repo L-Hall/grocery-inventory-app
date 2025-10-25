@@ -1,0 +1,45 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [backend]   # or main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install root deps and Firebase CLI
+        run: |
+          npm install -g firebase-tools
+          npm install
+          cd functions && npm ci
+
+      - name: Lint Functions
+        run: cd functions && npm run lint
+
+      - name: Test Functions
+        run: cd functions && npm run test
+
+      - name: Run Firestore rule tests
+        run: firebase emulators:exec --only firestore "npm --prefix functions run test:rules"
+
+      - name: Build Functions
+        run: cd functions && npm run build
+
+      - name: Deploy to Firebase
+        run: firebase deploy --only functions,firestore
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Verify deployment
+        run: npm run verify:deploy
+        env:
+          FUNCTIONS_BASE_URL: https://us-central1-helical-button-461921-v6.cloudfunctions.net/api

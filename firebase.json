@@ -4,17 +4,33 @@
     "indexes": "firestore.indexes.json"
   },
   "functions": {
-    "source": "functions"
+    "source": "functions",
+    "predeploy": [
+      "bash \"$RESOURCE_DIR/scripts/predeploy.sh\""
+    ]
   },
   "emulators": {
+    "auth": {
+      "port": 9099,
+      "host": "127.0.0.1"
+    },
     "functions": {
-      "port": 5001
+      "port": 5001,
+      "host": "127.0.0.1"
     },
     "firestore": {
-      "port": 8080
+      "port": 8080,
+      "host": "127.0.0.1"
+    },
+    "storage": {
+      "port": 9199,
+      "host": "127.0.0.1"
     },
     "ui": {
-      "enabled": true
-    }
+      "enabled": true,
+      "port": 4000,
+      "host": "127.0.0.1"
+    },
+    "singleProjectMode": true
   }
 }
