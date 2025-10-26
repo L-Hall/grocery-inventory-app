@@ -107,3 +107,80 @@ export function formatGroceryList(
     updatedAt,
   };
 }
+
+export function formatLocation(
+  doc: FirebaseFirestore.DocumentSnapshot
+): Record<string, any> {
+  const data = doc.data() ?? {};
+  const createdAt = formatTimestamp(data.createdAt);
+  const updatedAt = formatTimestamp(data.updatedAt ?? data.createdAt);
+
+  return {
+    id: doc.id,
+    name: data.name ?? "Location",
+    color: data.color ?? "#FFFFFF",
+    icon: data.icon ?? "inventory",
+    temperature: data.temperature ?? null,
+    sortOrder:
+      typeof data.sortOrder === "number" ? data.sortOrder : null,
+    createdAt,
+    updatedAt,
+  };
+}
+
+export function formatUserPreferences(
+  doc: FirebaseFirestore.DocumentSnapshot
+): Record<string, any> {
+  const data = doc.data() ?? {};
+  return {
+    id: doc.id,
+    defaultView: data.defaultView ?? null,
+    searchHistory: Array.isArray(data.searchHistory)
+      ? data.searchHistory.slice(-25)
+      : [],
+    exportPreferences:
+      data.exportPreferences && typeof data.exportPreferences === "object"
+        ? data.exportPreferences
+        : {},
+    bulkOperationHistory: Array.isArray(data.bulkOperationHistory)
+      ? data.bulkOperationHistory.slice(-100)
+      : [],
+    createdAt: formatTimestamp(data.createdAt),
+    updatedAt: formatTimestamp(data.updatedAt ?? data.createdAt),
+  };
+}
+
+export function formatSavedSearch(
+  doc: FirebaseFirestore.DocumentSnapshot
+): Record<string, any> {
+  const data = doc.data() ?? {};
+  return {
+    id: doc.id,
+    name: data.name ?? "",
+    config: data.config ?? {},
+    useCount:
+      typeof data.useCount === "number" ? data.useCount : 0,
+    createdAt: formatTimestamp(data.createdAt),
+    updatedAt: formatTimestamp(data.updatedAt ?? data.createdAt),
+  };
+}
+
+export function formatCustomView(
+  doc: FirebaseFirestore.DocumentSnapshot
+): Record<string, any> {
+  const data = doc.data() ?? {};
+  return {
+    id: doc.id,
+    name: data.name ?? "",
+    type: data.type ?? "custom",
+    filters: Array.isArray(data.filters) ? data.filters : [],
+    sortConfig:
+      data.sortConfig && typeof data.sortConfig === "object"
+        ? data.sortConfig
+        : null,
+    groupBy: data.groupBy ?? null,
+    isDefault: Boolean(data.isDefault),
+    createdAt: formatTimestamp(data.createdAt),
+    updatedAt: formatTimestamp(data.updatedAt ?? data.createdAt),
+  };
+}

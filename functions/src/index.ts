@@ -14,7 +14,14 @@ import {GroceryParser} from "./ai-parser";
 import {getSecret, SECRETS, runtimeOpts} from "./secrets";
 import {randomUUID} from "crypto";
 import {processGroceryRequest, updateInventoryWithConfirmation} from "./agents";
-import {formatInventoryItem, formatGroceryList} from "./utils/formatters";
+import {
+  formatInventoryItem,
+  formatGroceryList,
+  formatLocation,
+  formatUserPreferences,
+  formatSavedSearch,
+  formatCustomView,
+} from "./utils/formatters";
 import {generateSearchKeywords} from "./utils/search";
 import {createAuthenticateMiddleware} from "./middleware/authenticate";
 
@@ -102,6 +109,431 @@ const ensureArrayPayload = (payload: any, field: string) => {
     );
   }
 };
+
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+
+const sanitizeDocumentId = (value: any, maxLength = 120) => {
+  if (typeof value !== "string") {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Document identifier must be a string.",
+    );
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Document identifier cannot be empty.",
+    );
+  }
+
+  if (trimmed.length > maxLength) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `Document identifier must be ${maxLength} characters or fewer.`,
+    );
+  }
+
+  if (!/^[A-Za-z0-9_-]+$/.test(trimmed)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Document identifier may only contain letters, numbers, hyphen, or underscore.",
+    );
+  }
+
+  return trimmed;
+};
+
+const sanitizeLocationPayload = (
+  payload: any,
+  existing: FirebaseFirestore.DocumentData | null,
+) => {
+  const base = existing ?? {};
+  const combined = {
+    ...base,
+    ...(payload ?? {}),
+  };
+
+  const name = typeof combined.name === "string" ? combined.name.trim() : "";
+  const color = typeof combined.color === "string" ? combined.color.trim() : "";
+  const icon = typeof combined.icon === "string" ? combined.icon.trim() : "";
+
+  if (!name || name.length > 80) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Location name must be 1-80 characters.",
+    );
+  }
+
+  if (!HEX_COLOR_REGEX.test(color)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Location color must be a 6-digit hex string.",
+    );
+  }
+
+  if (!icon || icon.length > 60) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Location icon must be a non-empty string up to 60 characters.",
+    );
+  }
+
+  let temperature: string | null = null;
+  if (combined.temperature === null || combined.temperature === undefined) {
+    temperature = null;
+  } else if (typeof combined.temperature === "string") {
+    const trimmed = combined.temperature.trim();
+    if (trimmed.length > 30) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Location temperature must be 30 characters or fewer.",
+      );
+    }
+    temperature = trimmed;
+  } else {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Location temperature must be a string or null.",
+    );
+  }
+
+  let sortOrder: number | undefined;
+  if (combined.sortOrder !== undefined && combined.sortOrder !== null) {
+    const parsed = Number(combined.sortOrder);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1000) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Location sortOrder must be between 0 and 1000.",
+      );
+    }
+    sortOrder = parsed;
+  } else if (typeof base.sortOrder === "number") {
+    sortOrder = base.sortOrder;
+  }
+
+  return {
+    name,
+    color,
+    icon,
+    temperature,
+    sortOrder,
+  };
+};
+
+const sanitizePreferencesSettingsPayload = (payload: any) => {
+  if (!payload || typeof payload !== "object") {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Preferences payload must be an object.",
+    );
+  }
+
+  const data: Record<string, any> = {};
+
+  if (payload.defaultView !== undefined) {
+    if (
+      typeof payload.defaultView !== "string" ||
+      payload.defaultView.trim().length === 0 ||
+      payload.defaultView.trim().length > 60
+    ) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "defaultView must be a non-empty string up to 60 characters.",
+      );
+    }
+    data.defaultView = payload.defaultView.trim();
+  }
+
+  if (payload.searchHistory !== undefined) {
+    if (!Array.isArray(payload.searchHistory)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "searchHistory must be an array of strings.",
+      );
+    }
+    if (payload.searchHistory.length > 25) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "searchHistory can contain at most 25 entries.",
+      );
+    }
+    data.searchHistory = payload.searchHistory.map((entry: any) => {
+      if (typeof entry !== "string" || entry.length > 120) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Each searchHistory entry must be a string up to 120 characters.",
+        );
+      }
+      return entry;
+    });
+  }
+
+  if (payload.exportPreferences !== undefined) {
+    if (
+      payload.exportPreferences === null ||
+      typeof payload.exportPreferences !== "object" ||
+      Array.isArray(payload.exportPreferences)
+    ) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "exportPreferences must be an object.",
+      );
+    }
+    data.exportPreferences = payload.exportPreferences;
+  }
+
+  if (payload.bulkOperationHistory !== undefined) {
+    if (!Array.isArray(payload.bulkOperationHistory)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "bulkOperationHistory must be an array.",
+      );
+    }
+    if (payload.bulkOperationHistory.length > 100) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "bulkOperationHistory can contain at most 100 entries.",
+      );
+    }
+    data.bulkOperationHistory = payload.bulkOperationHistory;
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "At least one supported preference field must be provided.",
+    );
+  }
+
+  return data;
+};
+
+const sanitizeSavedSearchPayload = (payload: any) => {
+  if (!payload || typeof payload !== "object") {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Saved search payload must be an object.",
+    );
+  }
+
+  const name =
+    typeof payload.name === "string" ? payload.name.trim() : "";
+  if (!name || name.length > 80) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Saved search name must be 1-80 characters.",
+    );
+  }
+
+  if (
+    payload.config === null ||
+    typeof payload.config !== "object" ||
+    Array.isArray(payload.config)
+  ) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Saved search config must be an object.",
+    );
+  }
+
+  const sanitized: Record<string, any> = {
+    name,
+    config: payload.config,
+  };
+
+  if (payload.fuzzyMatch !== undefined) {
+    sanitized.config = {
+      ...sanitized.config,
+      fuzzyMatch: Boolean(payload.fuzzyMatch),
+    };
+  }
+
+  if (payload.searchFields !== undefined) {
+    if (!Array.isArray(payload.searchFields)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "searchFields must be an array of strings.",
+      );
+    }
+    sanitized.config = {
+      ...sanitized.config,
+      searchFields: payload.searchFields.map((field: any) => {
+        if (typeof field !== "string") {
+          throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Each search field must be a string.",
+          );
+        }
+        return field;
+      }),
+    };
+  }
+
+  return sanitized;
+};
+
+const sanitizeCustomViewPayload = (payload: any) => {
+  if (!payload || typeof payload !== "object") {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Custom view payload must be an object.",
+    );
+  }
+
+  const name =
+    typeof payload.name === "string" ? payload.name.trim() : "";
+  if (!name || name.length > 80) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Custom view name must be 1-80 characters.",
+    );
+  }
+
+  const type =
+    typeof payload.type === "string" ? payload.type.trim() : "";
+  const allowedTypes = [
+    "location",
+    "lowStock",
+    "custom",
+    "category",
+    "expiration",
+  ];
+  if (!allowedTypes.includes(type)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Unsupported custom view type.",
+    );
+  }
+
+  if (!Array.isArray(payload.filters)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Custom view filters must be an array.",
+    );
+  }
+  if (payload.filters.length > 100) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Custom view filters can contain at most 100 entries.",
+    );
+  }
+
+  const sanitized: Record<string, any> = {
+    name,
+    type,
+    filters: payload.filters,
+  };
+
+  if (payload.sortConfig !== undefined) {
+    if (
+      payload.sortConfig === null ||
+      typeof payload.sortConfig !== "object" ||
+      Array.isArray(payload.sortConfig)
+    ) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "sortConfig must be an object.",
+      );
+    }
+    sanitized.sortConfig = payload.sortConfig;
+  }
+
+  if (payload.groupBy !== undefined) {
+    if (
+      payload.groupBy !== null &&
+      typeof payload.groupBy !== "string"
+    ) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "groupBy must be a string or null.",
+      );
+    }
+    sanitized.groupBy = payload.groupBy;
+  }
+
+  if (payload.isDefault !== undefined) {
+    sanitized.isDefault = Boolean(payload.isDefault);
+  }
+
+  return sanitized;
+};
+
+async function recordInventoryAuditLog(
+  uid: string,
+  data: {
+    action: "inventory_update" | "inventory_apply";
+    updates: any[];
+    results: Record<string, any>[];
+    summary: {total: number; successful: number; failed: number};
+    validationErrors: string[];
+  },
+) {
+  try {
+    if (!Array.isArray(data.results) || data.results.length === 0) {
+      return;
+    }
+
+    const successfulItemIds = data.results
+      .filter(
+        (result) => result.success && typeof result.id === "string" && result.id,
+      )
+      .map((result) => result.id as string)
+      .slice(0, 100);
+
+    const truncatedResults = data.results.slice(0, 50).map((result) => ({
+      id: result.id ?? null,
+      name: result.name ?? null,
+      success: Boolean(result.success),
+      action: result.action ?? null,
+      quantity:
+        typeof result.quantity === "number" ?
+          result.quantity :
+          Number.isFinite(Number(result.quantity)) ?
+            Number(result.quantity) :
+            null,
+      message: result.message ?? null,
+      error: result.error ?? null,
+    }));
+
+    const truncatedRequestedUpdates = Array.isArray(data.updates) ?
+      data.updates.slice(0, 50).map((update) => ({
+        name: typeof update?.name === "string" ? update.name : null,
+        action: typeof update?.action === "string" ? update.action : null,
+        quantity:
+          typeof update?.quantity === "number" ?
+            update.quantity :
+            Number.isFinite(Number(update?.quantity)) ?
+              Number(update?.quantity) :
+              null,
+        unit: typeof update?.unit === "string" ? update.unit : null,
+        category: typeof update?.category === "string" ? update.category : null,
+      })) :
+      [];
+
+    const description = `Processed ${data.summary.successful}/${data.summary.total} inventory updates (${data.action})`;
+
+    await db.collection(`users/${uid}/audit_logs`).add({
+      action: data.action,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      userId: uid,
+      itemIds: successfulItemIds,
+      description: description.slice(0, 500),
+      metadata: {
+        summary: data.summary,
+        validationErrors: data.validationErrors,
+        results: truncatedResults,
+        requestedUpdates: truncatedRequestedUpdates,
+      },
+    });
+  } catch (error: any) {
+    logger.error("Failed to record audit log entry", {
+      uid,
+      error: error?.message ?? String(error),
+    });
+  }
+}
 
 async function processInventoryUpdate(
   uid: string,
@@ -268,6 +700,7 @@ async function processInventoryUpdate(
 async function applyInventoryUpdatesForUser(
   uid: string,
   updates: any[],
+  actionType: "inventory_update" | "inventory_apply" = "inventory_update",
 ): Promise<{
   results: Record<string, any>[];
   summary: {total: number; successful: number; failed: number};
@@ -293,6 +726,18 @@ async function applyInventoryUpdatesForUser(
   const validationErrors = results
     .filter((r) => !r.success && r.error)
     .map((r) => `${r.name}: ${r.error}`);
+
+  await recordInventoryAuditLog(uid, {
+    action: actionType,
+    updates,
+    results,
+    summary: {
+      total: results.length,
+      successful,
+      failed,
+    },
+    validationErrors,
+  });
 
   return {
     results,
@@ -534,7 +979,11 @@ app.post("/inventory/update", authenticate, async (req, res) => {
     ensureArrayPayload(updates, "updates");
 
     const {results, summary, validationErrors} =
-      await applyInventoryUpdatesForUser(req.user.uid, updates);
+      await applyInventoryUpdatesForUser(
+        req.user.uid,
+        updates,
+        "inventory_update",
+      );
 
     logger.info("Inventory update processed", {
       uid: req.user.uid,
@@ -573,7 +1022,11 @@ app.post("/inventory/apply", authenticate, async (req, res) => {
     ensureArrayPayload(updates, "updates");
 
     const {results, summary, validationErrors} =
-      await applyInventoryUpdatesForUser(req.user.uid, updates);
+      await applyInventoryUpdatesForUser(
+        req.user.uid,
+        updates,
+        "inventory_apply",
+      );
 
     logger.info("Inventory apply processed", {
       uid: req.user.uid,
@@ -837,6 +1290,372 @@ app.get("/categories", authenticate, async (req, res) => {
     });
   }
 });
+
+// Locations endpoints
+app.get("/locations", authenticate, async (req, res) => {
+  try {
+    const snapshot = await db.collection(`users/${req.user.uid}/locations`)
+      .orderBy("sortOrder")
+      .get();
+
+    const locations = snapshot.docs.map((doc) => formatLocation(doc));
+
+    res.json({
+      success: true,
+      locations,
+      count: locations.length,
+    });
+  } catch (error: any) {
+    logger.error("Error getting locations", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error.message,
+    });
+  }
+});
+
+app.put("/locations/:locationId", authenticate, async (req, res) => {
+  try {
+    const locationId = sanitizeDocumentId(req.params.locationId, 80);
+    const docRef = db.doc(`users/${req.user.uid}/locations/${locationId}`);
+    const existingDoc = await docRef.get();
+
+    const sanitizedPayload = sanitizeLocationPayload(
+      req.body,
+      existingDoc.exists ? existingDoc.data() ?? null : null,
+    );
+
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+    const dataToWrite: Record<string, any> = {
+      name: sanitizedPayload.name,
+      color: sanitizedPayload.color,
+      icon: sanitizedPayload.icon,
+      temperature: sanitizedPayload.temperature,
+      updatedAt: timestamp,
+    };
+
+    if (sanitizedPayload.sortOrder !== undefined && sanitizedPayload.sortOrder !== null) {
+      dataToWrite.sortOrder = sanitizedPayload.sortOrder;
+    }
+
+    if (!existingDoc.exists) {
+      dataToWrite.createdAt = timestamp;
+    }
+
+    await docRef.set(dataToWrite, {merge: true});
+
+    const savedDoc = await docRef.get();
+    res.json({
+      success: true,
+      location: formatLocation(savedDoc),
+    });
+  } catch (error: any) {
+    if (error instanceof functions.https.HttpsError) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: error.message,
+      });
+    }
+
+    logger.error("Error saving location", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error.message,
+    });
+  }
+});
+
+app.delete("/locations/:locationId", authenticate, async (req, res) => {
+  try {
+    const locationId = sanitizeDocumentId(req.params.locationId, 80);
+    const docRef = db.doc(`users/${req.user.uid}/locations/${locationId}`);
+    await docRef.delete();
+
+    res.json({
+      success: true,
+      message: `Location ${locationId} deleted`,
+    });
+  } catch (error: any) {
+    if (error instanceof functions.https.HttpsError) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: error.message,
+      });
+    }
+
+    logger.error("Error deleting location", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error.message,
+    });
+  }
+});
+
+// User preferences endpoints
+app.get("/user/preferences", authenticate, async (req, res) => {
+  try {
+    const preferencesRef = db.doc(
+      `users/${req.user.uid}/user_preferences/preferences`,
+    );
+
+    const [
+      settingsDoc,
+      savedSearchesSnapshot,
+      customViewsSnapshot,
+    ] = await Promise.all([
+      preferencesRef.get(),
+      preferencesRef.collection("saved_searches").get(),
+      preferencesRef.collection("custom_views").get(),
+    ]);
+
+    const settings = settingsDoc.exists ?
+      formatUserPreferences(settingsDoc) :
+      null;
+
+    const savedSearches = savedSearchesSnapshot.docs.map((doc) =>
+      formatSavedSearch(doc),
+    );
+    const customViews = customViewsSnapshot.docs.map((doc) =>
+      formatCustomView(doc),
+    );
+
+    res.json({
+      success: true,
+      settings,
+      savedSearches,
+      customViews,
+    });
+  } catch (error: any) {
+    logger.error("Error fetching user preferences", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error.message,
+    });
+  }
+});
+
+app.put("/user/preferences/settings", authenticate, async (req, res) => {
+  try {
+    const preferencesRef = db.doc(
+      `users/${req.user.uid}/user_preferences/preferences`,
+    );
+    const existingDoc = await preferencesRef.get();
+
+    const sanitized = sanitizePreferencesSettingsPayload(req.body);
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+    await preferencesRef.set(
+      {
+        ...sanitized,
+        updatedAt: timestamp,
+        ...(existingDoc.exists ? {} : {createdAt: timestamp}),
+      },
+      {merge: true},
+    );
+
+    const savedDoc = await preferencesRef.get();
+    res.json({
+      success: true,
+      settings: formatUserPreferences(savedDoc),
+    });
+  } catch (error: any) {
+    if (error instanceof functions.https.HttpsError) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: error.message,
+      });
+    }
+
+    logger.error("Error updating user preferences", {
+      uid: req.user?.uid,
+      error: error.message,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error.message,
+    });
+  }
+});
+
+app.put(
+  "/user/preferences/saved-searches/:searchId",
+  authenticate,
+  async (req, res) => {
+    try {
+      const searchId = sanitizeDocumentId(req.params.searchId, 80);
+      const preferencesRef = db.doc(
+        `users/${req.user.uid}/user_preferences/preferences`,
+      );
+      const searchRef = preferencesRef.collection("saved_searches").doc(searchId);
+      const existingDoc = await searchRef.get();
+
+      const sanitized = sanitizeSavedSearchPayload(req.body);
+      const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+      await searchRef.set(
+        {
+          ...sanitized,
+          updatedAt: timestamp,
+          ...(existingDoc.exists ? {} : {createdAt: timestamp}),
+        },
+        {merge: true},
+      );
+
+      const savedDoc = await searchRef.get();
+      res.json({
+        success: true,
+        savedSearch: formatSavedSearch(savedDoc),
+      });
+    } catch (error: any) {
+      if (error instanceof functions.https.HttpsError) {
+        return res.status(400).json({
+          error: "Bad Request",
+          message: error.message,
+        });
+      }
+
+      logger.error("Error saving saved search", {
+        uid: req.user?.uid,
+        error: error.message,
+      });
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: error.message,
+      });
+    }
+  },
+);
+
+app.delete(
+  "/user/preferences/saved-searches/:searchId",
+  authenticate,
+  async (req, res) => {
+    try {
+      const searchId = sanitizeDocumentId(req.params.searchId, 80);
+      const preferencesRef = db.doc(
+        `users/${req.user.uid}/user_preferences/preferences`,
+      );
+      await preferencesRef.collection("saved_searches").doc(searchId).delete();
+
+      res.json({
+        success: true,
+        message: `Saved search ${searchId} deleted`,
+      });
+    } catch (error: any) {
+      if (error instanceof functions.https.HttpsError) {
+        return res.status(400).json({
+          error: "Bad Request",
+          message: error.message,
+        });
+      }
+
+      logger.error("Error deleting saved search", {
+        uid: req.user?.uid,
+        error: error.message,
+      });
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: error.message,
+      });
+    }
+  },
+);
+
+app.put(
+  "/user/preferences/custom-views/:viewId",
+  authenticate,
+  async (req, res) => {
+    try {
+      const viewId = sanitizeDocumentId(req.params.viewId, 80);
+      const preferencesRef = db.doc(
+        `users/${req.user.uid}/user_preferences/preferences`,
+      );
+      const viewRef = preferencesRef.collection("custom_views").doc(viewId);
+      const existingDoc = await viewRef.get();
+
+      const sanitized = sanitizeCustomViewPayload(req.body);
+      const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+      await viewRef.set(
+        {
+          ...sanitized,
+          updatedAt: timestamp,
+          ...(existingDoc.exists ? {} : {createdAt: timestamp}),
+        },
+        {merge: true},
+      );
+
+      const savedDoc = await viewRef.get();
+      res.json({
+        success: true,
+        customView: formatCustomView(savedDoc),
+      });
+    } catch (error: any) {
+      if (error instanceof functions.https.HttpsError) {
+        return res.status(400).json({
+          error: "Bad Request",
+          message: error.message,
+        });
+      }
+
+      logger.error("Error saving custom view", {
+        uid: req.user?.uid,
+        error: error.message,
+      });
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: error.message,
+      });
+    }
+  },
+);
+
+app.delete(
+  "/user/preferences/custom-views/:viewId",
+  authenticate,
+  async (req, res) => {
+    try {
+      const viewId = sanitizeDocumentId(req.params.viewId, 80);
+      const preferencesRef = db.doc(
+        `users/${req.user.uid}/user_preferences/preferences`,
+      );
+      await preferencesRef.collection("custom_views").doc(viewId).delete();
+
+      res.json({
+        success: true,
+        message: `Custom view ${viewId} deleted`,
+      });
+    } catch (error: any) {
+      if (error instanceof functions.https.HttpsError) {
+        return res.status(400).json({
+          error: "Bad Request",
+          message: error.message,
+        });
+      }
+
+      logger.error("Error deleting custom view", {
+        uid: req.user?.uid,
+        error: error.message,
+      });
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: error.message,
+      });
+    }
+  },
+);
 
 // POST /user/initialize - Initialize user data (first time setup)
 app.post("/user/initialize", authenticate, async (req, res) => {
