@@ -115,3 +115,19 @@ Every parsed update shares a common shape:
 | `brand`          | string?   | Optional brand or variety.                                            |
 
 The mobile client stores edited items with the same schema and forwards them to `/inventory/apply`. Backend validation clamps quantities to non-negative numbers and normalises `expirationDate` to ISO strings before persisting.
+
+## Maintenance Scripts
+
+To keep legacy data aligned with the stricter validation rules, run the helper scripts in `scripts/` against production (or the emulator) as needed:
+
+- `backfill-inventory-metadata.js` — ensures every inventory document has `updatedAt`, regenerated `searchKeywords`, and sane defaults for `unit`, `category`, and `lowStockThreshold`.
+- `backfill-search-keywords.js` — older script that only regenerates the `searchKeywords` field; superseded by the metadata backfill but retained for quick keyword-only runs.
+
+Example:
+
+```bash
+FIREBASE_CREDENTIALS_PATH=/path/to/serviceAccount.json \
+node scripts/backfill-inventory-metadata.js
+```
+
+The script will iterate each user’s inventory collection, batching updates in groups of 400 writes and reporting counts per user.
