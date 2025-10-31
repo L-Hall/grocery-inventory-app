@@ -94,7 +94,7 @@ bought 1.5 kg potatoes
             id: '${item.name}-${item.category}',
             name: item.name,
             quantity: item.quantity,
-            unit: item.unit ?? 'item',
+            unit: item.unit,
             category: item.category ?? 'uncategorized',
           ),
         )

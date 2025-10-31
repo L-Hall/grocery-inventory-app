@@ -116,6 +116,21 @@ Every parsed update shares a common shape:
 
 The mobile client stores edited items with the same schema and forwards them to `/inventory/apply`. Backend validation clamps quantities to non-negative numbers and normalises `expirationDate` to ISO strings before persisting.
 
+## Locations API
+
+- `GET /locations` – returns the user-defined location catalogue used by filters and inventory forms.
+- `PUT /locations/{locationId}` – create/update a location. Payload accepts `name`, `color` (hex), `icon` (Material icon name), `temperature`, and optional `sortOrder`.
+- `DELETE /locations/{locationId}` – remove a stored location definition.
+
+## User Preferences API
+
+- `GET /user/preferences` – bundles settings, saved searches, and custom views into a single payload.
+- `PUT /user/preferences/settings` – updates preference fields (`defaultView`, `searchHistory`, `exportPreferences`, `bulkOperationHistory`).
+- `PUT /user/preferences/saved-searches/{searchId}` – upserts a saved search by ID (payload: `name`, `config`, optional search helpers such as `searchFields`).
+- `DELETE /user/preferences/saved-searches/{searchId}` – removes a saved search.
+- `PUT /user/preferences/custom-views/{viewId}` – upserts a custom inventory view definition.
+- `DELETE /user/preferences/custom-views/{viewId}` – deletes a custom view.
+
 ## Maintenance Scripts
 
 To keep legacy data aligned with the stricter validation rules, run the helper scripts in `scripts/` against production (or the emulator) as needed:

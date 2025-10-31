@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/services/api_service.dart';
 import '../models/user_model.dart';
@@ -40,7 +41,7 @@ class AuthService {
           await apiService.initializeUser();
         } catch (e) {
           // Don't fail sign in if backend initialization fails
-          print('Backend initialization failed: $e');
+          debugPrint('Backend initialization failed: $e');
         }
         
         return userModel;
@@ -76,7 +77,7 @@ class AuthService {
         try {
           await apiService.initializeUser();
         } catch (e) {
-          print('Backend initialization failed: $e');
+          debugPrint('Backend initialization failed: $e');
         }
         
         return userModel;

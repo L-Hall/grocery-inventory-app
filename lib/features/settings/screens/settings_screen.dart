@@ -8,7 +8,7 @@ import '../../inventory/providers/inventory_provider.dart';
 import '../../grocery_list/providers/grocery_list_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  const SettingsScreen({super.key});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -23,6 +23,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _lowStockAlerts = true;
   String _defaultUnit = 'item';
   ThemeMode _themeMode = ThemeMode.system;
+
+  void _showSnackMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showSnack(SnackBar snackBar) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
 
   @override
   void initState() {
@@ -41,15 +53,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     try {
       // Load saved preferences
-      final notifications = await _storageService.getBool('notifications_enabled');
-      final lowStock = await _storageService.getBool('low_stock_alerts');
-      final unit = await _storageService.getString('default_unit');
-      final theme = await _storageService.getString('theme_mode');
+      final notifications = _storageService.getBool(
+        'notifications_enabled',
+        defaultValue: true,
+      );
+      final lowStock = _storageService.getBool(
+        'low_stock_alerts',
+        defaultValue: true,
+      );
+      final unit = _storageService.getString('default_unit');
+      final theme = _storageService.getString('theme_mode');
       
       if (mounted) {
         setState(() {
-          _notificationsEnabled = notifications ?? true;
-          _lowStockAlerts = lowStock ?? true;
+          _notificationsEnabled = notifications;
+          _lowStockAlerts = lowStock;
           _defaultUnit = unit ?? 'item';
           _themeMode = _parseThemeMode(theme);
         });
@@ -76,8 +94,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -131,7 +147,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                 child: Text(
                   _getUserInitials(user?.displayName ?? user?.email ?? ''),
                   style: TextStyle(
@@ -203,11 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _defaultUnit = unit;
               });
               await _storageService.setString('default_unit', unit);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Default unit changed to $unit')),
-                );
-              }
+              _showSnackMessage('Default unit changed to $unit');
             },
           ),
         ),
@@ -222,11 +234,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _lowStockAlerts = value;
               });
               await _storageService.setBool('low_stock_alerts', value);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Low stock alerts ${value ? 'enabled' : 'disabled'}')),
-                );
-              }
+              _showSnackMessage(
+                'Low stock alerts ${value ? 'enabled' : 'disabled'}',
+              );
             },
           ),
         ),
@@ -307,11 +317,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _themeMode = themeMode;
               });
               await _storageService.setString('theme_mode', themeMode.name);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Theme changed to ${_getThemeModeName(themeMode)}')),
-                );
-              }
+              _showSnackMessage('Theme changed to ${_getThemeModeName(themeMode)}');
             },
           ),
         ),
@@ -326,11 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _notificationsEnabled = value;
               });
               await _storageService.setBool('notifications_enabled', value);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Notifications ${value ? 'enabled' : 'disabled'}')),
-                );
-              }
+              _showSnackMessage('Notifications ${value ? 'enabled' : 'disabled'}');
             },
           ),
         ),
@@ -340,9 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle: const Text('English'),
           trailing: const Icon(Icons.arrow_forward_ios),
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Language settings coming soon')),
-            );
+            _showSnack(const SnackBar(content: Text('Language settings coming soon')));
           },
         ),
       ],
@@ -498,7 +498,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Profile'),
         content: TextField(
           controller: nameController,
@@ -509,7 +509,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -518,10 +518,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (newName.isNotEmpty) {
                 final success = await authProvider.updateProfile(name: newName);
                 
-                if (context.mounted) {
-                  Navigator.of(context).pop();
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
                   
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  _showSnack(
                     SnackBar(
                       content: Text(
                         success 
@@ -552,7 +552,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ]);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showSnack(
           const SnackBar(
             content: Text('Data synced successfully'),
             backgroundColor: Colors.green,
@@ -561,7 +561,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showSnack(
           const SnackBar(
             content: Text('Failed to sync data'),
             backgroundColor: Colors.red,
@@ -572,9 +572,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _exportData() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export feature coming soon')),
-    );
+    _showSnack(const SnackBar(content: Text('Export feature coming soon')));
   }
 
   void _showClearDataConfirmation() {
@@ -607,9 +605,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _clearAllData() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Clear data feature coming soon')),
-    );
+    _showSnack(const SnackBar(content: Text('Clear data feature coming soon')));
   }
 
   void _showHelpDialog() {
@@ -647,37 +643,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _reportBug() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Bug reporting feature coming soon')),
-    );
+    _showSnack(const SnackBar(content: Text('Bug reporting feature coming soon')));
   }
 
   void _rateApp() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('App rating feature coming soon')),
-    );
+    _showSnack(const SnackBar(content: Text('App rating feature coming soon')));
   }
 
   void _showSignOutConfirmation() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Sign Out'),
         content: const Text('Are you sure you want to sign out?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.of(context).pop();
-              
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final navigator = Navigator.of(dialogContext);
+              final messenger = ScaffoldMessenger.of(dialogContext);
+              final authProvider = Provider.of<AuthProvider>(dialogContext, listen: false);
+
+              navigator.pop();
               await authProvider.signOut();
               
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+              if (dialogContext.mounted) {
+                messenger.showSnackBar(
                   const SnackBar(
                     content: Text('Signed out successfully'),
                     backgroundColor: Colors.green,

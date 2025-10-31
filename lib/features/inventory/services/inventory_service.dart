@@ -1,10 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../../core/di/service_locator.dart';
 import '../models/inventory_item.dart';
 import '../../auth/services/auth_service.dart';
 
 class InventoryService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AuthService _authService = AuthService();
+  final FirebaseFirestore _firestore;
+  final AuthService _authService;
+
+  InventoryService({
+    FirebaseFirestore? firestore,
+    AuthService? authService,
+  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+        _authService = authService ?? getIt<AuthService>();
 
   CollectionReference<Map<String, dynamic>> get _inventoryCollection {
     final userId = _authService.currentUser?.uid;

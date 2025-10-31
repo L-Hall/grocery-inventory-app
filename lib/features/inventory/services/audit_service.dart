@@ -1,4 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+
+import '../../../core/di/service_locator.dart';
 import '../../auth/services/auth_service.dart';
 
 enum AuditAction {
@@ -98,11 +101,14 @@ class AuditLog {
 }
 
 class AuditService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AuthService _authService = AuthService();
-  
-  static const int _maxLogsPerItem = 100;
-  static const int _maxGlobalLogs = 1000;
+  final FirebaseFirestore _firestore;
+  final AuthService _authService;
+
+  AuditService({
+    FirebaseFirestore? firestore,
+    AuthService? authService,
+  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+        _authService = authService ?? getIt<AuthService>();
 
   CollectionReference<Map<String, dynamic>> get _auditCollection {
     final userId = _authService.currentUser?.uid;
@@ -144,7 +150,7 @@ class AuditService {
       
       await _cleanupOldLogs();
     } catch (e) {
-      print('Failed to log audit: $e');
+      debugPrint('Failed to log audit: $e');
     }
   }
 
@@ -182,7 +188,7 @@ class AuditService {
       
       await _cleanupOldLogs();
     } catch (e) {
-      print('Failed to log bulk audit: $e');
+      debugPrint('Failed to log bulk audit: $e');
     }
   }
 
@@ -369,7 +375,7 @@ class AuditService {
         await batch.commit();
       }
     } catch (e) {
-      print('Failed to cleanup old logs: $e');
+      debugPrint('Failed to cleanup old logs: $e');
     }
   }
 

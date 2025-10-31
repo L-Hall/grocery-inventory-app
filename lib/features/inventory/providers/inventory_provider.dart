@@ -414,16 +414,20 @@ class InventoryProvider with ChangeNotifier {
       if (!a.isExpired && b.isExpired) return 1;
 
       // Out of stock items second
-      if (a.stockStatus == StockStatus.out && b.stockStatus != StockStatus.out)
+      if (a.stockStatus == StockStatus.out && b.stockStatus != StockStatus.out) {
         return -1;
-      if (a.stockStatus != StockStatus.out && b.stockStatus == StockStatus.out)
+      }
+      if (a.stockStatus != StockStatus.out && b.stockStatus == StockStatus.out) {
         return 1;
+      }
 
       // Low stock items third
-      if (a.stockStatus == StockStatus.low && b.stockStatus != StockStatus.low)
+      if (a.stockStatus == StockStatus.low && b.stockStatus != StockStatus.low) {
         return -1;
-      if (a.stockStatus != StockStatus.low && b.stockStatus == StockStatus.low)
+      }
+      if (a.stockStatus != StockStatus.low && b.stockStatus == StockStatus.low) {
         return 1;
+      }
 
       // Expiring soon items last
       if (a.isExpiringSoon && !b.isExpiringSoon) return -1;

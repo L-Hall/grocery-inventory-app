@@ -3,13 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../providers/inventory_provider.dart';
 import '../models/inventory_item.dart';
-import '../models/category.dart';
 import '../widgets/inventory_item_editor.dart';
 import '../widgets/inventory_item_details.dart';
 import '../widgets/inventory_table.dart';
 
 class InventoryScreen extends StatefulWidget {
-  const InventoryScreen({Key? key}) : super(key: key);
+  const InventoryScreen({super.key});
 
   @override
   State<InventoryScreen> createState() => _InventoryScreenState();
@@ -50,8 +49,6 @@ class _InventoryScreenState extends State<InventoryScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
@@ -252,7 +249,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               ),
               onChanged: inventoryProvider.setSearchQuery,
             ),
@@ -370,7 +367,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -570,9 +567,9 @@ class _FilterChipButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.4)),
+          border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.4)),
           borderRadius: BorderRadius.circular(20),
-          color: isActive ? theme.colorScheme.primary.withOpacity(0.1) : null,
+          color: isActive ? theme.colorScheme.primary.withValues(alpha: 0.1) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

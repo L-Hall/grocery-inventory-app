@@ -65,6 +65,7 @@ dependencies:
   permission_handler: ^11.2.0
   speech_to_text: ^6.4.0
   meta: ^1.16.0
+  csv: ^5.0.2
 
 dev_dependencies:
   flutter_test:

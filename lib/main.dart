@@ -9,7 +9,6 @@ import 'features/auth/screens/auth_wrapper.dart';
 import 'features/grocery_list/providers/grocery_list_provider.dart';
 import 'features/inventory/providers/inventory_provider.dart';
 import 'features/inventory/screens/inventory_screen.dart';
-import 'features/grocery_list/providers/grocery_list_provider.dart';
 import 'features/grocery_list/screens/text_input_screen.dart';
 import 'preview/preview_inventory_repository.dart';
 import 'preview/preview_grocery_list_repository.dart';
@@ -34,14 +33,14 @@ Future<void> main() async {
   runApp(const GroceryInventoryApp());
 }
 
-Future<_PreviewDependencies> _buildPreviewDependencies() async {
+Future<PreviewDependencies> _buildPreviewDependencies() async {
   final inventoryProvider = InventoryProvider(PreviewInventoryRepository());
   await inventoryProvider.initialize();
 
   final groceryProvider =
       GroceryListProvider(PreviewGroceryListRepository());
 
-  return _PreviewDependencies(
+  return PreviewDependencies(
     inventoryProvider: inventoryProvider,
     groceryListProvider: groceryProvider,
   );
@@ -76,7 +75,7 @@ class GroceryInventoryApp extends StatelessWidget {
 class InventoryPreviewApp extends StatelessWidget {
   const InventoryPreviewApp({required this.dependencies, super.key});
 
-  final _PreviewDependencies dependencies;
+  final PreviewDependencies dependencies;
 
   @override
   Widget build(BuildContext context) {
@@ -229,8 +228,8 @@ class _PreviewSettingChip extends StatelessWidget {
   }
 }
 
-class _PreviewDependencies {
-  _PreviewDependencies({
+class PreviewDependencies {
+  PreviewDependencies({
     required this.inventoryProvider,
     required this.groceryListProvider,
   });

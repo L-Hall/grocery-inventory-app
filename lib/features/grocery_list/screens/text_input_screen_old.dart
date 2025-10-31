@@ -7,7 +7,7 @@ import 'review_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 
 class TextInputScreen extends StatefulWidget {
-  const TextInputScreen({Key? key}) : super(key: key);
+  const TextInputScreen({super.key});
 
   @override
   State<TextInputScreen> createState() => _TextInputScreenState();
@@ -124,7 +124,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Examples:\n• bought 2 gallons milk and 3 loaves bread\n• used 4 eggs for cooking\n• have 5 apples left in fridge\n• finished the orange juice',
                                 hintStyle: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                                   height: 1.5,
                                 ),
                                 border: InputBorder.none,
@@ -141,7 +141,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                               borderRadius: const BorderRadius.only(
                                 bottomLeft: Radius.circular(12),
                                 bottomRight: Radius.circular(12),
@@ -302,7 +302,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: theme.primaryColor.withOpacity(0.05),
+            color: theme.primaryColor.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -335,7 +335,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                     ),
                   ],
                 ),
-              )).toList(),
+              )),
             ],
           ),
         );

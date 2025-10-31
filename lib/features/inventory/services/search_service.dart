@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../core/di/service_locator.dart';
+import '../../../core/services/api_service.dart';
 import '../models/inventory_item.dart';
 import '../models/view_config.dart';
 import 'inventory_service.dart';
@@ -30,14 +35,22 @@ class SearchConfig {
 
   factory SearchConfig.fromJson(Map<String, dynamic> json) {
     return SearchConfig(
-      query: json['query'],
-      searchFields: List<String>.from(json['searchFields']),
-      fuzzyMatch: json['fuzzyMatch'],
-      filters: (json['filters'] as List)
-          .map((f) => FilterRule.fromJson(f))
-          .toList(),
+      query: (json['query'] ?? '').toString(),
+      searchFields: (json['searchFields'] as List?)
+              ?.map((field) => field.toString())
+              .toList() ??
+          const ['name', 'category', 'notes', 'location'],
+      fuzzyMatch: json['fuzzyMatch'] is bool ? json['fuzzyMatch'] as bool : true,
+      filters: (json['filters'] as List?)
+              ?.map((f) => FilterRule.fromJson(
+                    Map<String, dynamic>.from(f as Map),
+                  ))
+              .toList() ??
+          const [],
       sortConfig: json['sortConfig'] != null
-          ? SortConfig.fromJson(json['sortConfig'])
+          ? SortConfig.fromJson(
+              Map<String, dynamic>.from(json['sortConfig'] as Map),
+            )
           : null,
     );
   }
@@ -49,6 +62,7 @@ class SavedSearch {
   final SearchConfig config;
   final DateTime createdAt;
   final int useCount;
+  final DateTime? updatedAt;
 
   SavedSearch({
     required this.id,
@@ -56,6 +70,7 @@ class SavedSearch {
     required this.config,
     required this.createdAt,
     this.useCount = 0,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toJson() {
@@ -65,22 +80,54 @@ class SavedSearch {
       'config': config.toJson(),
       'createdAt': createdAt.toIso8601String(),
       'useCount': useCount,
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
   factory SavedSearch.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value) {
+      if (value is DateTime) return value;
+      if (value is String && value.isNotEmpty) {
+        return DateTime.tryParse(value) ?? DateTime.now();
+      }
+      return DateTime.now();
+    }
+
+    Map<String, dynamic> parseConfig(dynamic raw) {
+      if (raw is Map<String, dynamic>) return raw;
+      if (raw is Map) {
+        return raw.map((key, value) => MapEntry(key.toString(), value));
+      }
+      if (raw is String && raw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is Map) {
+            return decoded.map((key, value) => MapEntry(key.toString(), value));
+          }
+        } catch (_) {}
+      }
+      return {};
+    }
+
+    final configMap = parseConfig(json['config']);
+
     return SavedSearch(
-      id: json['id'],
-      name: json['name'],
-      config: SearchConfig.fromJson(json['config']),
-      createdAt: DateTime.parse(json['createdAt']),
-      useCount: json['useCount'] ?? 0,
+      id: ((json['id'] ?? json['name'] ?? DateTime.now().millisecondsSinceEpoch)
+              .toString()),
+      name: (json['name'] ?? '').toString(),
+      config: SearchConfig.fromJson(configMap),
+      createdAt: parseDate(json['createdAt']),
+      useCount: (json['useCount'] as num?)?.toInt() ?? 0,
+      updatedAt: json.containsKey('updatedAt')
+          ? parseDate(json['updatedAt'])
+          : null,
     );
   }
 }
 
 class SearchService {
   final InventoryService _inventoryService = InventoryService();
+  final ApiService _apiService = getIt<ApiService>();
   static const String _searchHistoryKey = 'search_history';
   static const String _savedSearchesKey = 'saved_searches';
   static const int _maxHistoryItems = 20;
@@ -275,73 +322,96 @@ class SearchService {
   }
 
   Future<List<SavedSearch>> getSavedSearches() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonList = prefs.getStringList(_savedSearchesKey) ?? [];
-    
-    return jsonList.map((json) {
-      final map = Map<String, dynamic>.from(
-        Uri.parse(json).queryParameters,
-      );
-      return SavedSearch.fromJson(map);
-    }).toList();
+    try {
+      final response = await _apiService.getUserPreferences();
+      final saved = (response['savedSearches'] as List?) ?? const [];
+      return saved
+          .map((entry) => SavedSearch.fromJson(
+                Map<String, dynamic>.from(entry as Map),
+              ))
+          .toList();
+    } on ApiException {
+      return _loadSavedSearchesLocal();
+    } catch (_) {
+      return _loadSavedSearchesLocal();
+    }
   }
 
-  Future<void> saveSearch(String name, SearchConfig config) async {
-    final prefs = await SharedPreferences.getInstance();
-    final searches = await getSavedSearches();
-    
+  Future<SavedSearch> saveSearch(String name, SearchConfig config,
+      {String? id}) async {
+    final searchId = id?.isNotEmpty ?? false
+        ? id!
+        : _generateSearchId(name);
+
+    try {
+      final response = await _apiService.upsertSavedSearch(
+        searchId: searchId,
+        payload: {
+          'name': name,
+          'config': config.toJson(),
+        },
+      );
+
+      final saved = response['savedSearch'];
+      if (saved is Map<String, dynamic>) {
+        return SavedSearch.fromJson(saved);
+      }
+    } on ApiException {
+      // Fall back to local persistence below.
+    } catch (_) {
+      // Ignore and use local persistence.
+    }
+
     final newSearch = SavedSearch(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: searchId,
       name: name,
       config: config,
       createdAt: DateTime.now(),
     );
-    
+
+    final searches = await _loadSavedSearchesLocal();
+    searches.removeWhere((s) => s.id == searchId);
     searches.add(newSearch);
-    
+
     if (searches.length > _maxSavedSearches) {
       searches.sort((a, b) => b.useCount.compareTo(a.useCount));
       searches.removeLast();
     }
-    
-    final jsonList = searches.map((s) => 
-      Uri(queryParameters: s.toJson()).toString()
-    ).toList();
-    
-    await prefs.setStringList(_savedSearchesKey, jsonList);
+
+    await _persistSavedSearchesLocal(searches);
+    return newSearch;
   }
 
   Future<void> deleteSavedSearch(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final searches = await getSavedSearches();
-    searches.removeWhere((s) => s.id == id);
-    
-    final jsonList = searches.map((s) => 
-      Uri(queryParameters: s.toJson()).toString()
-    ).toList();
-    
-    await prefs.setStringList(_savedSearchesKey, jsonList);
+    try {
+      await _apiService.deleteSavedSearch(id);
+    } on ApiException {
+      await _deleteSavedSearchLocal(id);
+    } catch (_) {
+      await _deleteSavedSearchLocal(id);
+    }
   }
 
   Future<void> incrementSavedSearchUseCount(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final searches = await getSavedSearches();
-    
-    final index = searches.indexWhere((s) => s.id == id);
-    if (index != -1) {
-      searches[index] = SavedSearch(
-        id: searches[index].id,
-        name: searches[index].name,
-        config: searches[index].config,
-        createdAt: searches[index].createdAt,
-        useCount: searches[index].useCount + 1,
+    try {
+      final searches = await getSavedSearches();
+      final existing = searches.firstWhere(
+        (s) => s.id == id,
+        orElse: () => throw StateError('missing'),
       );
-      
-      final jsonList = searches.map((s) => 
-        Uri(queryParameters: s.toJson()).toString()
-      ).toList();
-      
-      await prefs.setStringList(_savedSearchesKey, jsonList);
+      await _apiService.upsertSavedSearch(
+        searchId: id,
+        payload: {
+          'name': existing.name,
+          'config': existing.config.toJson(),
+        },
+      );
+    } on StateError {
+      await _incrementSavedSearchUseCountLocal(id);
+    } on ApiException {
+      await _incrementSavedSearchUseCountLocal(id);
+    } catch (_) {
+      await _incrementSavedSearchUseCountLocal(id);
     }
   }
 
@@ -372,5 +442,59 @@ class SearchService {
     }
     
     return suggestions.toList()..sort();
+  }
+
+  Future<List<SavedSearch>> _loadSavedSearchesLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_savedSearchesKey) ?? [];
+    return raw.map((item) {
+      try {
+        final map = jsonDecode(item);
+        if (map is Map<String, dynamic>) {
+          return SavedSearch.fromJson(map);
+        }
+      } catch (_) {}
+      return null;
+    }).whereType<SavedSearch>().toList();
+  }
+
+  Future<void> _persistSavedSearchesLocal(List<SavedSearch> searches) async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = searches.map((s) => jsonEncode(s.toJson())).toList();
+    await prefs.setStringList(_savedSearchesKey, payload);
+  }
+
+  Future<void> _deleteSavedSearchLocal(String id) async {
+    final searches = await _loadSavedSearchesLocal();
+    searches.removeWhere((s) => s.id == id);
+    await _persistSavedSearchesLocal(searches);
+  }
+
+  Future<void> _incrementSavedSearchUseCountLocal(String id) async {
+    final searches = await _loadSavedSearchesLocal();
+    final index = searches.indexWhere((s) => s.id == id);
+    if (index == -1) {
+      await _persistSavedSearchesLocal(searches);
+      return;
+    }
+
+    final updated = List<SavedSearch>.from(searches);
+    final search = updated[index];
+    updated[index] = SavedSearch(
+      id: search.id,
+      name: search.name,
+      config: search.config,
+      createdAt: search.createdAt,
+      useCount: search.useCount + 1,
+      updatedAt: DateTime.now(),
+    );
+
+    await _persistSavedSearchesLocal(updated);
+  }
+
+  String _generateSearchId(String name) {
+    final base = name.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    final cleaned = base.isEmpty ? 'search' : base;
+    return '$cleaned-${DateTime.now().millisecondsSinceEpoch}';
   }
 }
