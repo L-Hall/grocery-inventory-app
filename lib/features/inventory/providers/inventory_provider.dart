@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/inventory_item.dart';
 import '../models/category.dart' as cat;
+import '../models/location_config.dart';
 import '../repositories/inventory_repository.dart';
 
 class InventoryProvider with ChangeNotifier {
@@ -9,6 +10,7 @@ class InventoryProvider with ChangeNotifier {
 
   List<InventoryItem> _items = [];
   List<cat.Category> _categories = [];
+  List<LocationOption> _locations = DefaultLocations.locations;
   InventoryStats? _stats;
   bool _isLoading = false;
   String? _error;
@@ -23,6 +25,7 @@ class InventoryProvider with ChangeNotifier {
   List<InventoryItem> get items => _filteredItems();
   List<InventoryItem> get allItems => _items;
   List<cat.Category> get categories => _categories;
+  List<LocationOption> get locations => _locations;
   InventoryStats? get stats => _stats;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -79,7 +82,12 @@ class InventoryProvider with ChangeNotifier {
 
   // Load all data
   Future<void> initialize() async {
-    await Future.wait([loadInventory(), loadCategories(), loadStats()]);
+    await Future.wait([
+      loadInventory(),
+      loadCategories(),
+      loadLocations(),
+      loadStats(),
+    ]);
   }
 
   // Load inventory items
@@ -109,6 +117,17 @@ class InventoryProvider with ChangeNotifier {
     } catch (e) {
       // Use default categories if loading fails
       _categories = cat.DefaultCategories.defaultCategories;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadLocations() async {
+    try {
+      final remoteLocations = await _repository.getLocations();
+      _locations = remoteLocations;
+      notifyListeners();
+    } catch (e) {
+      _locations = DefaultLocations.locations;
       notifyListeners();
     }
   }

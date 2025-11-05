@@ -2,6 +2,7 @@ import 'package:meta/meta.dart';
 
 import '../../../core/services/api_service.dart';
 import '../models/inventory_item.dart';
+import '../models/location_config.dart';
 import '../models/category.dart' as inventory;
 
 class InventoryRepository {
@@ -108,6 +109,22 @@ class InventoryRepository {
       // Fallback to default categories if API fails
       return inventory.DefaultCategories.defaultCategories;
     }
+  }
+
+  Future<List<LocationOption>> getLocations() async {
+    try {
+      final response = await api.getLocations();
+      final locations = response
+          .whereType<Map<String, dynamic>>()
+          .map(LocationOption.fromJson)
+          .toList();
+
+      if (locations.isNotEmpty) return locations;
+    } catch (_) {
+      // fall through to defaults
+    }
+
+    return DefaultLocations.locations;
   }
 
   // Search inventory items

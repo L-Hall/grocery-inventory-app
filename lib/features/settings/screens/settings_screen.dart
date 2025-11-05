@@ -1,10 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/di/service_locator.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../inventory/models/view_config.dart';
 import '../../inventory/providers/inventory_provider.dart';
+import '../../inventory/services/search_service.dart';
 import '../../grocery_list/providers/grocery_list_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,6 +20,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late final StorageService _storageService;
+  late final ApiService _apiService;
   bool _isLoading = false;
   
   // Preference states
@@ -23,6 +28,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _lowStockAlerts = true;
   String _defaultUnit = 'item';
   ThemeMode _themeMode = ThemeMode.system;
+  List<SavedSearch> _savedSearches = const [];
+  List<InventoryView> _customViews = const [];
 
   void _showSnackMessage(String message) {
     if (!mounted) return;
@@ -40,6 +47,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _storageService = getIt<StorageService>();
+    _apiService = getIt<ApiService>();
     _loadSettings();
   }
 
@@ -79,8 +87,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _isLoading = false);
       }
     }
+
+    await _loadRemotePreferences();
   }
-  
+
   ThemeMode _parseThemeMode(String? mode) {
     switch (mode) {
       case 'light':
@@ -89,6 +99,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return ThemeMode.dark;
       default:
         return ThemeMode.system;
+    }
+  }
+
+  Future<void> _loadRemotePreferences() async {
+    try {
+      final response = await _apiService.getUserPreferences();
+      final settings = response['settings'];
+      final savedSearches = response['savedSearches'];
+      final customViews = response['customViews'];
+
+      if (settings is Map<String, dynamic>) {
+        final remoteDefaultUnit = settings['defaultUnit'] as String?;
+        final remoteNotifications = settings['notificationsEnabled'] as bool?;
+        final remoteLowStock = settings['lowStockAlerts'] as bool?;
+
+        if (mounted) {
+          setState(() {
+            if (remoteDefaultUnit != null && remoteDefaultUnit.isNotEmpty) {
+              _defaultUnit = remoteDefaultUnit;
+            }
+            if (remoteNotifications != null) {
+              _notificationsEnabled = remoteNotifications;
+            }
+            if (remoteLowStock != null) {
+              _lowStockAlerts = remoteLowStock;
+            }
+          });
+        }
+      }
+
+      final parsedSearches = <SavedSearch>[];
+      if (savedSearches is List) {
+        for (final entry in savedSearches.whereType<Map<String, dynamic>>()) {
+          parsedSearches.add(SavedSearch.fromJson(entry));
+        }
+      }
+
+      final parsedViews = <InventoryView>[];
+      if (customViews is List) {
+        for (final entry in customViews.whereType<Map<String, dynamic>>()) {
+          parsedViews.add(InventoryView.fromJson(entry));
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _savedSearches = parsedSearches;
+          _customViews = parsedViews;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Failed to load remote preferences: $e');
+      }
     }
   }
 
@@ -116,8 +180,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildInventoryPreferencesSection(context),
                   
                   const SizedBox(height: 24),
-                  
+                  if (_savedSearches.isNotEmpty) ...[
+                    _buildSavedSearchesSection(context),
+                    const SizedBox(height: 24),
+                  ],
+                  if (_customViews.isNotEmpty) ...[
+                    _buildCustomViewsSection(context),
+                    const SizedBox(height: 24),
+                  ],
+
                   // Data management section
+                  
                   _buildDataManagementSection(context),
                   
                   const SizedBox(height: 24),
@@ -272,6 +345,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSavedSearchesSection(BuildContext context) {
+    if (_savedSearches.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return _buildSection(
+      context,
+      title: 'Saved Searches',
+      icon: Icons.search,
+      children: _savedSearches
+          .map(
+            (search) => ListTile(
+              leading: const Icon(Icons.bookmark_outline),
+              title: Text(search.name),
+              subtitle: Text(
+                search.config.query.isEmpty
+                    ? 'No query specified'
+                    : 'Query: ${search.config.query}',
+              ),
+              trailing: search.useCount > 0
+                  ? Text('${search.useCount} uses')
+                  : null,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildCustomViewsSection(BuildContext context) {
+    if (_customViews.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return _buildSection(
+      context,
+      title: 'Custom Inventory Views',
+      icon: Icons.dashboard_customize_outlined,
+      children: _customViews
+          .map(
+            (view) => ListTile(
+              leading: Icon(view.icon, color: Theme.of(context).primaryColor),
+              title: Text(view.name),
+              subtitle: Text('Type: ${view.type.name}'),
+              trailing: view.isDefault
+                  ? const Icon(Icons.star, color: Colors.amber)
+                  : null,
+            ),
+          )
+          .toList(),
     );
   }
 

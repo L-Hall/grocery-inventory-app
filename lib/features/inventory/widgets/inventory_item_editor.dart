@@ -238,6 +238,27 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
                   border: OutlineInputBorder(),
                 ),
               ),
+              if (inventoryProvider.locations.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: inventoryProvider.locations
+                        .take(8)
+                        .map(
+                          (option) => ActionChip(
+                            label: Text(option.name),
+                            onPressed: () {
+                              _locationController.text = option.name;
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               TextFormField(
                 controller: _lowStockController,

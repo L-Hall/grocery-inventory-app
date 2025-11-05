@@ -16,10 +16,14 @@ void main() {
     'Preview navigation shell renders with Add items tab',
     (tester) async {
       final inventoryProvider = InventoryProvider(PreviewInventoryRepository());
-      await inventoryProvider.initialize();
       final groceryProvider = GroceryListProvider(
         PreviewGroceryListRepository(),
       );
+
+      addTearDown(() {
+        inventoryProvider.dispose();
+        groceryProvider.dispose();
+      });
 
       await tester.pumpWidget(
         MultiProvider(
@@ -39,7 +43,8 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.text('Add items'), findsOneWidget);
       expect(find.byIcon(Icons.mic_none_outlined), findsOneWidget);
