@@ -47,7 +47,6 @@ dependencies:
 
   # UI components and utilities
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.1.0
   flutter_spinkit: ^5.2.0
   cached_network_image: ^3.3.1
 
