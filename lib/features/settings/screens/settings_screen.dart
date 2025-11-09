@@ -10,6 +10,7 @@ import '../../inventory/models/view_config.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../../inventory/services/search_service.dart';
 import '../../grocery_list/providers/grocery_list_provider.dart';
+import 'user_management_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -235,6 +236,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: _showEditProfileDialog,
                 child: const Text('Edit'),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings_outlined),
+              title: const Text('Account & subscriptions'),
+              subtitle: const Text('Manage sync, billing, and account deletion'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _openUserManagement,
             ),
           ],
         );
@@ -773,6 +781,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _rateApp() {
     _showSnack(const SnackBar(content: Text('App rating feature coming soon')));
+  }
+
+  void _openUserManagement() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const UserManagementScreen(),
+      ),
+    );
   }
 
   void _showSignOutConfirmation() {

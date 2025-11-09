@@ -10,12 +10,14 @@ import 'features/grocery_list/providers/grocery_list_provider.dart';
 import 'features/inventory/providers/inventory_provider.dart';
 import 'features/inventory/screens/inventory_screen.dart';
 import 'features/grocery_list/screens/text_input_screen.dart';
+import 'features/onboarding/providers/onboarding_provider.dart';
+import 'firebase_options.dart';
 import 'preview/preview_inventory_repository.dart';
 import 'preview/preview_grocery_list_repository.dart';
 
 const bool kUsePreviewMode = bool.fromEnvironment(
   'USE_PREVIEW_MODE',
-  defaultValue: true,
+  defaultValue: false,
 );
 
 Future<void> main() async {
@@ -27,7 +29,7 @@ Future<void> main() async {
     return;
   }
 
-  await Firebase.initializeApp();
+  await _initializeFirebase();
   await setupServiceLocator();
 
   runApp(const GroceryInventoryApp());
@@ -53,6 +55,7 @@ class GroceryInventoryApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => getIt<OnboardingProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<auth.AuthProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<InventoryProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<GroceryListProvider>()),
@@ -96,6 +99,21 @@ class InventoryPreviewApp extends StatelessWidget {
         home: const PreviewNavigationShell(),
       ),
     );
+  }
+}
+
+Future<void> _initializeFirebase() async {
+  FirebaseOptions? options;
+  try {
+    options = DefaultFirebaseOptions.currentPlatform;
+  } on UnsupportedError {
+    options = null;
+  }
+
+  if (options != null) {
+    await Firebase.initializeApp(options: options);
+  } else {
+    await Firebase.initializeApp();
   }
 }
 

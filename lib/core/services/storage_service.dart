@@ -67,4 +67,5 @@ class StorageService {
   static const String keyLowStockThreshold = 'low_stock_threshold';
   static const String keyNotificationsEnabled = 'notifications_enabled';
   static const String keyFirstLaunch = 'first_launch';
+  static const String keyOnboardingComplete = 'onboarding_complete';
 }

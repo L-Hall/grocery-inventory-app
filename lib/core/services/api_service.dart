@@ -425,6 +425,64 @@ class ApiService {
     }
   }
 
+  // Subscription endpoints
+  Future<Map<String, dynamic>> getSubscriptionDetails() async {
+    try {
+      final response = await _dio.get('/billing/subscription');
+
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      } else {
+        throw ApiException('Failed to fetch subscription', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createSubscriptionPortalSession() async {
+    try {
+      final response = await _dio.post('/billing/subscription/portal');
+
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      } else {
+        throw ApiException('Failed to create portal session', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSubscriptionPlan(String planId) async {
+    try {
+      final response = await _dio.post(
+        '/billing/subscription/change-plan',
+        data: {'planId': planId},
+      );
+
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      } else {
+        throw ApiException('Failed to update plan', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<void> cancelSubscription() async {
+    try {
+      final response = await _dio.post('/billing/subscription/cancel');
+
+      if (response.statusCode != 200) {
+        throw ApiException('Failed to cancel subscription', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
   ApiException _handleDioException(DioException e) {
     String message = 'Unknown error occurred';
     int? statusCode = e.response?.statusCode;
