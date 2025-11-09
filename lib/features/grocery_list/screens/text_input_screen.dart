@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -30,7 +31,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   
   // Input mode state
   InputMode _inputMode = InputMode.text;
-  File? _selectedFile;
+  Uint8List? _selectedFileBytes;
   String? _selectedFileName;
   String? _imageBase64;
   bool _showTips = false;
@@ -408,7 +409,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildImageInput(ThemeData theme) {
-    if (_selectedFile != null) {
+    if (_selectedFileBytes != null || (_selectedFileName != null && _selectedFileName!.toLowerCase().endsWith('.pdf'))) {
       return _buildImagePreview(theme);
     }
     
@@ -464,8 +465,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildImagePreview(ThemeData theme) {
-    final filePath = _selectedFile!.path.toLowerCase();
-    final isPdf = filePath.endsWith('.pdf');
+    final isPdf = (_selectedFileName ?? '').toLowerCase().endsWith('.pdf');
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
@@ -483,9 +483,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (!isPdf)
-                    Image.file(
-                      _selectedFile!,
+                  if (!isPdf && _selectedFileBytes != null)
+                    Image.memory(
+                      _selectedFileBytes!,
                       fit: BoxFit.contain,
                     )
                   else
@@ -891,18 +891,26 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Future<void> _pickImageFromCamera() async {
-    final status = await Permission.camera.request();
-    if (status.isGranted) {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-      );
-      
-      if (image != null) {
-        await _processImage(File(image.path));
+    if (!kIsWeb) {
+      final status = await Permission.camera.request();
+      if (!status.isGranted) {
+        _showPermissionDeniedDialog('Camera');
+        return;
       }
-    } else {
-      _showPermissionDeniedDialog('Camera');
+    }
+
+    final XFile? image = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 85,
+    );
+
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      final fileName = _resolveFileName(path: image.path, name: image.name);
+      await _processPickedFile(
+        bytes: bytes,
+        fileName: fileName,
+      );
     }
   }
 
@@ -911,9 +919,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
       source: ImageSource.gallery,
       imageQuality: 85,
     );
-    
+
     if (image != null) {
-      await _processImage(File(image.path));
+      final bytes = await image.readAsBytes();
+      final fileName = _resolveFileName(path: image.path, name: image.name);
+      await _processPickedFile(
+        bytes: bytes,
+        fileName: fileName,
+      );
     }
   }
 
@@ -921,20 +934,44 @@ class _TextInputScreenState extends State<TextInputScreen> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      withData: true,
     );
 
-    if (result != null && result.files.single.path != null) {
-      await _processImage(File(result.files.single.path!));
+    if (result == null) return;
+
+    final file = result.files.single;
+    Uint8List? bytes = file.bytes;
+
+    if (bytes == null) {
+      if (!kIsWeb && file.path != null && file.path!.isNotEmpty) {
+        final xFile = XFile(file.path!);
+        bytes = await xFile.readAsBytes();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Unable to read selected file. Please try again.'),
+            ),
+          );
+        }
+        return;
+      }
     }
+
+    await _processPickedFile(
+      bytes: bytes,
+      fileName: _resolveFileName(path: file.path, name: file.name),
+    );
   }
 
-  Future<void> _processImage(File image) async {
-    final bytes = await image.readAsBytes();
+  Future<void> _processPickedFile({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
     final base64String = base64Encode(bytes);
-    final fileName = image.path.split(Platform.pathSeparator).last;
-    
+
     setState(() {
-      _selectedFile = image;
+      _selectedFileBytes = bytes;
       _selectedFileName = fileName;
       _imageBase64 = base64String;
     });
@@ -942,7 +979,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
   void _clearImage() {
     setState(() {
-      _selectedFile = null;
+      _selectedFileBytes = null;
       _selectedFileName = null;
       _imageBase64 = null;
     });
@@ -950,12 +987,19 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
   bool _canProcess(GroceryListProvider groceryProvider) {
     if (groceryProvider.isParsing) return false;
-    
+
     if (_inputMode == InputMode.text) {
       return _textController.text.trim().isNotEmpty;
     } else {
-      return _selectedFile != null && _imageBase64 != null;
+      return _imageBase64 != null;
     }
+  }
+
+  String _resolveFileName({String? path, String? name}) {
+    if (name != null && name.isNotEmpty) return name;
+    if (path == null || path.isEmpty) return 'receipt.png';
+    final segments = path.split(RegExp(r'[\\/]'));
+    return segments.isNotEmpty ? segments.last : path;
   }
 
   Future<void> _handleProcess() async {

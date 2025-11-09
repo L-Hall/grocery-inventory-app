@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow Camera access to scan grocery receipts and shopping lists.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow access to your photo library so you can upload receipt or list images.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Allow Microphone access to dictate grocery updates with voice input.</string>
 </dict>
 </plist>
