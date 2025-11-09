@@ -14,7 +14,7 @@ import '../providers/grocery_list_provider.dart';
 import 'review_screen.dart';
 
 class TextInputScreen extends StatefulWidget {
-  const TextInputScreen({Key? key}) : super(key: key);
+  const TextInputScreen({super.key});
 
   @override
   State<TextInputScreen> createState() => _TextInputScreenState();
@@ -164,7 +164,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildInputModeSelector(ThemeData theme) {
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(4),
@@ -280,7 +280,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                       hintText:
                           'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
                     hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                       height: 1.5,
                     ),
                     border: InputBorder.none,
@@ -297,7 +297,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(12),
                     bottomRight: Radius.circular(12),
@@ -376,7 +376,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withOpacity(0.1),
+          color: theme.colorScheme.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -421,7 +421,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
           style: BorderStyle.solid,
         ),
         borderRadius: BorderRadius.circular(12),
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.1),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
       ),
       child: InkWell(
         onTap: _handleImageSelection,
@@ -432,7 +432,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
             Icon(
               _getPlaceholderIcon(),
               size: 64,
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -445,7 +445,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
             Text(
               _getPlaceholderSubtext(),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -491,7 +491,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   else
                     Container(
                       color:
-                          theme.colorScheme.surfaceVariant.withOpacity(0.25),
+                          theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -532,7 +532,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               borderRadius:
                   const BorderRadius.vertical(bottom: Radius.circular(12)),
             ),
@@ -737,7 +737,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.05),
+            color: theme.colorScheme.primary.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -770,7 +770,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                     ),
                   ],
                 ),
-              )).toList(),
+              )),
             ],
           ),
         );

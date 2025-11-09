@@ -538,15 +538,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   Color _getActionColor(ThemeData theme, UpdateAction action) {
-    switch (action) {
-      case UpdateAction.add:
-        return theme.colorScheme.primary;
-      case UpdateAction.subtract:
-        return theme.colorScheme.secondary;
-      case UpdateAction.set:
-        return theme.colorScheme.tertiary;
-    }
-    return theme.colorScheme.primary;
+    return switch (action) {
+      UpdateAction.add => theme.colorScheme.primary,
+      UpdateAction.subtract => theme.colorScheme.secondary,
+      UpdateAction.set => theme.colorScheme.tertiary,
+    };
   }
 
   void _handleItemAction(
@@ -686,7 +682,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<UpdateAction>(
-                    value: selectedAction,
+                    initialValue: selectedAction,
                     decoration: const InputDecoration(
                       labelText: 'Action',
                       border: OutlineInputBorder(),

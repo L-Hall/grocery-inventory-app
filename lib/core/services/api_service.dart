@@ -109,7 +109,7 @@ class ApiService {
       final data = {'text': text};
 
       final response = await _dio.post(
-        '/inventory/parse',
+        '/inventory/parse/text',
         data: data,
       );
 
@@ -134,7 +134,7 @@ class ApiService {
       };
 
       final response = await _dio.post(
-        '/inventory/parse',
+        '/inventory/parse/image',
         data: data,
         options: Options(
           sendTimeout: const Duration(seconds: 60),
@@ -146,6 +146,25 @@ class ApiService {
         return response.data;
       } else {
         throw ApiException('Failed to parse grocery image', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> applyParsedUpdates({
+    required List<Map<String, dynamic>> updates,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/inventory/apply',
+        data: {'updates': updates},
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to apply inventory updates', response.statusCode);
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -229,6 +248,53 @@ class ApiService {
     }
   }
 
+  // Locations endpoints
+  Future<List<dynamic>> getLocations() async {
+    try {
+      final response = await _dio.get('/locations');
+
+      if (response.statusCode == 200) {
+        return response.data['locations'] ?? [];
+      } else {
+        throw ApiException('Failed to fetch locations', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> upsertLocation({
+    required String locationId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/locations/$locationId',
+        data: payload,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to save location', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<void> deleteLocation(String locationId) async {
+    try {
+      final response = await _dio.delete('/locations/$locationId');
+
+      if (response.statusCode != 200) {
+        throw ApiException('Failed to delete location', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
   Future<Map<String, dynamic>> initializeUser() async {
     try {
       final response = await _dio.post('/user/initialize');
@@ -251,6 +317,108 @@ class ApiService {
         return response.data;
       } else {
         throw ApiException('Health check failed', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  // User preferences endpoints
+  Future<Map<String, dynamic>> getUserPreferences() async {
+    try {
+      final response = await _dio.get('/user/preferences');
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to fetch preferences', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePreferenceSettings(
+    Map<String, dynamic> settings,
+  ) async {
+    try {
+      final response = await _dio.put(
+        '/user/preferences/settings',
+        data: settings,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to update settings', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> upsertSavedSearch({
+    required String searchId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/user/preferences/saved-searches/$searchId',
+        data: payload,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to save search', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<void> deleteSavedSearch(String searchId) async {
+    try {
+      final response = await _dio.delete(
+        '/user/preferences/saved-searches/$searchId',
+      );
+
+      if (response.statusCode != 200) {
+        throw ApiException('Failed to delete saved search', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> upsertCustomView({
+    required String viewId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/user/preferences/custom-views/$viewId',
+        data: payload,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to save custom view', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<void> deleteCustomView(String viewId) async {
+    try {
+      final response = await _dio.delete(
+        '/user/preferences/custom-views/$viewId',
+      );
+
+      if (response.statusCode != 200) {
+        throw ApiException('Failed to delete custom view', response.statusCode);
       }
     } on DioException catch (e) {
       throw _handleDioException(e);

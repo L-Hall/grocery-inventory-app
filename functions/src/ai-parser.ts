@@ -15,8 +15,11 @@ interface ParsedItem {
   action: "add" | "subtract" | "set";
   category?: string;
   brand?: string;
+  location?: string;
   notes?: string;
   confidence: number;
+  expiryDate?: string | null;
+  expirationDate?: string | null;
 }
 
 interface ParseResult {
@@ -92,6 +95,10 @@ export class GroceryParser {
                         type: "string",
                         description: "Category: dairy, produce, meat, pantry, frozen, beverages, snacks, bakery, or uncategorized",
                       },
+                      location: {
+                        type: "string",
+                        description: "Storage location (e.g. pantry, fridge, freezer) if mentioned",
+                      },
                       brand: {
                         type: "string",
                         description: "Brand name or specific variety if mentioned",
@@ -99,6 +106,14 @@ export class GroceryParser {
                       notes: {
                         type: "string",
                         description: "Additional notes or specifications",
+                      },
+                      expirationDate: {
+                        type: "string",
+                        description: "ISO 8601 date string for expiry or best-before date if provided",
+                      },
+                      expiryDate: {
+                        type: "string",
+                        description: "Alias for expirationDate (ISO 8601) for flexibility in agent responses",
                       },
                       confidence: {
                         type: "number",
@@ -184,14 +199,18 @@ Key guidelines:
 
 4. **Brand detection**: Extract brand names when mentioned: "Starbucks coffee", "Organic Valley milk"
 
-5. **Confidence scoring**:
+5. **Locations**: Capture storage hints when present (fridge, freezer, pantry, cupboard, fruit bowl). Leave blank if not mentioned.
+
+6. **Expiration dates**: When the text mentions "expires", "expiry", "best before", or similar, capture the date as ISO 8601 (YYYY-MM-DD). If you infer a reasonable expiry (e.g. milk lasts 5 days), include it with lower confidence.
+
+7. **Confidence scoring**:
    - 0.9-1.0: Very clear, unambiguous
    - 0.7-0.8: Mostly clear, minor assumptions
    - 0.5-0.6: Some ambiguity, needs review
    - 0.3-0.4: Unclear, definitely needs review
    - 0.0-0.2: Very unclear, probably wrong
 
-6. **Review needed**: Set to true if:
+8. **Review needed**: Set to true if:
    - Overall confidence < 0.7
    - Any ambiguous quantities or units
    - Unusual or unclear item names
@@ -246,7 +265,10 @@ Be helpful and smart about interpreting context while being conservative about c
             unit: item.unit,
             action,
             category: item.category,
+            location: null,
             confidence: 0.6, // Medium confidence for fallback
+            expirationDate: null,
+            expiryDate: null,
           });
           break;
         }
@@ -353,6 +375,8 @@ For each item found, provide:
 - action: Always "add" for receipts
 - category: The grocery category (produce, dairy, meat, etc.)
 - brand: Brand name if visible
+- location: Storage location if clearly stated (fridge, freezer, pantry, etc.)
+- expirationDate: ISO 8601 expiry/best before date if present on the receipt
 - confidence: Your confidence level (0.0 to 1.0)
 
 Return ONLY a valid JSON object in this format:
@@ -365,6 +389,8 @@ Return ONLY a valid JSON object in this format:
       "action": "add",
       "category": "dairy",
       "brand": "Store Brand",
+      "location": "fridge",
+      "expirationDate": "2024-05-12",
       "confidence": 0.9
     }
   ]
@@ -382,7 +408,9 @@ For each item found, provide:
 - unit: The unit if specified (default to "item")
 - action: Always "add" for grocery lists
 - category: The grocery category
+- location: Suggested storage spot if written (e.g. pantry, fridge)
 - notes: Any additional notes or specifications
+- expirationDate: ISO 8601 expiry/best-before date if the list mentions one
 - confidence: Your confidence level (0.0 to 1.0)
 
 Return ONLY a valid JSON object in this format:
@@ -394,7 +422,9 @@ Return ONLY a valid JSON object in this format:
       "unit": "item",
       "action": "add",
       "category": "produce",
+      "location": "fruit bowl",
       "notes": "ripe",
+      "expirationDate": "2024-04-20",
       "confidence": 0.85
     }
   ]
@@ -404,14 +434,31 @@ Extract ALL visible items, even if handwriting is unclear (use lower confidence 
   }
 
   validateItems(items: ParsedItem[]): ParsedItem[] {
-    return items.map((item) => ({
-      ...item,
-      name: this.standardizeName(item.name),
-      quantity: Math.max(0, item.quantity), // Ensure non-negative
-      unit: this.standardizeUnit(item.unit),
-      category: this.standardizeCategory(item.category),
-      confidence: Math.min(1, Math.max(0, item.confidence)), // Clamp to 0-1
-    }));
+    return items.map((item) => {
+      const normalizedExpiration = this.normalizeExpirationDate(
+        item.expirationDate ?? item.expiryDate,
+      );
+
+      const sanitized: ParsedItem = {
+        ...item,
+        name: this.standardizeName(item.name),
+        quantity: Math.max(0, item.quantity), // Ensure non-negative
+        unit: this.standardizeUnit(item.unit),
+        category: this.standardizeCategory(item.category),
+        location: item.location?.trim() ?? item.location,
+        confidence: Math.min(1, Math.max(0, item.confidence)), // Clamp to 0-1
+      };
+
+      if (normalizedExpiration !== undefined) {
+        sanitized.expirationDate = normalizedExpiration;
+        sanitized.expiryDate = normalizedExpiration;
+      } else if (item.expirationDate === null || item.expiryDate === null) {
+        sanitized.expirationDate = null;
+        sanitized.expiryDate = null;
+      }
+
+      return sanitized;
+    });
   }
 
   private standardizeName(name: string): string {
@@ -466,5 +513,22 @@ Extract ALL visible items, even if handwriting is unclear (use lower confidence 
     };
 
     return categoryMap[category.toLowerCase()] || "uncategorized";
+  }
+
+  private normalizeExpirationDate(value?: string | null): string | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === null || value === "") {
+      return null;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+
+    return parsed.toISOString();
   }
 }

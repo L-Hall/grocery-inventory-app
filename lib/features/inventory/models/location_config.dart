@@ -24,10 +24,14 @@ class LocationOption {
   });
 
   Map<String, dynamic> toJson() {
+    final rgbHex = [color.red, color.green, color.blue]
+        .map((component) => component.toRadixString(16).padLeft(2, '0'))
+        .join();
+
     return {
       'id': id,
       'name': name,
-      'color': color.value,
+      'color': '#$rgbHex',
       'icon': icon.codePoint,
       'temperature': temperature?.name,
       'sortOrder': sortOrder,
@@ -35,18 +39,71 @@ class LocationOption {
   }
 
   factory LocationOption.fromJson(Map<String, dynamic> json) {
+    Color parseColor(dynamic value) {
+      if (value is int) {
+        return Color(value);
+      }
+      if (value is String && value.isNotEmpty) {
+        final hex = value.replaceFirst('#', '');
+        final buffer = StringBuffer();
+        if (hex.length == 6) buffer.write('ff');
+        buffer.write(hex);
+        final intColor = int.tryParse(buffer.toString(), radix: 16);
+        if (intColor != null) {
+          return Color(intColor);
+        }
+      }
+      return Colors.blueGrey;
+    }
+
+    IconData parseIcon(dynamic value) {
+      if (value is int) {
+        return IconData(value, fontFamily: 'MaterialIcons');
+      }
+      if (value is String && value.isNotEmpty) {
+        switch (value) {
+          case 'kitchen':
+            return Icons.kitchen;
+          case 'ac_unit':
+            return Icons.ac_unit;
+          case 'inventory':
+            return Icons.inventory_2;
+          case 'restaurant':
+            return Icons.restaurant;
+          case 'countertops':
+            return Icons.countertops;
+          case 'garage':
+            return Icons.garage;
+          case 'food_bank':
+            return Icons.food_bank;
+          case 'severe_cold':
+            return Icons.severe_cold;
+          case 'shelves':
+            return Icons.shelves;
+          default:
+            return Icons.location_on;
+        }
+      }
+      return Icons.location_on;
+    }
+
+    TemperatureType? parseTemperature(dynamic value) {
+      if (value is String && value.isNotEmpty) {
+        return TemperatureType.values.firstWhere(
+          (element) => element.name == value,
+          orElse: () => TemperatureType.room,
+        );
+      }
+      return null;
+    }
+
     return LocationOption(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      color: Color(json['color'] as int),
-      icon: IconData(json['icon'] as int, fontFamily: 'MaterialIcons'),
-      temperature: json['temperature'] != null
-          ? TemperatureType.values.firstWhere(
-              (e) => e.name == json['temperature'],
-              orElse: () => TemperatureType.room,
-            )
-          : null,
-      sortOrder: json['sortOrder'] as int? ?? 0,
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      color: parseColor(json['color']),
+      icon: parseIcon(json['icon']),
+      temperature: parseTemperature(json['temperature']),
+      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
     );
   }
 }

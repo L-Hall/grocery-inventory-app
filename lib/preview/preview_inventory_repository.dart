@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import '../features/inventory/models/category.dart';
 import '../features/inventory/models/inventory_item.dart';
+import '../features/inventory/models/location_config.dart';
 import '../features/inventory/repositories/inventory_repository.dart';
 
 class PreviewInventoryRepository extends InventoryRepository {
@@ -12,6 +13,7 @@ class PreviewInventoryRepository extends InventoryRepository {
 
   late final List<InventoryItem> _items;
   final List<Category> _categories = DefaultCategories.defaultCategories;
+  final List<LocationOption> _locations = DefaultLocations.locations;
 
   @override
   Future<List<InventoryItem>> getInventory({
@@ -80,6 +82,11 @@ class PreviewInventoryRepository extends InventoryRepository {
   @override
   Future<List<Category>> getCategories() async {
     return _categories;
+  }
+
+  @override
+  Future<List<LocationOption>> getLocations() async {
+    return _locations;
   }
 
   @override

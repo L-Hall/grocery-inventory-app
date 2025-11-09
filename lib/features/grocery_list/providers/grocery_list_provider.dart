@@ -150,7 +150,10 @@ class GroceryListProvider with ChangeNotifier {
       
       return true;
     } catch (e) {
-      _setError('Failed to apply changes to inventory: $e');
+      final message = e is GroceryListRepositoryException
+          ? e.message
+          : 'Failed to apply changes to inventory: $e';
+      _setError(message);
       return false;
     } finally {
       _setLoading(false);

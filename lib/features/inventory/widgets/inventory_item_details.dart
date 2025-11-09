@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
 import '../models/inventory_item.dart';
 import '../providers/inventory_provider.dart';
 import 'inventory_item_editor.dart';
@@ -100,17 +98,17 @@ class _InventoryItemDetailsSheetState
               _ActionChipButton(
                 icon: Icons.remove,
                 label: 'Use 1',
-                onPressed: () => _applyQuantityChange(context, -1),
+                onPressed: () => _applyQuantityChange(-1),
               ),
               _ActionChipButton(
                 icon: Icons.add,
                 label: 'Add 1',
-                onPressed: () => _applyQuantityChange(context, 1),
+                onPressed: () => _applyQuantityChange(1),
               ),
               _ActionChipButton(
                 icon: Icons.auto_fix_high,
                 label: 'Set quantity',
-                onPressed: () => _showSetQuantityDialog(context),
+                onPressed: _showSetQuantityDialog,
               ),
               _ActionChipButton(
                 icon: Icons.edit_note,
@@ -193,7 +191,7 @@ class _InventoryItemDetailsSheetState
           decoration: BoxDecoration(
             color: Theme.of(
               context,
-            ).colorScheme.surfaceVariant.withOpacity(0.3),
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -240,7 +238,8 @@ class _InventoryItemDetailsSheetState
     }
   }
 
-  Future<void> _applyQuantityChange(BuildContext context, double delta) async {
+  Future<void> _applyQuantityChange(double delta) async {
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _isProcessing = true);
 
     final newQuantity = (item.quantity + delta)
@@ -256,7 +255,7 @@ class _InventoryItemDetailsSheetState
 
     setState(() => _isProcessing = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           success ? 'Updated ${item.name}' : 'Failed to update ${item.name}',
@@ -265,11 +264,12 @@ class _InventoryItemDetailsSheetState
     );
   }
 
-  Future<void> _showSetQuantityDialog(BuildContext context) async {
+  Future<void> _showSetQuantityDialog() async {
     final controller = TextEditingController(text: item.quantity.toString());
+    final messenger = ScaffoldMessenger.of(context);
     final result = await showDialog<double>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text('Set ${item.name} quantity'),
         content: TextField(
           controller: controller,
@@ -281,13 +281,13 @@ class _InventoryItemDetailsSheetState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
               final value = double.tryParse(controller.text);
-              Navigator.of(context).pop(value);
+              Navigator.of(dialogContext).pop(value);
             },
             child: const Text('Update'),
           ),
@@ -307,7 +307,7 @@ class _InventoryItemDetailsSheetState
     if (!mounted) return;
     setState(() => _isProcessing = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           success ? 'Quantity updated' : 'Failed to update ${item.name}',
@@ -321,14 +321,17 @@ class _InventoryItemDetailsSheetState
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Remove item'),
         content: Text('Remove "${item.name}" from your inventory?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
           FilledButton(
@@ -336,7 +339,7 @@ class _InventoryItemDetailsSheetState
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Remove'),
           ),
         ],
@@ -351,9 +354,9 @@ class _InventoryItemDetailsSheetState
     if (!mounted) return;
     setState(() => _isProcessing = false);
 
-    Navigator.of(context).pop();
+    navigator.pop();
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           success ? 'Removed ${item.name}' : 'Failed to remove ${item.name}',
@@ -396,8 +399,8 @@ class _ActionChipButton extends StatelessWidget {
       label: Text(label),
       onPressed: onPressed,
       backgroundColor: destructive
-          ? Theme.of(context).colorScheme.errorContainer.withOpacity(0.2)
-          : Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+          ? Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.2)
+          : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
     );
   }
 }

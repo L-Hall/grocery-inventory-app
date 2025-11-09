@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../inventory/screens/inventory_screen.dart';
 import '../../grocery_list/screens/text_input_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -48,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
           PopupMenuButton(
             icon: CircleAvatar(
               radius: 16,
-              backgroundColor: theme.primaryColor.withOpacity(0.1),
+              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
               child: Text(
                 _getUserInitials(user?.displayName ?? user?.email ?? ''),
                 style: TextStyle(
@@ -219,18 +218,20 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (!mounted) return;
+
+    if (confirmed == true) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.signOut();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Signed out successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Signed out successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 }

@@ -111,7 +111,7 @@ class _InventoryTableState extends State<InventoryTable> {
             children: [
               Container(
                 width: double.infinity,
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
@@ -238,7 +238,7 @@ class _InventoryTableState extends State<InventoryTable> {
                   size: 16,
                   color: isSorted
                       ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                      : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
               ],
             ),
@@ -270,7 +270,7 @@ class _InventoryTableState extends State<InventoryTable> {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.4),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
           ),
         ),
       ),
@@ -384,7 +384,7 @@ class _InventoryTableState extends State<InventoryTable> {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.2),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
           ),
         ),
       ),
@@ -486,7 +486,7 @@ class _TagChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withOpacity(0.6),
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(16),
       ),
       constraints: const BoxConstraints(maxWidth: 160),
@@ -512,8 +512,8 @@ class _CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseColor = category.colorValue;
-    final background = baseColor.withOpacity(0.16);
-    final border = baseColor.withOpacity(0.32);
+    final background = baseColor.withValues(alpha: 0.16);
+    final border = baseColor.withValues(alpha: 0.32);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

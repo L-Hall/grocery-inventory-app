@@ -2,6 +2,7 @@ import 'package:meta/meta.dart';
 
 import '../../../core/services/api_service.dart';
 import '../models/inventory_item.dart';
+import '../models/location_config.dart';
 import '../models/category.dart' as inventory;
 
 class InventoryRepository {
@@ -42,7 +43,35 @@ class InventoryRepository {
   Future<void> updateInventory(List<InventoryUpdate> updates) async {
     try {
       final updateData = updates.map((update) => update.toJson()).toList();
-      await api.updateInventory(updates: updateData);
+      final response = await api.updateInventory(updates: updateData);
+
+      if (response['success'] != true) {
+        final errors = <String>[];
+
+        final validationErrors = response['validationErrors'];
+        if (validationErrors is List) {
+          errors.addAll(
+            validationErrors.whereType<String>(),
+          );
+        }
+
+        final results = response['results'];
+        if (results is List) {
+          for (final result in results.whereType<Map<String, dynamic>>()) {
+            final success = result['success'] as bool? ?? true;
+            final error = result['error'];
+            if (!success && error is String && error.isNotEmpty) {
+              final name = result['name'] ?? 'unknown item';
+              errors.add('$name: $error');
+            }
+          }
+        }
+
+        final message = errors.isNotEmpty
+            ? errors.join('; ')
+            : 'Unknown validation error';
+        throw InventoryRepositoryException('Failed to update inventory: $message');
+      }
     } catch (e) {
       throw InventoryRepositoryException('Failed to update inventory: $e');
     }
@@ -80,6 +109,22 @@ class InventoryRepository {
       // Fallback to default categories if API fails
       return inventory.DefaultCategories.defaultCategories;
     }
+  }
+
+  Future<List<LocationOption>> getLocations() async {
+    try {
+      final response = await api.getLocations();
+      final locations = response
+          .whereType<Map<String, dynamic>>()
+          .map(LocationOption.fromJson)
+          .toList();
+
+      if (locations.isNotEmpty) return locations;
+    } catch (_) {
+      // fall through to defaults
+    }
+
+    return DefaultLocations.locations;
   }
 
   // Search inventory items

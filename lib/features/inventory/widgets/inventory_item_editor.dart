@@ -238,6 +238,27 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
                   border: OutlineInputBorder(),
                 ),
               ),
+              if (inventoryProvider.locations.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: inventoryProvider.locations
+                        .take(8)
+                        .map(
+                          (option) => ActionChip(
+                            label: Text(option.name),
+                            onPressed: () {
+                              _locationController.text = option.name;
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               TextFormField(
                 controller: _lowStockController,
@@ -291,6 +312,8 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
       context,
       listen: false,
     );
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
     final name = _nameController.text.trim();
     final quantity = double.tryParse(_quantityController.text.trim()) ?? 0;
@@ -327,8 +350,8 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
     });
 
     if (success) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      navigator.pop();
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             widget.item == null
@@ -339,9 +362,7 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
       );
     } else {
       final error = inventoryProvider.error ?? 'Failed to save item';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
+      messenger.showSnackBar(SnackBar(content: Text(error)));
     }
   }
 }

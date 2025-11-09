@@ -6,7 +6,7 @@ class FieldValidation {
   final num? maxValue;
   final int? minLength;
   final int? maxLength;
-  final RegExp? pattern;
+  final String? pattern;
   final CustomValidator? customValidator;
   final String? errorMessage;
 
@@ -44,8 +44,11 @@ class FieldValidation {
       if (maxLength != null && value.length > maxLength!) {
         return errorMessage ?? '$fieldName must be at most $maxLength characters';
       }
-      if (pattern != null && !pattern!.hasMatch(value)) {
-        return errorMessage ?? '$fieldName has invalid format';
+      if (pattern != null && pattern!.isNotEmpty) {
+        final regex = RegExp(pattern!);
+        if (!regex.hasMatch(value)) {
+          return errorMessage ?? '$fieldName has invalid format';
+        }
       }
     }
 
@@ -63,7 +66,7 @@ class InventoryValidationRules {
       required: true,
       minLength: 1,
       maxLength: 100,
-      pattern: r'^[a-zA-Z0-9\s\-\_\.\&]+$',
+      pattern: r'^[a-zA-Z0-9\s\-_.&]+$',
       errorMessage: 'Item name must contain only letters, numbers, spaces, and basic punctuation',
     ),
     'quantity': FieldValidation(

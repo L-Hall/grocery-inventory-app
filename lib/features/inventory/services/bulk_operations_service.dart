@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../../core/di/service_locator.dart';
 import '../models/inventory_item.dart';
 import '../models/field_validation.dart';
 import '../../auth/services/auth_service.dart';
@@ -65,8 +67,13 @@ class BulkOperationResult {
 }
 
 class BulkOperationsService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AuthService _authService = AuthService();
+  final FirebaseFirestore _firestore;
+  final AuthService _authService;
+  BulkOperationsService({
+    FirebaseFirestore? firestore,
+    AuthService? authService,
+  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+        _authService = authService ?? getIt<AuthService>();
   
   static const int _batchSize = 500;
   final List<BulkOperation> _operationHistory = [];
@@ -369,9 +376,6 @@ class BulkOperationsService {
     if (_operationHistory.isEmpty) {
       throw Exception('No operations to undo');
     }
-
-    final lastOperation = _operationHistory.last;
-    
     throw UnimplementedError('Undo functionality requires snapshot storage');
   }
 

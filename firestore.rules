@@ -10,27 +10,140 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    function hasRequiredInventoryFields() {
-      return request.resource.data.keys().hasAll(['name', 'quantity', 'unit', 'category']) &&
-             request.resource.data.name is string &&
-             request.resource.data.quantity is number &&
-             request.resource.data.quantity >= 0 &&
-             request.resource.data.unit is string &&
-             request.resource.data.category is string;
+    function stringLengthBetween(value, minLength, maxLength) {
+      return value is string &&
+             value.size() >= minLength &&
+             value.size() <= maxLength;
+    }
+
+    function optionalStringMax(data, fieldName, maxLength) {
+      return !(fieldName in data) ||
+             data[fieldName] == null ||
+             (data[fieldName] is string && data[fieldName].size() <= maxLength);
     }
     
-    function hasRequiredCategoryFields() {
-      return request.resource.data.keys().hasAll(['name', 'color', 'icon']) &&
-             request.resource.data.name is string &&
-             request.resource.data.color is string &&
-             request.resource.data.icon is string;
+    function optionalNumberBetween(data, fieldName, minValue, maxValue) {
+      return !(fieldName in data) ||
+             (data[fieldName] is number &&
+              data[fieldName] >= minValue &&
+              data[fieldName] <= maxValue);
     }
     
-    function hasRequiredListFields() {
-      return request.resource.data.keys().hasAll(['name', 'status', 'items']) &&
-             request.resource.data.name is string &&
-             request.resource.data.status in ['active', 'completed', 'archived'] &&
-             request.resource.data.items is list;
+    function optionalBoolean(data, fieldName) {
+      return !(fieldName in data) || data[fieldName] is bool;
+    }
+    
+    function optionalTimestampOrString(data, fieldName) {
+      return !(fieldName in data) ||
+             data[fieldName] == null ||
+             data[fieldName] is timestamp ||
+             data[fieldName] is string;
+    }
+    
+    function optionalList(data, fieldName, maxSize) {
+      return !(fieldName in data) ||
+             (data[fieldName] is list && data[fieldName].size() <= maxSize);
+    }
+    
+    function optionalMap(data, fieldName) {
+      return !(fieldName in data) || data[fieldName] is map;
+    }
+
+    function hasValidInventoryFields() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'quantity', 'unit', 'category', 'lowStockThreshold']) &&
+             stringLengthBetween(data.name, 1, 100) &&
+             data.quantity is number &&
+             data.quantity >= 0 &&
+             data.quantity <= 99999 &&
+             stringLengthBetween(data.unit, 1, 20) &&
+             stringLengthBetween(data.category, 1, 60) &&
+             optionalStringMax(data, 'location', 80) &&
+             optionalStringMax(data, 'notes', 500) &&
+             optionalStringMax(data, 'brand', 120) &&
+             optionalStringMax(data, 'size', 60) &&
+             optionalNumberBetween(data, 'lowStockThreshold', 0, 1000) &&
+             optionalTimestampOrString(data, 'expirationDate') &&
+             optionalTimestampOrString(data, 'createdAt') &&
+             optionalTimestampOrString(data, 'updatedAt') &&
+             optionalList(data, 'searchKeywords', 64);
+    }
+    
+    function hasValidCategoryFields() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'color', 'icon']) &&
+             stringLengthBetween(data.name, 1, 60) &&
+             data.color is string &&
+             data.color.matches('^#[0-9A-Fa-f]{6}$') &&
+             stringLengthBetween(data.icon, 1, 60) &&
+             optionalStringMax(data, 'emoji', 8) &&
+             optionalNumberBetween(data, 'sortOrder', 0, 1000);
+    }
+    
+    function hasValidListFields() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'status', 'items']) &&
+             stringLengthBetween(data.name, 1, 100) &&
+             data.status in ['active', 'completed', 'archived'] &&
+             data.items is list &&
+             data.items.size() <= 500 &&
+             optionalStringMax(data, 'notes', 500);
+    }
+    
+    function hasValidLocationFields() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'color', 'icon']) &&
+             stringLengthBetween(data.name, 1, 80) &&
+             data.color is string &&
+             data.color.matches('^#[0-9A-Fa-f]{6}$') &&
+             stringLengthBetween(data.icon, 1, 60) &&
+             optionalStringMax(data, 'temperature', 30) &&
+             optionalNumberBetween(data, 'sortOrder', 0, 1000);
+    }
+    
+    function hasValidAuditLogFields() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['action', 'timestamp']) &&
+             stringLengthBetween(data.action, 1, 40) &&
+             data.timestamp is timestamp &&
+             optionalStringMax(data, 'description', 500) &&
+             optionalStringMax(data, 'userId', 200) &&
+             optionalStringMax(data, 'itemId', 200) &&
+             optionalList(data, 'itemIds', 200) &&
+             optionalList(data, 'changes', 200) &&
+             optionalMap(data, 'metadata');
+    }
+    
+    function hasValidSavedSearchFields() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'config']) &&
+             stringLengthBetween(data.name, 1, 80) &&
+             data.config is map &&
+             optionalNumberBetween(data, 'useCount', 0, 1000000) &&
+             optionalTimestampOrString(data, 'createdAt') &&
+             optionalTimestampOrString(data, 'updatedAt');
+    }
+    
+    function hasValidCustomViewFields() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'type', 'filters']) &&
+             stringLengthBetween(data.name, 1, 80) &&
+             data.type in ['location', 'lowStock', 'custom', 'category', 'expiration'] &&
+             data.filters is list &&
+             data.filters.size() <= 100 &&
+             optionalBoolean(data, 'isDefault') &&
+             optionalStringMax(data, 'groupBy', 60) &&
+             optionalMap(data, 'sortConfig') &&
+             optionalTimestampOrString(data, 'createdAt') &&
+             optionalTimestampOrString(data, 'updatedAt');
+    }
+    
+    function hasValidSettingsFields() {
+      let data = request.resource.data;
+      return optionalStringMax(data, 'defaultView', 60) &&
+             optionalList(data, 'searchHistory', 25) &&
+             optionalMap(data, 'exportPreferences') &&
+             optionalList(data, 'bulkOperationHistory', 100);
     }
     
     // Users can only access their own data
@@ -45,33 +158,72 @@ service cloud.firestore {
       // Allow read/write to user's inventory subcollection
       match /inventory/{itemId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && hasRequiredInventoryFields();
-        allow update: if isOwner(userId) && hasRequiredInventoryFields();
+        allow create: if isOwner(userId) && hasValidInventoryFields();
+        allow update: if isOwner(userId) && hasValidInventoryFields();
         allow delete: if isOwner(userId);
       }
       
-      // Allow read/write to user's categories subcollection
       match /categories/{categoryId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && hasRequiredCategoryFields();
-        allow update: if isOwner(userId) && hasRequiredCategoryFields();
+        allow create: if isOwner(userId) && hasValidCategoryFields();
+        allow update: if isOwner(userId) && hasValidCategoryFields();
         allow delete: if isOwner(userId);
       }
       
-      // Allow read/write to user's grocery lists subcollection
       match /grocery_lists/{listId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && hasRequiredListFields();
-        allow update: if isOwner(userId) && hasRequiredListFields();
+        allow create: if isOwner(userId) && hasValidListFields();
+        allow update: if isOwner(userId) && hasValidListFields();
         allow delete: if isOwner(userId);
       }
       
-      // Allow read/write to user's purchase history subcollection
+      match /locations/{locationId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && hasValidLocationFields();
+        allow update: if isOwner(userId) && hasValidLocationFields();
+        allow delete: if isOwner(userId);
+      }
+      
       match /purchase_history/{purchaseId} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId);
         allow update: if isOwner(userId);
         allow delete: if isOwner(userId);
+      }
+      
+      match /audit_logs/{logId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && hasValidAuditLogFields();
+        allow update: if false;
+        allow delete: if false;
+      }
+      
+      match /user_preferences/{prefDocId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && hasValidSettingsFields();
+        allow update: if isOwner(userId) && hasValidSettingsFields();
+        allow delete: if isOwner(userId);
+        
+        match /saved_searches/{searchId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidSavedSearchFields();
+          allow update: if isOwner(userId) && hasValidSavedSearchFields();
+          allow delete: if isOwner(userId);
+        }
+        
+        match /custom_views/{viewId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidCustomViewFields();
+          allow update: if isOwner(userId) && hasValidCustomViewFields();
+          allow delete: if isOwner(userId);
+        }
+        
+        match /settings/{settingsId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidSettingsFields();
+          allow update: if isOwner(userId) && hasValidSettingsFields();
+          allow delete: if isOwner(userId);
+        }
       }
     }
   }
