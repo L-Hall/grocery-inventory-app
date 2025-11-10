@@ -4,15 +4,20 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import '../../home/screens/home_screen.dart';
+import '../../onboarding/providers/onboarding_provider.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        // Show loading screen while checking auth state
+    return Consumer2<AuthProvider, OnboardingProvider>(
+      builder: (context, authProvider, onboardingProvider, _) {
+        if (!onboardingProvider.hasCompletedOnboarding) {
+          return const OnboardingScreen();
+        }
+
         if (authProvider.isLoading) {
           return const Scaffold(
             body: Center(
@@ -21,12 +26,10 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // Show main app if authenticated, login screen if not
         if (authProvider.isAuthenticated) {
           return const HomeScreen();
-        } else {
-          return const LoginScreen();
         }
+        return const LoginScreen();
       },
     );
   }

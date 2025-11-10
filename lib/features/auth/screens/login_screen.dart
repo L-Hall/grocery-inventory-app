@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../../onboarding/providers/onboarding_provider.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -64,6 +65,8 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               
               const SizedBox(height: 48),
+              _buildSyncInfoCard(theme),
+              const SizedBox(height: 32),
               
               // Login form
               Form(
@@ -245,6 +248,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
+              
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.play_circle_outline),
+                  label: const Text('Need the tour? Replay onboarding'),
+                  onPressed: () async {
+                    final onboardingProvider = Provider.of<OnboardingProvider>(
+                      context,
+                      listen: false,
+                    );
+                    await onboardingProvider.resetOnboarding();
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -305,6 +324,46 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const RegisterScreen(),
+      ),
+    );
+  }
+
+  Widget _buildSyncInfoCard(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.primary.withOpacity(0.08),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.cloud_sync_outlined,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Seamless sync',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Sign in to tie groceries to your Firebase UID so lists stay up-to-date on every device.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

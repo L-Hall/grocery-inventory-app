@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Application-wide theming.
 /// Note: keep palette and copy aligned with UK English defaults.
@@ -21,7 +20,7 @@ class AppTheme {
   static const Color roseWineScrim = Color(0xB36B3E3E);
 
   static ThemeData get lightTheme {
-    final textTheme = GoogleFonts.interTextTheme();
+    final textTheme = ThemeData.light().textTheme;
 
     final colourScheme = ColorScheme(
       brightness: Brightness.light,
@@ -188,7 +187,7 @@ class AppTheme {
   }
 
   static ThemeData get darkTheme {
-    final textTheme = GoogleFonts.interTextTheme(ThemeData.dark().textTheme);
+    final textTheme = ThemeData.dark().textTheme;
 
     const darkBackground = Color(0xFF201A1A);
     final colourScheme = ColorScheme(

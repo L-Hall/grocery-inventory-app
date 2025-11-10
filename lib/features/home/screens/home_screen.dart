@@ -5,6 +5,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../inventory/screens/inventory_screen.dart';
 import '../../grocery_list/screens/text_input_screen.dart';
 import '../../settings/screens/settings_screen.dart';
+import '../../inventory/widgets/inventory_item_editor.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -159,17 +160,9 @@ class _HomeScreenState extends State<HomeScreen> {
     
     return FloatingActionButton(
       onPressed: () {
-        // Navigate to text input screen
-        setState(() {
-          _currentIndex = 1;
-        });
-        _pageController.animateToPage(
-          1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        showInventoryItemEditorSheet(context);
       },
-      tooltip: 'Add items with natural language',
+      tooltip: 'Add manual inventory item',
       child: const Icon(Icons.add),
     );
   }

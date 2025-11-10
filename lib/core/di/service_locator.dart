@@ -11,6 +11,7 @@ import '../../features/inventory/providers/inventory_provider.dart';
 import '../../features/inventory/repositories/inventory_repository.dart';
 import '../../features/grocery_list/providers/grocery_list_provider.dart';
 import '../../features/grocery_list/repositories/grocery_list_repository.dart';
+import '../../features/onboarding/providers/onboarding_provider.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -61,5 +62,9 @@ Future<void> setupServiceLocator() async {
 
   getIt.registerFactory<GroceryListProvider>(
     () => GroceryListProvider(getIt<GroceryListDataSource>()),
+  );
+
+  getIt.registerFactory<OnboardingProvider>(
+    () => OnboardingProvider(getIt<StorageService>()),
   );
 }

@@ -34,8 +34,46 @@ class _InventoryItemDetailsSheet extends StatefulWidget {
 class _InventoryItemDetailsSheetState
     extends State<_InventoryItemDetailsSheet> {
   bool _isProcessing = false;
+  late InventoryItem _currentItem;
 
-  InventoryItem get item => widget.item;
+  InventoryItem get item => _currentItem;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentItem = widget.item;
+    widget.provider.addListener(_handleProviderUpdate);
+  }
+
+  @override
+  void didUpdateWidget(covariant _InventoryItemDetailsSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.provider != widget.provider) {
+      oldWidget.provider.removeListener(_handleProviderUpdate);
+      widget.provider.addListener(_handleProviderUpdate);
+    }
+    if (oldWidget.item != widget.item) {
+      _currentItem = widget.item;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.provider.removeListener(_handleProviderUpdate);
+    super.dispose();
+  }
+
+  void _handleProviderUpdate() {
+    final updatedItem = widget.provider.allItems.firstWhere(
+      (element) => element.id == _currentItem.id,
+      orElse: () => _currentItem,
+    );
+    if (!identical(updatedItem, _currentItem) && mounted) {
+      setState(() {
+        _currentItem = updatedItem;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,12 +204,21 @@ class _InventoryItemDetailsSheetState
         value: item.updatedAt.toLocal().toString().split(' ').first,
         icon: Icons.update,
       ),
-      if (item.expirationDate != null)
-        _InfoTileData(
-          label: item.isExpired ? 'Expired' : 'Expires',
-          value: item.expirationDate!.toLocal().toString().split(' ').first,
-          icon: item.isExpired ? Icons.error : Icons.schedule,
-        ),
+      _InfoTileData(
+        label: item.expirationDate == null
+            ? 'Expiry date'
+            : item.isExpired
+                ? 'Expired'
+                : 'Expires',
+        value: item.expirationDate != null
+            ? item.expirationDate!.toLocal().toString().split(' ').first
+            : 'Not set',
+        icon: item.expirationDate == null
+            ? Icons.schedule
+            : item.isExpired
+                ? Icons.error
+                : Icons.schedule,
+      ),
     ];
 
     return GridView.builder(
@@ -262,6 +309,15 @@ class _InventoryItemDetailsSheetState
         ),
       ),
     );
+
+    if (success && mounted) {
+      setState(() {
+        _currentItem = _currentItem.copyWith(
+          quantity: newQuantity,
+          updatedAt: DateTime.now(),
+        );
+      });
+    }
   }
 
   Future<void> _showSetQuantityDialog() async {
@@ -314,6 +370,15 @@ class _InventoryItemDetailsSheetState
         ),
       ),
     );
+
+    if (success && mounted) {
+      setState(() {
+        _currentItem = _currentItem.copyWith(
+          quantity: result,
+          updatedAt: DateTime.now(),
+        );
+      });
+    }
   }
 
   Future<void> _openEditor(BuildContext context) async {
