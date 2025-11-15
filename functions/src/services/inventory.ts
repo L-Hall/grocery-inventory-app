@@ -1,5 +1,4 @@
 import * as admin from "firebase-admin";
-import * as functions from "firebase-functions";
 import * as logger from "firebase-functions/logger";
 import {generateSearchKeywords} from "../utils/search";
 

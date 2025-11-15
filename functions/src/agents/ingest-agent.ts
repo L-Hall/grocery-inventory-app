@@ -34,7 +34,8 @@ const fetchUserContextTool = tool({
   description: "Fetch formatted inventory context for the user",
   parameters: z.object({
     userId: z.string().describe("Firebase Auth user ID"),
-    includeLists: z.boolean().optional()
+    includeLists: z.boolean()
+      .default(false)
       .describe("Include active grocery lists for additional context"),
   }),
   execute: async ({userId, includeLists}) => {
@@ -114,16 +115,17 @@ const applyInventoryUpdatesTool = tool({
     updates: z.array(z.object({
       name: z.string(),
       quantity: z.number(),
-      unit: z.string().optional(),
+      unit: z.string().nullable().optional(),
       action: z.enum(["add", "subtract", "set"]),
-      category: z.string().optional(),
+      category: z.string().nullable().optional(),
       location: z.string().nullable().optional(),
       notes: z.string().nullable().optional(),
       expirationDate: z.string().nullable().optional(),
       brand: z.string().nullable().optional(),
-      lowStockThreshold: z.number().optional(),
+      lowStockThreshold: z.number().nullable().optional(),
     })).min(1),
     actionType: z.enum(["inventory_update", "inventory_apply", "inventory_agent"])
+      .nullable()
       .optional()
       .describe("Audit log action type"),
   }),

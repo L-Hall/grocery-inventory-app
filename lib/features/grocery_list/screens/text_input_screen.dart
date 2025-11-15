@@ -32,7 +32,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   bool _isSpeechAvailable = false;
   bool _isListening = false;
   String _interimTranscript = '';
-  
+
   // Input mode state
   InputMode _inputMode = InputMode.text;
   Uint8List? _selectedFileBytes;
@@ -51,9 +51,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (getIt.isRegistered<AgentMetricsService>()) {
       _agentMetricsStream = getIt<AgentMetricsService>().watchGlobalMetrics();
     }
-    
+
     // Initialize with any existing text from provider
-    final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+    final groceryProvider = Provider.of<GroceryListProvider>(
+      context,
+      listen: false,
+    );
     _textController.text = groceryProvider.currentInputText;
   }
 
@@ -69,7 +72,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -79,21 +82,19 @@ class _TextInputScreenState extends State<TextInputScreen> {
             children: [
               // Instructions card
               _buildInstructionsCard(theme),
-              
+
               const SizedBox(height: 16),
-              
+
               // Input mode selector
               _buildInputModeSelector(theme),
-              
+
               const SizedBox(height: 16),
-              
+
               // Input area (changes based on mode)
-              Expanded(
-                child: _buildInputArea(theme),
-              ),
-              
+              Expanded(child: _buildInputArea(theme)),
+
               const SizedBox(height: 16),
-              
+
               // Process button and status
               _buildProcessSection(theme),
 
@@ -182,30 +183,15 @@ class _TextInputScreenState extends State<TextInputScreen> {
       padding: const EdgeInsets.all(4),
       child: Row(
         children: [
-          _buildModeButton(
-            InputMode.text,
-            Icons.text_fields,
-            'Text',
-            theme,
-          ),
-          _buildModeButton(
-            InputMode.camera,
-            Icons.camera_alt,
-            'Camera',
-            theme,
-          ),
+          _buildModeButton(InputMode.text, Icons.text_fields, 'Text', theme),
+          _buildModeButton(InputMode.camera, Icons.camera_alt, 'Camera', theme),
           _buildModeButton(
             InputMode.gallery,
             Icons.photo_library,
             'Gallery',
             theme,
           ),
-          _buildModeButton(
-            InputMode.file,
-            Icons.upload_file,
-            'File',
-            theme,
-          ),
+          _buildModeButton(InputMode.file, Icons.upload_file, 'File', theme),
         ],
       ),
     );
@@ -218,7 +204,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     ThemeData theme,
   ) {
     final isSelected = _inputMode == mode;
-    
+
     return Expanded(
       child: GestureDetector(
         onTap: () => _selectInputMode(mode),
@@ -234,16 +220,16 @@ class _TextInputScreenState extends State<TextInputScreen> {
               Icon(
                 icon,
                 size: 20,
-                color: isSelected 
-                    ? theme.colorScheme.onPrimary 
+                color: isSelected
+                    ? theme.colorScheme.onPrimary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: isSelected 
-                      ? theme.colorScheme.onPrimary 
+                  color: isSelected
+                      ? theme.colorScheme.onPrimary
                       : theme.colorScheme.onSurfaceVariant,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -271,10 +257,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
       builder: (context, groceryProvider, _) {
         return Container(
           decoration: BoxDecoration(
-            border: Border.all(
-              color: theme.colorScheme.outline,
-              width: 1,
-            ),
+            border: Border.all(color: theme.colorScheme.outline, width: 1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -288,11 +271,13 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
                   style: theme.textTheme.bodyLarge,
-                    decoration: InputDecoration(
-                      hintText:
-                          'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
+                  decoration: InputDecoration(
+                    hintText:
+                        'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
                     hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                       height: 1.5,
                     ),
                     border: InputBorder.none,
@@ -304,12 +289,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   },
                 ),
               ),
-              
+
               // Action bar
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.3,
+                  ),
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(12),
                     bottomRight: Radius.circular(12),
@@ -356,7 +343,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                             _isListening ? Icons.mic_off : Icons.mic_none,
                             size: 18,
                           ),
-                          label: Text(_isListening ? 'Stop dictation' : 'Dictate'),
+                          label: Text(
+                            _isListening ? 'Stop dictation' : 'Dictate',
+                          ),
                         ),
                       ],
                     ),
@@ -378,8 +367,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final message = _interimTranscript.isNotEmpty
         ? _interimTranscript
         : (_isListening
-            ? 'Listening… speak naturally and we will transcribe in UK English.'
-            : '');
+              ? 'Listening… speak naturally and we will transcribe in UK English.'
+              : '');
 
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
@@ -401,9 +390,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                message.isEmpty
-                    ? 'Listening idle'
-                    : message,
+                message.isEmpty ? 'Listening idle' : message,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface,
                 ),
@@ -421,10 +408,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildImageInput(ThemeData theme) {
-    if (_selectedFileBytes != null || (_selectedFileName != null && _selectedFileName!.toLowerCase().endsWith('.pdf'))) {
+    if (_selectedFileBytes != null ||
+        (_selectedFileName != null &&
+            _selectedFileName!.toLowerCase().endsWith('.pdf'))) {
       return _buildImagePreview(theme);
     }
-    
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
@@ -457,7 +446,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
             Text(
               _getPlaceholderSubtext(),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.7,
+                ),
               ),
               textAlign: TextAlign.center,
             ),
@@ -467,7 +458,10 @@ class _TextInputScreenState extends State<TextInputScreen> {
               icon: Icon(_getActionIcon()),
               label: Text(_getActionText()),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -480,30 +474,25 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final isPdf = (_selectedFileName ?? '').toLowerCase().endsWith('.pdf');
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(
-          color: theme.colorScheme.outline,
-          width: 1,
-        ),
+        border: Border.all(color: theme.colorScheme.outline, width: 1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
           Expanded(
             child: ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
                   if (!isPdf && _selectedFileBytes != null)
-                    Image.memory(
-                      _selectedFileBytes!,
-                      fit: BoxFit.contain,
-                    )
+                    Image.memory(_selectedFileBytes!, fit: BoxFit.contain)
                   else
                     Container(
-                      color:
-                          theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.25),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -544,9 +533,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius:
-                  const BorderRadius.vertical(bottom: Radius.circular(12)),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.3,
+              ),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(12),
+              ),
             ),
             child: Row(
               children: [
@@ -700,7 +692,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
               _buildIngestionJobStatus(theme, groceryProvider),
               const SizedBox(height: 12),
             ],
-            
+
             // Process button
             ElevatedButton(
               onPressed: _canProcess(groceryProvider) ? _handleProcess : null,
@@ -752,11 +744,11 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
   Widget _buildTipsSection(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Consumer<GroceryListProvider>(
       builder: (context, groceryProvider, _) {
         final tips = groceryProvider.getParsingTips();
-        
+
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -774,26 +766,30 @@ class _TextInputScreenState extends State<TextInputScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...tips.take(6).map((tip) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '• ',
-                      style: TextStyle(color: theme.colorScheme.primary),
-                    ),
-                    Expanded(
-                      child: Text(
-                        tip,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+              ...tips
+                  .take(6)
+                  .map(
+                    (tip) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '• ',
+                            style: TextStyle(color: theme.colorScheme.primary),
+                          ),
+                          Expanded(
+                            child: Text(
+                              tip,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              )),
+                  ),
             ],
           ),
         );
@@ -842,7 +838,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
       if (!_isSpeechAvailable) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Speech recognition unavailable on this device.')),
+          const SnackBar(
+            content: Text('Speech recognition unavailable on this device.'),
+          ),
         );
         return;
       }
@@ -890,10 +888,13 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final current = _textController.text.trimRight();
     final newText = current.isEmpty ? recognised : '$current\n$recognised';
     _textController.text = newText;
-    _textController.selection =
-        TextSelection.collapsed(offset: _textController.text.length);
-    final groceryProvider =
-        Provider.of<GroceryListProvider>(context, listen: false);
+    _textController.selection = TextSelection.collapsed(
+      offset: _textController.text.length,
+    );
+    final groceryProvider = Provider.of<GroceryListProvider>(
+      context,
+      listen: false,
+    );
     groceryProvider.setCurrentInputText(_textController.text);
   }
 
@@ -930,10 +931,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (image != null) {
       final bytes = await image.readAsBytes();
       final fileName = _resolveFileName(path: image.path, name: image.name);
-      await _processPickedFile(
-        bytes: bytes,
-        fileName: fileName,
-      );
+      await _processPickedFile(bytes: bytes, fileName: fileName);
     }
   }
 
@@ -946,10 +944,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (image != null) {
       final bytes = await image.readAsBytes();
       final fileName = _resolveFileName(path: image.path, name: image.name);
-      await _processPickedFile(
-        bytes: bytes,
-        fileName: fileName,
-      );
+      await _processPickedFile(bytes: bytes, fileName: fileName);
     }
   }
 
@@ -1042,7 +1037,10 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Future<void> _handleProcess() async {
-    final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+    final groceryProvider = Provider.of<GroceryListProvider>(
+      context,
+      listen: false,
+    );
     if (_isListening) {
       await _speechToText.stop();
       setState(() {
@@ -1050,7 +1048,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
         _interimTranscript = '';
       });
     }
-    
+
     if (_inputMode == InputMode.text) {
       final text = _textController.text.trim();
       if (text.isEmpty) return;
@@ -1073,11 +1071,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
       final success = await groceryProvider.parseGroceryText(text: text);
       if (success && mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const ReviewScreen(),
-          ),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (context) => const ReviewScreen()));
       }
       return;
     }
@@ -1113,11 +1109,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
     );
 
     if (success && mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const ReviewScreen(),
-        ),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const ReviewScreen()));
     }
   }
 
@@ -1131,19 +1125,19 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final baseColor = isProcessing
         ? theme.colorScheme.surfaceContainerHighest
         : isSuccess
-            ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.errorContainer;
+        ? theme.colorScheme.primaryContainer
+        : theme.colorScheme.errorContainer;
     final onColor = isProcessing
         ? theme.colorScheme.onSurfaceVariant
         : isSuccess
-            ? theme.colorScheme.onPrimaryContainer
-            : theme.colorScheme.onErrorContainer;
+        ? theme.colorScheme.onPrimaryContainer
+        : theme.colorScheme.onErrorContainer;
 
     final title = isProcessing
         ? 'Applying your update...'
         : isSuccess
-            ? 'Inventory updated automatically'
-            : 'Background processing failed';
+        ? 'Inventory updated automatically'
+        : 'Background processing failed';
 
     String? message;
     if (isProcessing) {
@@ -1154,7 +1148,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
           ? 'Hang tight while we process $snippet'
           : 'Hang tight while we process your update.';
     } else if (isSuccess) {
-      message = job.resultSummary ??
+      message =
+          job.resultSummary ??
           job.agentResponse ??
           'The AI agent applied your grocery updates.';
     } else {
@@ -1164,8 +1159,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final icon = isProcessing
         ? Icons.sync
         : isSuccess
-            ? Icons.check_circle
-            : Icons.error_outline;
+        ? Icons.check_circle
+        : Icons.error_outline;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1192,9 +1187,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
               if (job.isTerminal)
                 TextButton(
                   onPressed: provider.dismissIngestionJobStatus,
-                  style: TextButton.styleFrom(
-                    foregroundColor: onColor,
-                  ),
+                  style: TextButton.styleFrom(foregroundColor: onColor),
                   child: const Text('Dismiss'),
                 ),
             ],
@@ -1202,19 +1195,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
           const SizedBox(height: 8),
           Text(
             message,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: onColor,
-            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: onColor),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUploadStatus(
-    ThemeData theme,
-    GroceryListProvider provider,
-  ) {
+  Widget _buildUploadStatus(ThemeData theme, GroceryListProvider provider) {
     final upload = provider.activeUpload;
     final isUploading = provider.isUploading;
     final status = upload?.status;
@@ -1228,13 +1216,13 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final baseColor = isUploading
         ? theme.colorScheme.surfaceContainerHighest
         : isError
-            ? theme.colorScheme.errorContainer
-            : theme.colorScheme.secondaryContainer;
+        ? theme.colorScheme.errorContainer
+        : theme.colorScheme.secondaryContainer;
     final onColor = isUploading
         ? theme.colorScheme.onSurfaceVariant
         : isError
-            ? theme.colorScheme.onErrorContainer
-            : theme.colorScheme.onSecondaryContainer;
+        ? theme.colorScheme.onErrorContainer
+        : theme.colorScheme.onSecondaryContainer;
 
     String title;
     String message;
@@ -1268,7 +1256,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
       icon = Icons.check_circle;
     }
 
-    final showDismiss = !isUploading &&
+    final showDismiss =
+        !isUploading &&
         (upload == null ||
             isError ||
             (isComplete && (provider.activeIngestionJob?.isTerminal ?? false)));
@@ -1298,9 +1287,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
               if (showDismiss)
                 TextButton(
                   onPressed: provider.dismissUploadStatus,
-                  style: TextButton.styleFrom(
-                    foregroundColor: onColor,
-                  ),
+                  style: TextButton.styleFrom(foregroundColor: onColor),
                   child: const Text('Dismiss'),
                 ),
             ],
@@ -1308,9 +1295,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
           const SizedBox(height: 8),
           Text(
             message,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: onColor,
-            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: onColor),
           ),
         ],
       ),
@@ -1331,10 +1316,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
           return const SizedBox.shrink();
         }
 
-        final successRate =
-            (metrics.successRate * 100).clamp(0, 100).toStringAsFixed(0);
-        final fallbackRate =
-            (metrics.fallbackRate * 100).clamp(0, 100).toStringAsFixed(0);
+        final successRate = (metrics.successRate * 100)
+            .clamp(0, 100)
+            .toStringAsFixed(0);
+        final fallbackRate = (metrics.fallbackRate * 100)
+            .clamp(0, 100)
+            .toStringAsFixed(0);
         final latency = metrics.averageLatencyMs;
         final confidence = metrics.averageConfidence;
 
@@ -1442,7 +1429,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (data?.text != null && mounted) {
       final currentText = _textController.text;
       final pastedText = data!.text!;
-      
+
       // Insert at cursor or append if no selection
       final selection = _textController.selection;
       if (selection.isValid) {
@@ -1461,11 +1448,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
           offset: _textController.text.length,
         );
       }
-      
+
       // Update provider
-      final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+      final groceryProvider = Provider.of<GroceryListProvider>(
+        context,
+        listen: false,
+      );
       groceryProvider.setCurrentInputText(_textController.text);
-      
+
       // Show feedback
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1502,9 +1492,4 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 }
 
-enum InputMode {
-  text,
-  camera,
-  gallery,
-  file,
-}
+enum InputMode { text, camera, gallery, file }

@@ -265,16 +265,25 @@ export async function processGroceryRequest(
     const result = await handleGroceryRequest(userInput, context);
 
     // Log the interaction for analytics
+    const usedFallback =
+      typeof (result as any)?.usedFallback === "boolean" ?
+        Boolean((result as any).usedFallback) :
+        false;
+    const confidence = typeof (result as any)?.confidence === "number" ?
+      (result as any).confidence :
+      null;
+    const errorMessage = !result.success && typeof (result as any)?.error === "string" ?
+      (result as any).error :
+      null;
+
     await recordAgentInteraction({
       userId,
       input: userInput,
       agent: "grocery_assistant",
       success: Boolean(result.success),
-      usedFallback: Boolean(result.usedFallback),
+      usedFallback,
       latencyMs: Date.now() - startedAt,
-      confidence: typeof (result as any)?.confidence === "number" ?
-        (result as any).confidence :
-        null,
+      confidence,
       metadata: {
         intent,
         contextSize: {
@@ -282,7 +291,7 @@ export async function processGroceryRequest(
           lowStock: context.lowStockItems?.length ?? 0,
         },
       },
-      error: result.success ? null : result.error ?? null,
+      error: errorMessage,
     });
 
     return result;
