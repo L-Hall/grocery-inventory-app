@@ -201,7 +201,10 @@ Key guidelines:
 
 5. **Locations**: Capture storage hints when present (fridge, freezer, pantry, cupboard, fruit bowl). Leave blank if not mentioned.
 
-6. **Expiration dates**: When the text mentions "expires", "expiry", "best before", or similar, capture the date as ISO 8601 (YYYY-MM-DD). If you infer a reasonable expiry (e.g. milk lasts 5 days), include it with lower confidence.
+6. **Expiration dates**: When the text mentions "expires", "expiry",
+"best before", or similar, capture the date as ISO 8601 (YYYY-MM-DD).
+If you infer a reasonable expiry (e.g. milk lasts 5 days), include it
+with lower confidence.
 
 7. **Confidence scoring**:
    - 0.9-1.0: Very clear, unambiguous

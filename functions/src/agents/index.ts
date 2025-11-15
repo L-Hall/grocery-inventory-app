@@ -12,3 +12,7 @@ export {
   recipeAgent,
   shoppingAgent,
 } from "./grocery-agents-proper";
+export {
+  groceryIngestAgent,
+  runIngestionAgent,
+} from "./ingest-agent";

@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../features/grocery_list/models/grocery_list.dart';
+import '../features/grocery_list/models/ingestion_job.dart';
 import '../features/grocery_list/models/parsed_item.dart';
 import '../features/grocery_list/repositories/grocery_list_repository.dart';
 import '../features/inventory/models/inventory_item.dart';
@@ -200,6 +201,16 @@ bought 1.5 kg potatoes
   @override
   Future<ParseResult> parseCommonFormats(String text) {
     return parseGroceryText(text: text);
+  }
+
+  @override
+  Future<IngestionJobHandle> startIngestionJob({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
+    throw UnimplementedError(
+      'Ingestion jobs are not supported in preview mode.',
+    );
   }
 
   List<ParsedItem> _parseLines(String text) {

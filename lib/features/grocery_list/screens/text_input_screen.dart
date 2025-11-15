@@ -10,6 +10,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../../../core/di/service_locator.dart';
+import '../../analytics/models/agent_metrics.dart';
+import '../../analytics/services/agent_metrics_service.dart';
+import '../../uploads/models/upload_models.dart';
 import '../providers/grocery_list_provider.dart';
 import 'review_screen.dart';
 
@@ -35,6 +39,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   String? _selectedFileName;
   String? _imageBase64;
   bool _showTips = false;
+  Stream<AgentMetrics?>? _agentMetricsStream;
 
   @override
   void initState() {
@@ -43,6 +48,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
     _focusNode = FocusNode();
     _speechToText = stt.SpeechToText();
     _initSpeechEngine();
+    if (getIt.isRegistered<AgentMetricsService>()) {
+      _agentMetricsStream = getIt<AgentMetricsService>().watchGlobalMetrics();
+    }
     
     // Initialize with any existing text from provider
     final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
@@ -88,6 +96,10 @@ class _TextInputScreenState extends State<TextInputScreen> {
               
               // Process button and status
               _buildProcessSection(theme),
+
+              const SizedBox(height: 16),
+
+              _buildAgentMetricsCard(theme),
             ],
           ),
         ),
@@ -679,6 +691,15 @@ class _TextInputScreenState extends State<TextInputScreen> {
               ),
               const SizedBox(height: 12),
             ],
+            if (groceryProvider.isUploading ||
+                groceryProvider.activeUpload != null) ...[
+              _buildUploadStatus(theme, groceryProvider),
+              const SizedBox(height: 12),
+            ],
+            if (groceryProvider.activeIngestionJob != null) ...[
+              _buildIngestionJobStatus(theme, groceryProvider),
+              const SizedBox(height: 12),
+            ],
             
             // Process button
             ElevatedButton(
@@ -689,7 +710,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: groceryProvider.isParsing
+              child: groceryProvider.isProcessing
                   ? Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -700,7 +721,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'Processing...',
+                          groceryProvider.isUploading
+                              ? 'Uploading...'
+                              : 'Processing...',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -986,12 +1009,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   bool _canProcess(GroceryListProvider groceryProvider) {
-    if (groceryProvider.isParsing) return false;
+    if (groceryProvider.isProcessing) return false;
 
     if (_inputMode == InputMode.text) {
       return _textController.text.trim().isNotEmpty;
     } else {
-      return _imageBase64 != null;
+      return _selectedFileBytes != null || _imageBase64 != null;
     }
   }
 
@@ -1000,6 +1023,22 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (path == null || path.isEmpty) return 'receipt.png';
     final segments = path.split(RegExp(r'[\\/]'));
     return segments.isNotEmpty ? segments.last : path;
+  }
+
+  String _inferContentType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'application/octet-stream';
+  }
+
+  String _inferUploadSourceType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'pdf';
+    return 'image_receipt';
   }
 
   Future<void> _handleProcess() async {
@@ -1012,29 +1051,390 @@ class _TextInputScreenState extends State<TextInputScreen> {
       });
     }
     
-    bool success;
     if (_inputMode == InputMode.text) {
       final text = _textController.text.trim();
       if (text.isEmpty) return;
-      
-      success = await groceryProvider.parseGroceryText(text: text);
-    } else {
-      if (_imageBase64 == null) return;
-      
-      success = await groceryProvider.parseGroceryImage(
-        imageBase64: _imageBase64!,
-        imageType: 'receipt',
-      );
+
+      if (groceryProvider.supportsAsyncIngestion) {
+        final started = await groceryProvider.submitIngestionJob(
+          text: text,
+          metadata: const {'source': 'text_input'},
+        );
+        if (started && mounted) {
+          _textController.clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Processing your update in the background...'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final success = await groceryProvider.parseGroceryText(text: text);
+      if (success && mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const ReviewScreen(),
+          ),
+        );
+      }
+      return;
     }
 
+    final bytes = _selectedFileBytes;
+    if (bytes == null) return;
+
+    if (groceryProvider.supportsUploadIngestion) {
+      final fileName = _selectedFileName ?? 'receipt.png';
+      final success = await groceryProvider.submitUploadForIngestion(
+        bytes: bytes,
+        filename: fileName,
+        contentType: _inferContentType(fileName),
+        sourceType: _inferUploadSourceType(fileName),
+      );
+
+      if (success && mounted) {
+        _clearImage();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload queued for background processing...'),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_imageBase64 == null) return;
+
+    final success = await groceryProvider.parseGroceryImage(
+      imageBase64: _imageBase64!,
+      imageType: 'receipt',
+    );
+
     if (success && mounted) {
-      // Navigate to review screen
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => const ReviewScreen(),
         ),
       );
     }
+  }
+
+  Widget _buildIngestionJobStatus(
+    ThemeData theme,
+    GroceryListProvider provider,
+  ) {
+    final job = provider.activeIngestionJob!;
+    final isProcessing = !job.isTerminal;
+    final isSuccess = job.isComplete;
+    final baseColor = isProcessing
+        ? theme.colorScheme.surfaceContainerHighest
+        : isSuccess
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.errorContainer;
+    final onColor = isProcessing
+        ? theme.colorScheme.onSurfaceVariant
+        : isSuccess
+            ? theme.colorScheme.onPrimaryContainer
+            : theme.colorScheme.onErrorContainer;
+
+    final title = isProcessing
+        ? 'Applying your update...'
+        : isSuccess
+            ? 'Inventory updated automatically'
+            : 'Background processing failed';
+
+    String? message;
+    if (isProcessing) {
+      final snippet = job.text != null && job.text!.isNotEmpty
+          ? '"${_truncate(job.text!, 80)}"'
+          : null;
+      message = snippet != null
+          ? 'Hang tight while we process $snippet'
+          : 'Hang tight while we process your update.';
+    } else if (isSuccess) {
+      message = job.resultSummary ??
+          job.agentResponse ??
+          'The AI agent applied your grocery updates.';
+    } else {
+      message = job.lastError ?? 'Please try again in a moment.';
+    }
+
+    final icon = isProcessing
+        ? Icons.sync
+        : isSuccess
+            ? Icons.check_circle
+            : Icons.error_outline;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: baseColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: onColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: onColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (job.isTerminal)
+                TextButton(
+                  onPressed: provider.dismissIngestionJobStatus,
+                  style: TextButton.styleFrom(
+                    foregroundColor: onColor,
+                  ),
+                  child: const Text('Dismiss'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: onColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadStatus(
+    ThemeData theme,
+    GroceryListProvider provider,
+  ) {
+    final upload = provider.activeUpload;
+    final isUploading = provider.isUploading;
+    final status = upload?.status;
+
+    if (!isUploading && upload == null) {
+      return const SizedBox.shrink();
+    }
+
+    final bool isError = status == UploadStatus.failed;
+    final bool isComplete = status == UploadStatus.completed;
+    final baseColor = isUploading
+        ? theme.colorScheme.surfaceContainerHighest
+        : isError
+            ? theme.colorScheme.errorContainer
+            : theme.colorScheme.secondaryContainer;
+    final onColor = isUploading
+        ? theme.colorScheme.onSurfaceVariant
+        : isError
+            ? theme.colorScheme.onErrorContainer
+            : theme.colorScheme.onSecondaryContainer;
+
+    String title;
+    String message;
+    IconData icon;
+
+    if (isUploading) {
+      final percent = (provider.uploadProgress * 100).clamp(0, 100).round();
+      title = 'Uploading your file...';
+      message = 'Sent $percent% of the receipt to the server.';
+      icon = Icons.cloud_upload;
+    } else if (status == UploadStatus.queued) {
+      title = 'Queued for processing';
+      message = 'Waiting for the AI parser to pick up your upload.';
+      icon = Icons.schedule;
+    } else if (status == UploadStatus.processing) {
+      title = 'Processing upload...';
+      message = upload?.processingStage != null
+          ? 'Stage: ${upload!.processingStage}'
+          : 'Preparing the ingestion job.';
+      icon = Icons.sync;
+    } else if (isError) {
+      title = 'Upload failed';
+      message = upload?.lastError ?? 'Please try again in a moment.';
+      icon = Icons.error_outline;
+    } else {
+      title = 'Upload processed';
+      final preview = upload?.textPreview;
+      message = preview != null && preview.isNotEmpty
+          ? 'Preview: ${_truncate(preview, 80)}'
+          : 'Ingestion job starting shortly.';
+      icon = Icons.check_circle;
+    }
+
+    final showDismiss = !isUploading &&
+        (upload == null ||
+            isError ||
+            (isComplete && (provider.activeIngestionJob?.isTerminal ?? false)));
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: baseColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: onColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: onColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (showDismiss)
+                TextButton(
+                  onPressed: provider.dismissUploadStatus,
+                  style: TextButton.styleFrom(
+                    foregroundColor: onColor,
+                  ),
+                  child: const Text('Dismiss'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: onColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAgentMetricsCard(ThemeData theme) {
+    final stream = _agentMetricsStream;
+    if (stream == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<AgentMetrics?>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final metrics = snapshot.data;
+        if (metrics == null) {
+          return const SizedBox.shrink();
+        }
+
+        final successRate =
+            (metrics.successRate * 100).clamp(0, 100).toStringAsFixed(0);
+        final fallbackRate =
+            (metrics.fallbackRate * 100).clamp(0, 100).toStringAsFixed(0);
+        final latency = metrics.averageLatencyMs;
+        final confidence = metrics.averageConfidence;
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Agent health',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _buildMetricPill(
+                      theme,
+                      label: 'Runs',
+                      value: metrics.totalCount.toString(),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildMetricPill(
+                      theme,
+                      label: 'Success',
+                      value: '$successRate%',
+                    ),
+                    const SizedBox(width: 8),
+                    _buildMetricPill(
+                      theme,
+                      label: 'Fallback',
+                      value: '$fallbackRate%',
+                    ),
+                  ],
+                ),
+                if (latency != null || confidence != null)
+                  const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (latency != null)
+                      Text(
+                        'Avg latency: ${latency.toStringAsFixed(0)} ms',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    if (confidence != null)
+                      Text(
+                        'Avg confidence: ${confidence.toStringAsFixed(2)}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMetricPill(
+    ThemeData theme, {
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _truncate(String value, int maxChars) {
+    if (value.length <= maxChars) return value;
+    return '${value.substring(0, maxChars).trim()}...';
   }
 
   void _handlePaste() async {

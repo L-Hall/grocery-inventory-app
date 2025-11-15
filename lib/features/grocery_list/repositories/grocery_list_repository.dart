@@ -1,5 +1,6 @@
 import '../../../core/services/api_service.dart';
 import '../models/grocery_list.dart';
+import '../models/ingestion_job.dart';
 import '../models/parsed_item.dart';
 
 abstract class GroceryListDataSource {
@@ -26,6 +27,10 @@ abstract class GroceryListDataSource {
   List<String> validateParsedItems(List<ParsedItem> items);
   List<String> getParsingTips();
   Future<ParseResult> parseCommonFormats(String text);
+  Future<IngestionJobHandle> startIngestionJob({
+    required String text,
+    Map<String, dynamic>? metadata,
+  });
 }
 
 class GroceryListRepository implements GroceryListDataSource {
@@ -293,6 +298,24 @@ class GroceryListRepository implements GroceryListDataSource {
       'made'
     ];
     return consumptionWords.any((word) => text.contains(word));
+  }
+
+  @override
+  Future<IngestionJobHandle> startIngestionJob({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final response = await _apiService.createIngestionJob(
+        text: text,
+        metadata: metadata,
+      );
+      return IngestionJobHandle.fromJson(response);
+    } catch (e) {
+      throw GroceryListRepositoryException(
+        'Failed to start ingestion job: $e',
+      );
+    }
   }
 }
 

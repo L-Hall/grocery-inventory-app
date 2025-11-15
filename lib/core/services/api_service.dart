@@ -122,6 +122,89 @@ class ApiService {
       throw _handleDioException(e);
     }
   }
+
+  Future<Map<String, dynamic>> createIngestionJob({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final payload = {
+        'text': text,
+        if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+      };
+
+      final response = await _dio.post(
+        '/inventory/ingest',
+        data: payload,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException(
+          'Failed to start ingestion job',
+          response.statusCode,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+  
+  Future<Map<String, dynamic>> requestUploadSlot({
+    required String filename,
+    required String contentType,
+    required int sizeBytes,
+    String? sourceType,
+  }) async {
+    try {
+      final payload = {
+        'filename': filename,
+        'contentType': contentType,
+        'sizeBytes': sizeBytes,
+        if (sourceType != null) 'sourceType': sourceType,
+      };
+
+      final response = await _dio.post(
+        '/uploads',
+        data: payload,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to reserve upload slot', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getUpload(String uploadId) async {
+    try {
+      final response = await _dio.get('/uploads/$uploadId');
+      if (response.statusCode == 200) {
+        return (response.data?['upload'] ?? {}) as Map<String, dynamic>;
+      } else {
+        throw ApiException('Failed to fetch upload', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> queueUpload(String uploadId) async {
+    try {
+      final response = await _dio.post('/uploads/$uploadId/queue');
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to queue upload', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
   
   Future<Map<String, dynamic>> parseGroceryImage({
     required String imageBase64,

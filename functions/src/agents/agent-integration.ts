@@ -13,6 +13,8 @@ import {
   createShoppingList,
   handleGroceryRequest,
 } from "./grocery-agent";
+import {runIngestionAgent} from "./ingest-agent";
+import {recordAgentInteraction} from "../metrics/agent-metrics";
 
 const db = admin.firestore();
 
@@ -252,18 +254,49 @@ export async function processGroceryRequest(
   userInput: string,
   contextData?: any
 ) {
+  const startedAt = Date.now();
+  let intent = "general";
   try {
     // Prepare context
     const context = contextData || await buildUserContext(userId);
+    intent = contextData?.intent ?? "general";
 
     // Process request through agent
     const result = await handleGroceryRequest(userInput, context);
 
     // Log the interaction for analytics
-    await logAgentInteraction(userId, userInput, result);
+    await recordAgentInteraction({
+      userId,
+      input: userInput,
+      agent: "grocery_assistant",
+      success: Boolean(result.success),
+      usedFallback: Boolean(result.usedFallback),
+      latencyMs: Date.now() - startedAt,
+      confidence: typeof (result as any)?.confidence === "number" ?
+        (result as any).confidence :
+        null,
+      metadata: {
+        intent,
+        contextSize: {
+          inventory: context.inventory?.length ?? 0,
+          lowStock: context.lowStockItems?.length ?? 0,
+        },
+      },
+      error: result.success ? null : result.error ?? null,
+    });
 
     return result;
   } catch (error) {
+    await recordAgentInteraction({
+      userId,
+      input: userInput,
+      agent: "grocery_assistant",
+      success: false,
+      usedFallback: true,
+      latencyMs: Date.now() - startedAt,
+      metadata: {intent},
+      error: error instanceof Error ? error.message : String(error),
+    });
     logger.error("Error processing grocery request", {
       error: error instanceof Error ? error.message : error,
     });
@@ -272,6 +305,18 @@ export async function processGroceryRequest(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+export async function ingestInventoryTextWithAgent(
+  userId: string,
+  text: string,
+  metadata?: Record<string, any>,
+) {
+  return await runIngestionAgent({
+    userId,
+    text,
+    metadata,
+  });
 }
 
 /**
@@ -311,34 +356,10 @@ async function buildUserContext(userId: string) {
   };
 }
 
-/**
- * Log agent interactions for analytics and improvement
- */
-async function logAgentInteraction(
-  userId: string,
-  input: string,
-  result: any
-) {
-  try {
-    await db.collection("agent_interactions").add({
-      userId,
-      input,
-      success: result.success,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      // Don't log full response to save space
-      resultType: result.success ? "success" : "error",
-    });
-  } catch (error) {
-    logger.error("Error logging agent interaction", {
-      error: error instanceof Error ? error.message : error,
-    });
-    // Don't throw - logging failure shouldn't break the main flow
-  }
-}
-
 export default {
   parseWithAgent,
   suggestRecipes,
   generateSmartShoppingList,
   processGroceryRequest,
+  ingestInventoryTextWithAgent,
 };
