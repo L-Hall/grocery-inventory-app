@@ -27,6 +27,7 @@ import {
   formatSavedSearch,
   formatCustomView,
 } from "./utils/formatters";
+import * as XLSX from "xlsx";
 import {createAuthenticateMiddleware} from "./middleware/authenticate";
 import {
   UploadStatus,
@@ -370,6 +371,14 @@ const isImageLike = (contentType?: string, sourceType?: UploadSourceType) => {
   return IMAGE_CONTENT_TYPES.some((type) => contentType.includes(type));
 };
 
+const isSpreadsheetLike = (contentType?: string, path?: string) => {
+  if (contentType && contentType.includes("spreadsheet")) {
+    return true;
+  }
+  if (!path) return false;
+  return path.toLowerCase().endsWith(".xlsx");
+};
+
 const extractTextFromPdfBuffer = (buffer: Buffer) => {
   const raw = buffer.toString("latin1");
   const matches = raw.match(/\(([^)]+)\)/g) ?? [];
@@ -406,6 +415,50 @@ const convertItemsToNarrative = (items: any[]) => {
   });
 
   return statements.join("\n");
+};
+
+const convertSpreadsheetToText = (buffer: Buffer) => {
+  const workbook = XLSX.read(buffer, {type: "buffer"});
+  if (!workbook.SheetNames.length) {
+    throw new Error("Spreadsheet does not contain any sheets.");
+  }
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    blankrows: false,
+  }) as any[][];
+
+  const normalizedRows = rows
+    .map((row) => {
+      const cells = (row || [])
+        .map((cell) => String(cell ?? "").trim())
+        .filter((cell) => cell.length > 0);
+      return cells.join(", ");
+    })
+    .filter((line) => line.length > 0);
+
+  const text = normalizedRows.join("\n").trim();
+  if (!text) {
+    throw new Error("Spreadsheet did not contain any readable cells.");
+  }
+
+  const columnCount = rows.reduce(
+    (max, row) => Math.max(max, Array.isArray(row) ? row.length : 0),
+    0,
+  );
+
+  return {
+    text,
+    preview: sanitizeExtractedText(text),
+    metadata: {
+      method: "spreadsheet",
+      sheetName,
+      sheetNames: workbook.SheetNames,
+      rowCount: rows.length,
+      columnCount,
+    },
+  };
 };
 
 const extractTextFromUpload = async ({
@@ -484,6 +537,11 @@ const extractTextFromUpload = async ({
           validatedItems.length,
       },
     };
+  }
+
+  if (isSpreadsheetLike(contentType, storagePath)) {
+    const spreadsheet = convertSpreadsheetToText(buffer);
+    return spreadsheet;
   }
 
   throw new Error(

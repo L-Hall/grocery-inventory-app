@@ -408,9 +408,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildImageInput(ThemeData theme) {
-    if (_selectedFileBytes != null ||
-        (_selectedFileName != null &&
-            _selectedFileName!.toLowerCase().endsWith('.pdf'))) {
+    if (_selectedFileBytes != null || (_selectedFileName ?? '').isNotEmpty) {
       return _buildImagePreview(theme);
     }
 
@@ -471,7 +469,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildImagePreview(ThemeData theme) {
-    final isPdf = (_selectedFileName ?? '').toLowerCase().endsWith('.pdf');
+    final fileName = _selectedFileName ?? '';
+    final isPreviewableImage = _isPreviewableImage(fileName);
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: theme.colorScheme.outline, width: 1),
@@ -487,7 +486,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (!isPdf && _selectedFileBytes != null)
+                  if (isPreviewableImage && _selectedFileBytes != null)
                     Image.memory(_selectedFileBytes!, fit: BoxFit.contain)
                   else
                     Container(
@@ -498,7 +497,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.picture_as_pdf,
+                              _getDocumentIcon(fileName),
                               size: 64,
                               color: theme.colorScheme.primary,
                             ),
@@ -543,7 +542,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
             child: Row(
               children: [
                 Icon(
-                  isPdf ? Icons.picture_as_pdf : Icons.check_circle,
+                  isPreviewableImage
+                      ? Icons.check_circle
+                      : _getDocumentIcon(fileName),
                   color: theme.colorScheme.primary,
                   size: 20,
                 ),
@@ -608,10 +609,29 @@ class _TextInputScreenState extends State<TextInputScreen> {
       case InputMode.gallery:
         return 'Choose an existing photo';
       case InputMode.file:
-        return 'PDF or image files supported';
+        return 'PDF, image, CSV, or XLSX files supported';
       default:
         return '';
     }
+  }
+
+  bool _isPreviewableImage(String fileName) {
+    final lower = fileName.toLowerCase();
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.bmp') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.heic');
+  }
+
+  IconData _getDocumentIcon(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return Icons.picture_as_pdf;
+    if (lower.endsWith('.csv')) return Icons.table_chart;
+    if (lower.endsWith('.xlsx')) return Icons.grid_on;
+    return Icons.description;
   }
 
   IconData _getActionIcon() {
@@ -951,7 +971,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'csv', 'xlsx'],
       withData: true,
     );
 
@@ -1027,12 +1047,19 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.heic')) return 'image/heic';
     if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.csv')) return 'text/csv';
+    if (lower.endsWith('.xlsx')) {
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
     return 'application/octet-stream';
   }
 
   String _inferUploadSourceType(String fileName) {
     final lower = fileName.toLowerCase();
     if (lower.endsWith('.pdf')) return 'pdf';
+    if (lower.endsWith('.csv') || lower.endsWith('.xlsx')) {
+      return 'text';
+    }
     return 'image_receipt';
   }
 
