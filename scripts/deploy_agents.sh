@@ -26,17 +26,8 @@ need_cmd bash
 need_cmd sed
 
 if ! command -v flutter >/dev/null 2>&1; then
-  warn "flutter is not on PATH; skipping formatter/test steps."
+  warn "flutter is not on PATH; skipping flutter test step."
 else
-  if [[ "${SKIP_FORMAT:-0}" != "1" ]]; then
-    info "Formatting Dart sources"
-    if ! flutter format "$ROOT_DIR/lib" "$ROOT_DIR/test"; then
-      warn "flutter format failed (set SKIP_FORMAT=1 to skip); deployment will continue."
-    fi
-  else
-    info "Skipping formatter (SKIP_FORMAT=1)"
-  fi
-
   info "Running Flutter tests"
   pushd "$ROOT_DIR" >/dev/null
   flutter test
