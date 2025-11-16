@@ -205,8 +205,12 @@ export async function runIngestionAgent(input: IngestAgentInput): Promise<Ingest
       timestamp: new Date().toISOString(),
     };
 
-    const message = `User provided new grocery information:\n"""${input.text.trim()}"""\n
-Use tools to parse the text, inspect context, and apply updates if confident.`;
+    const message = [
+      `User provided new grocery information:\n"""${input.text.trim()}"""`,
+      `Always pass this exact authenticated user ID into any tool that requires userId: "${input.userId}".`,
+      "Never invent or redact placeholder values.",
+      "Use tools to parse the text, inspect context, and apply updates if confident.",
+    ].join("\n");
 
     const result = await run(groceryIngestAgent, message, {
       context,
