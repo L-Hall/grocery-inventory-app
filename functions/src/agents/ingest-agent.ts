@@ -15,7 +15,6 @@ import {
   applyInventoryUpdatesForUser,
   InventoryActionType,
 } from "../services/inventory";
-import {recordAgentInteraction} from "../metrics/agent-metrics";
 import {
   formatGroceryList,
   formatInventoryItem,
@@ -172,10 +171,20 @@ export interface IngestAgentInput {
   metadata?: Record<string, any>;
 }
 
+export interface ToolInvocationRecord {
+  id?: string;
+  name?: string;
+  status?: string;
+  arguments?: string;
+  output?: string;
+}
+
 export interface IngestAgentResult {
   success: boolean;
   response?: string;
   error?: string;
+  toolInvocations: ToolInvocationRecord[];
+  latencyMs: number;
 }
 
 export async function runIngestionAgent(input: IngestAgentInput): Promise<IngestAgentResult> {
@@ -183,6 +192,8 @@ export async function runIngestionAgent(input: IngestAgentInput): Promise<Ingest
     return {
       success: false,
       error: "Text payload is required for ingestion.",
+      toolInvocations: [],
+      latencyMs: 0,
     };
   }
 
@@ -202,36 +213,13 @@ Use tools to parse the text, inspect context, and apply updates if confident.`;
       maxTurns: 12,
     });
 
-    await recordAgentInteraction({
-      userId: input.userId,
-      input: input.text,
-      agent: "grocery_ingest",
-      success: true,
-      usedFallback: false,
-      latencyMs: Date.now() - startedAt,
-      confidence: null,
-      metadata: {
-        metadata: input.metadata ?? {},
-      },
-    });
-
     return {
       success: true,
       response: result.finalOutput,
+      toolInvocations: extractToolInvocations(result.newItems ?? []),
+      latencyMs: Date.now() - startedAt,
     };
   } catch (error: any) {
-    await recordAgentInteraction({
-      userId: input.userId,
-      input: input.text,
-      agent: "grocery_ingest",
-      success: false,
-      usedFallback: true,
-      latencyMs: Date.now() - startedAt,
-      metadata: {
-        metadata: input.metadata ?? {},
-      },
-      error: error?.message ?? "Unknown error",
-    });
     logger.error("runIngestionAgent failed", {
       userId: input.userId,
       error: error?.message ?? error,
@@ -239,8 +227,48 @@ Use tools to parse the text, inspect context, and apply updates if confident.`;
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
+      toolInvocations: [],
+      latencyMs: Date.now() - startedAt,
     };
   }
+}
+
+function extractToolInvocations(runItems: any[]): ToolInvocationRecord[] {
+  const records = new Map<string, ToolInvocationRecord>();
+
+  for (const item of runItems) {
+    const serialized = typeof item?.toJSON === "function" ? item.toJSON() : item;
+    const raw = serialized?.rawItem;
+    if (!raw || typeof raw !== "object") continue;
+
+    if (raw.type === "function_call") {
+      const id = raw.callId ?? raw.id ?? String(records.size);
+      const existing: ToolInvocationRecord = records.get(id) ?? {id};
+      existing.name = raw.name ?? existing.name;
+      existing.arguments = raw.arguments ?? existing.arguments;
+      existing.status = raw.status ?? existing.status ?? "in_progress";
+      records.set(id, existing);
+    } else if (raw.type === "function_call_result") {
+      const id = raw.callId ?? raw.id ?? String(records.size);
+      const existing: ToolInvocationRecord = records.get(id) ?? {id};
+      existing.status = raw.status ?? "completed";
+      const output = raw.output;
+      if (typeof output === "string") {
+        existing.output = output;
+      } else if (output?.type === "text" && typeof output.text === "string") {
+        existing.output = output.text;
+      } else if (output) {
+        try {
+          existing.output = JSON.stringify(output);
+        } catch {
+          existing.output = String(output);
+        }
+      }
+      records.set(id, existing);
+    }
+  }
+
+  return Array.from(records.values());
 }
 
 export default {

@@ -138,8 +138,9 @@ export async function validateSecrets(requiredSecrets: string[]): Promise<boolea
 export const runtimeOpts = {
   timeoutSeconds: 300,
   memory: "1GB" as const,
-  // Uncomment after setting the secret with: firebase functions:secrets:set OPENAI_API_KEY
-  // secrets: [SECRETS.OPENAI_API_KEY],
+  // Ensure OPENAI_API_KEY is configured via:
+  // firebase functions:secrets:set OPENAI_API_KEY --project <project-id>
+  secrets: [SECRETS.OPENAI_API_KEY],
 };
 
 /**

@@ -15,4 +15,5 @@ export {
 export {
   groceryIngestAgent,
   runIngestionAgent,
+  ToolInvocationRecord,
 } from "./ingest-agent";

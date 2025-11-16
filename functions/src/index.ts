@@ -17,6 +17,7 @@ import {
   processGroceryRequest,
   updateInventoryWithConfirmation,
   runIngestionAgent,
+  ToolInvocationRecord,
 } from "./agents";
 import {
   formatInventoryItem,
@@ -38,6 +39,7 @@ import {
   getUploadsBucketName,
 } from "./utils/uploads";
 import {applyInventoryUpdatesForUser} from "./services/inventory";
+import {recordAgentInteraction} from "./metrics/agent-metrics";
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
@@ -146,6 +148,142 @@ const sanitizeJobMetadata = (value: any) => {
     });
     return {};
   }
+};
+
+interface AgentPipelineExecution {
+  success: boolean;
+  agentResponse: string | null;
+  summary: string;
+  error?: string | null;
+  toolInvocations: ToolInvocationRecord[];
+  usedFallback: boolean;
+  fallbackDetails?: Record<string, any> | null;
+  latencyMs: number;
+}
+
+const didAgentApplyInventoryUpdates = (
+  toolInvocations: ToolInvocationRecord[],
+) => {
+  return toolInvocations.some(
+    (invocation) => invocation.name === "apply_inventory_updates",
+  );
+};
+
+const buildFallbackSummary = (
+  summary: {total: number; successful: number; failed: number},
+) => {
+  return `Fallback parser applied ${summary.successful}/${summary.total} updates (${summary.failed} failed).`;
+};
+
+const runFallbackParserAndApply = async (
+  userId: string,
+  text: string,
+) => {
+  const apiKey = await getSecret(SECRETS.OPENAI_API_KEY) ?? "";
+  const parser = new GroceryParser(apiKey);
+  const parseResult = await parser.parseGroceryText(text);
+  const items = parser.validateItems(parseResult.items ?? []);
+
+  if (!items.length) {
+    throw new Error("Fallback parser did not detect any updates to apply.");
+  }
+
+  const applyResult = await applyInventoryUpdatesForUser(
+    userId,
+    items,
+    "inventory_agent",
+  );
+
+  return {
+    summary: buildFallbackSummary(applyResult.summary),
+    parsedItems: items,
+    applyResult,
+    parser: {
+      confidence: parseResult.confidence ?? null,
+      needsReview: parseResult.needsReview ?? false,
+    },
+  };
+};
+
+const executeAgentIngestionPipeline = async ({
+  userId,
+  text,
+  metadata,
+}: {
+  userId: string;
+  text: string;
+  metadata?: Record<string, any> | null;
+}): Promise<AgentPipelineExecution> => {
+  const agentResult = await runIngestionAgent({
+    userId,
+    text,
+    metadata: metadata ?? undefined,
+  });
+
+  const toolInvocations = agentResult.toolInvocations ?? [];
+  const originalResponse = agentResult.response ?? null;
+  let summary = originalResponse ?? "Ingestion completed.";
+  let success = agentResult.success;
+  let error = agentResult.error ?? null;
+  let usedFallback = false;
+  let fallbackDetails: Record<string, any> | null = null;
+  let totalLatency = agentResult.latencyMs;
+
+  const shouldFallback =
+    !agentResult.success ||
+    !didAgentApplyInventoryUpdates(toolInvocations);
+
+  if (shouldFallback) {
+    usedFallback = true;
+    const fallbackStarted = Date.now();
+    try {
+      const fallbackResult = await runFallbackParserAndApply(userId, text);
+      fallbackDetails = fallbackResult;
+      const fallbackSummary = buildFallbackSummary(
+        fallbackResult.applyResult.summary,
+      );
+      summary = originalResponse ?
+        `${originalResponse}\n\n${fallbackSummary}` :
+        fallbackSummary;
+      success = true;
+      error = null;
+    } catch (fallbackError: any) {
+      error = fallbackError instanceof Error ?
+        fallbackError.message :
+        String(fallbackError);
+      summary = originalResponse ?? error;
+      success = false;
+      fallbackDetails = {error};
+    } finally {
+      totalLatency += Date.now() - fallbackStarted;
+    }
+  }
+
+  await recordAgentInteraction({
+    userId,
+    input: text,
+    agent: "grocery_ingest",
+    success,
+    usedFallback,
+    latencyMs: totalLatency,
+    metadata: {
+      metadata: metadata ?? {},
+      toolInvocations,
+      fallbackDetails,
+    },
+    error: success ? null : error ?? "Unknown error",
+  });
+
+  return {
+    success,
+    agentResponse: summary ?? null,
+    summary,
+    error,
+    toolInvocations,
+    usedFallback,
+    fallbackDetails,
+    latencyMs: totalLatency,
+  };
 };
 
 const getLatencyBucketKey = (latencyMs: number) => {
@@ -1083,6 +1221,9 @@ app.post("/inventory/ingest", authenticate, async (req, res) => {
       agentResponse: null,
       lastError: null,
       resultSummary: null,
+      toolInvocations: [],
+      fallbackApplied: false,
+      fallbackDetails: null,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -2041,20 +2182,26 @@ app.post("/agent/ingest", authenticate, async (req, res) => {
       });
     }
 
-    const result = await runIngestionAgent({
+    const pipelineResult = await executeAgentIngestionPipeline({
       userId: req.user.uid,
-      text,
-      metadata: typeof metadata === "object" ? metadata : undefined,
+      text: text.trim(),
+      metadata: sanitizeJobMetadata(metadata),
     });
 
-    if (!result.success) {
+    if (!pipelineResult.success) {
       return res.status(500).json({
         error: "Agent Error",
-        message: result.error ?? "Ingestion agent failed",
+        message: pipelineResult.error ?? "Ingestion agent failed",
       });
     }
 
-    res.json(result);
+    res.json({
+      success: true,
+      response: pipelineResult.agentResponse,
+      summary: pipelineResult.summary,
+      usedFallback: pipelineResult.usedFallback,
+      toolInvocations: pipelineResult.toolInvocations,
+    });
   } catch (error: any) {
     logger.error("Error running ingestion agent", {
       uid: req.user?.uid,
@@ -2204,26 +2351,32 @@ export const processIngestionJobs = functions
         lastError: null,
       });
 
-      const result = await runIngestionAgent({
+      const pipelineResult = await executeAgentIngestionPipeline({
         userId,
         text,
         metadata,
       });
 
-      if (result.success) {
+      if (pipelineResult.success) {
         await snapshot.ref.update({
           status: IngestJobStatus.completed,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           completedAt: admin.firestore.FieldValue.serverTimestamp(),
-          agentResponse: result.response ?? null,
-          resultSummary: result.response ?? "Ingestion completed.",
+          agentResponse: pipelineResult.agentResponse ?? null,
+          resultSummary: pipelineResult.summary,
           lastError: null,
+          toolInvocations: pipelineResult.toolInvocations ?? [],
+          fallbackApplied: pipelineResult.usedFallback,
+          fallbackDetails: pipelineResult.fallbackDetails ?? null,
         });
       } else {
         await snapshot.ref.update({
           status: IngestJobStatus.failed,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          lastError: result.error ?? "Agent ingestion failed",
+          lastError: pipelineResult.error ?? "Agent ingestion failed",
+          toolInvocations: pipelineResult.toolInvocations ?? [],
+          fallbackApplied: pipelineResult.usedFallback,
+          fallbackDetails: pipelineResult.fallbackDetails ?? null,
         });
       }
     } catch (error: any) {
