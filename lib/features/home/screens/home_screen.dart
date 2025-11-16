@@ -113,13 +113,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(context),
-      floatingActionButton: _currentIndex == 1 ? null : _buildFloatingActionButton(context),
+      floatingActionButton: _currentIndex == 1
+          ? null
+          : _buildFloatingActionButton(context),
     );
   }
 
   Widget _buildBottomNavigationBar(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return NavigationBar(
       selectedIndex: _currentIndex,
       onDestinationSelected: (index) {
@@ -157,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget? _buildFloatingActionButton(BuildContext context) {
     // Show FAB only on inventory screen for quick add
     if (_currentIndex != 0) return null;
-    
+
     return FloatingActionButton(
       onPressed: () {
         showInventoryItemEditorSheet(context);
@@ -182,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _getUserInitials(String name) {
     if (name.isEmpty) return '?';
-    
+
     final parts = name.split(' ');
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();

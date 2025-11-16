@@ -9,7 +9,7 @@ import 'package:grocery_app/features/inventory/models/inventory_item.dart';
 
 class FakeGroceryRepository implements GroceryListDataSource {
   FakeGroceryRepository({required ParseResult parseResult})
-      : _parseResult = parseResult;
+    : _parseResult = parseResult;
 
   ParseResult _parseResult;
   List<ParsedItem>? lastAppliedItems;
@@ -41,7 +41,9 @@ class FakeGroceryRepository implements GroceryListDataSource {
     required String imageBase64,
     String imageType = 'receipt',
   }) {
-    throw UnimplementedError('parseGroceryImage not supported in FakeGroceryRepository');
+    throw UnimplementedError(
+      'parseGroceryImage not supported in FakeGroceryRepository',
+    );
   }
 
   @override
@@ -50,7 +52,9 @@ class FakeGroceryRepository implements GroceryListDataSource {
     bool fromLowStock = true,
     List<GroceryListItemTemplate>? customItems,
   }) {
-    throw UnimplementedError('createGroceryList not supported in FakeGroceryRepository');
+    throw UnimplementedError(
+      'createGroceryList not supported in FakeGroceryRepository',
+    );
   }
 
   @override
@@ -70,7 +74,9 @@ class FakeGroceryRepository implements GroceryListDataSource {
 
   @override
   Future<GroceryList> createGroceryListFromLowStock({String? name}) {
-    throw UnimplementedError('createGroceryListFromLowStock not supported in FakeGroceryRepository');
+    throw UnimplementedError(
+      'createGroceryListFromLowStock not supported in FakeGroceryRepository',
+    );
   }
 
   @override
@@ -78,7 +84,9 @@ class FakeGroceryRepository implements GroceryListDataSource {
     required String name,
     required List<GroceryListItemTemplate> items,
   }) {
-    throw UnimplementedError('createCustomGroceryList not supported in FakeGroceryRepository');
+    throw UnimplementedError(
+      'createCustomGroceryList not supported in FakeGroceryRepository',
+    );
   }
 
   @override
@@ -101,7 +109,9 @@ class FakeGroceryRepository implements GroceryListDataSource {
     required String text,
     Map<String, dynamic>? metadata,
   }) {
-    throw UnimplementedError('startIngestionJob not supported in FakeGroceryRepository');
+    throw UnimplementedError(
+      'startIngestionJob not supported in FakeGroceryRepository',
+    );
   }
 }
 
@@ -172,14 +182,23 @@ void main() {
 
       final provider = GroceryListProvider(repository);
 
-      final parsed = await provider.parseGroceryText(text: 'bought strawberries');
+      final parsed = await provider.parseGroceryText(
+        text: 'bought strawberries',
+      );
       expect(parsed, isTrue);
       expect(provider.hasParseResult, isTrue);
 
       final applied = await provider.applyParsedItems();
       expect(applied, isFalse);
-      expect(provider.hasParseResult, isTrue, reason: 'Parsed items should remain for correction');
-      expect(provider.error, 'Failed to apply inventory updates: Strawberries: quantity exceeds stock limits');
+      expect(
+        provider.hasParseResult,
+        isTrue,
+        reason: 'Parsed items should remain for correction',
+      );
+      expect(
+        provider.error,
+        'Failed to apply inventory updates: Strawberries: quantity exceeds stock limits',
+      );
       expect(repository.lastAppliedItems, isNull);
     });
   });

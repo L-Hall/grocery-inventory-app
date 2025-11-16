@@ -17,14 +17,17 @@ class UploadService {
     required ApiService apiService,
     FirebaseFirestore? firestore,
     Dio? uploadClient,
-  })  : _apiService = apiService,
-        _firestore = firestore,
-        _uploadClient = uploadClient ??
-            Dio(BaseOptions(
-              connectTimeout: const Duration(seconds: 60),
-              receiveTimeout: const Duration(seconds: 60),
-              sendTimeout: const Duration(seconds: 60),
-            ));
+  }) : _apiService = apiService,
+       _firestore = firestore,
+       _uploadClient =
+           uploadClient ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 60),
+               receiveTimeout: const Duration(seconds: 60),
+               sendTimeout: const Duration(seconds: 60),
+             ),
+           );
 
   Future<UploadReservation> reserveUpload({
     required String filename,
@@ -99,10 +102,7 @@ class UploadService {
           if (!snapshot.exists) {
             throw UploadException('Upload metadata was deleted.');
           }
-          final data = {
-            ...snapshot.data()!,
-            'id': snapshot.id,
-          };
+          final data = {...snapshot.data()!, 'id': snapshot.id};
           return UploadMetadata.fromJson(data);
         });
   }

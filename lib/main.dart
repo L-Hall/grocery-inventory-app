@@ -39,8 +39,7 @@ Future<PreviewDependencies> _buildPreviewDependencies() async {
   final inventoryProvider = InventoryProvider(PreviewInventoryRepository());
   await inventoryProvider.initialize();
 
-  final groceryProvider =
-      GroceryListProvider(PreviewGroceryListRepository());
+  final groceryProvider = GroceryListProvider(PreviewGroceryListRepository());
 
   return PreviewDependencies(
     inventoryProvider: inventoryProvider,
@@ -143,10 +142,7 @@ class _PreviewNavigationShellState extends State<PreviewNavigationShell> {
         centerTitle: true,
         backgroundColor: Colors.white,
       ),
-      body: IndexedStack(
-        index: _index,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (value) {
@@ -228,10 +224,7 @@ class _PreviewSettingsScreen extends StatelessWidget {
 }
 
 class _PreviewSettingChip extends StatelessWidget {
-  const _PreviewSettingChip({
-    required this.icon,
-    required this.label,
-  });
+  const _PreviewSettingChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;

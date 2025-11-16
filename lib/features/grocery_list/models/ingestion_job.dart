@@ -1,11 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum IngestionJobStatus {
-  pending,
-  processing,
-  completed,
-  failed,
-}
+enum IngestionJobStatus { pending, processing, completed, failed }
 
 IngestionJobStatus ingestionJobStatusFromString(String? value) {
   switch (value) {
@@ -103,7 +98,8 @@ class IngestionJobHandle {
   factory IngestionJobHandle.fromJson(Map<String, dynamic> json) {
     return IngestionJobHandle(
       jobId: json['jobId'] as String? ?? '',
-      jobPath: json['jobPath'] as String? ??
+      jobPath:
+          json['jobPath'] as String? ??
           'users/${json['userId'] ?? 'unknown'}/ingestion_jobs/${json['jobId'] ?? ''}',
       status: ingestionJobStatusFromString(json['status'] as String?),
     );

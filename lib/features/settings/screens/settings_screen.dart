@@ -23,7 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final StorageService _storageService;
   late final ApiService _apiService;
   bool _isLoading = false;
-  
+
   // Preference states
   bool _notificationsEnabled = true;
   bool _lowStockAlerts = true;
@@ -34,9 +34,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showSnackMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showSnack(SnackBar snackBar) {
@@ -59,7 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
-    
+
     try {
       // Load saved preferences
       final notifications = _storageService.getBool(
@@ -72,7 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       final unit = _storageService.getString('default_unit');
       final theme = _storageService.getString('theme_mode');
-      
+
       if (mounted) {
         setState(() {
           _notificationsEnabled = notifications;
@@ -169,17 +169,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   // User profile section
                   _buildUserProfileSection(context),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // App preferences section
                   _buildAppPreferencesSection(context),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Inventory preferences section
                   _buildInventoryPreferencesSection(context),
-                  
+
                   const SizedBox(height: 24),
                   if (_savedSearches.isNotEmpty) ...[
                     _buildSavedSearchesSection(context),
@@ -191,16 +191,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
 
                   // Data management section
-                  
                   _buildDataManagementSection(context),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // About section
                   _buildAboutSection(context),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Sign out button
                   _buildSignOutSection(context),
                 ],
@@ -213,7 +212,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
         final user = authProvider.user;
-        
+
         return _buildSection(
           context,
           title: 'Profile',
@@ -221,7 +220,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                backgroundColor: Theme.of(
+                  context,
+                ).primaryColor.withValues(alpha: 0.1),
                 child: Text(
                   _getUserInitials(user?.displayName ?? user?.email ?? ''),
                   style: TextStyle(
@@ -240,7 +241,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: const Icon(Icons.admin_panel_settings_outlined),
               title: const Text('Account & subscriptions'),
-              subtitle: const Text('Manage sync, billing, and account deletion'),
+              subtitle: const Text(
+                'Manage sync, billing, and account deletion',
+              ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: _openUserManagement,
             ),
@@ -274,26 +277,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'item',
-                child: Text('item'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'piece',
-                child: Text('piece'),
-              ),
+              const PopupMenuItem<String>(value: 'item', child: Text('item')),
+              const PopupMenuItem<String>(value: 'piece', child: Text('piece')),
               const PopupMenuItem<String>(
                 value: 'package',
                 child: Text('package'),
               ),
-              const PopupMenuItem<String>(
-                value: 'pound',
-                child: Text('pound'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'kg',
-                child: Text('kilogram'),
-              ),
+              const PopupMenuItem<String>(value: 'pound', child: Text('pound')),
+              const PopupMenuItem<String>(value: 'kg', child: Text('kilogram')),
             ],
             onSelected: (unit) async {
               setState(() {
@@ -450,7 +441,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _themeMode = themeMode;
               });
               await _storageService.setString('theme_mode', themeMode.name);
-              _showSnackMessage('Theme changed to ${_getThemeModeName(themeMode)}');
+              _showSnackMessage(
+                'Theme changed to ${_getThemeModeName(themeMode)}',
+              );
             },
           ),
         ),
@@ -465,7 +458,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _notificationsEnabled = value;
               });
               await _storageService.setBool('notifications_enabled', value);
-              _showSnackMessage('Notifications ${value ? 'enabled' : 'disabled'}');
+              _showSnackMessage(
+                'Notifications ${value ? 'enabled' : 'disabled'}',
+              );
             },
           ),
         ),
@@ -475,7 +470,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle: const Text('English'),
           trailing: const Icon(Icons.arrow_forward_ios),
           onTap: () {
-            _showSnack(const SnackBar(content: Text('Language settings coming soon')));
+            _showSnack(
+              const SnackBar(content: Text('Language settings coming soon')),
+            );
           },
         ),
       ],
@@ -504,7 +501,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         ListTile(
           leading: const Icon(Icons.delete_sweep, color: Colors.red),
-          title: const Text('Clear All Data', style: TextStyle(color: Colors.red)),
+          title: const Text(
+            'Clear All Data',
+            style: TextStyle(color: Colors.red),
+          ),
           subtitle: const Text('Remove all inventory items and lists'),
           trailing: const Icon(Icons.arrow_forward_ios),
           onTap: _showClearDataConfirmation,
@@ -569,13 +569,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSection(BuildContext context, {
+  Widget _buildSection(
+    BuildContext context, {
     required String title,
     required IconData icon,
     required List<Widget> children,
   }) {
     final theme = Theme.of(context);
-    
+
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -604,7 +605,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _getUserInitials(String name) {
     if (name.isEmpty) return '?';
-    
+
     final parts = name.split(' ');
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
@@ -612,7 +613,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return name[0].toUpperCase();
     }
   }
-  
+
   String _getThemeModeName(ThemeMode mode) {
     switch (mode) {
       case ThemeMode.light:
@@ -628,7 +629,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.user;
     final nameController = TextEditingController(text: user?.displayName ?? '');
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -650,15 +651,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final newName = nameController.text.trim();
               if (newName.isNotEmpty) {
                 final success = await authProvider.updateProfile(name: newName);
-                
+
                 if (dialogContext.mounted) {
                   Navigator.of(dialogContext).pop();
-                  
+
                   _showSnack(
                     SnackBar(
                       content: Text(
-                        success 
-                            ? 'Profile updated successfully' 
+                        success
+                            ? 'Profile updated successfully'
                             : 'Failed to update profile',
                       ),
                       backgroundColor: success ? Colors.green : Colors.red,
@@ -676,14 +677,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _syncData() async {
     try {
-      final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
-      final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
-      
+      final inventoryProvider = Provider.of<InventoryProvider>(
+        context,
+        listen: false,
+      );
+      final groceryProvider = Provider.of<GroceryListProvider>(
+        context,
+        listen: false,
+      );
+
       await Future.wait([
         inventoryProvider.refresh(),
         groceryProvider.refresh(),
       ]);
-      
+
       if (mounted) {
         _showSnack(
           const SnackBar(
@@ -755,13 +762,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Getting Started:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text('• Use the "Add Items" tab to input grocery text\n• Try natural language like "bought 2 gallons milk"\n• Review AI-parsed items before applying changes\n• View your inventory in the first tab'),
-              SizedBox(height: 16),
               Text(
-                'Tips:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                '• Use the "Add Items" tab to input grocery text\n• Try natural language like "bought 2 gallons milk"\n• Review AI-parsed items before applying changes\n• View your inventory in the first tab',
               ),
-              Text('• Include quantities and units for best results\n• Use action words like "bought", "used", "finished"\n• Set low stock thresholds to get alerts\n• Export your inventory data anytime'),
+              SizedBox(height: 16),
+              Text('Tips:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                '• Include quantities and units for best results\n• Use action words like "bought", "used", "finished"\n• Set low stock thresholds to get alerts\n• Export your inventory data anytime',
+              ),
             ],
           ),
         ),
@@ -776,7 +784,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _reportBug() {
-    _showSnack(const SnackBar(content: Text('Bug reporting feature coming soon')));
+    _showSnack(
+      const SnackBar(content: Text('Bug reporting feature coming soon')),
+    );
   }
 
   void _rateApp() {
@@ -785,9 +795,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _openUserManagement() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const UserManagementScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const UserManagementScreen()),
     );
   }
 
@@ -806,11 +814,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () async {
               final navigator = Navigator.of(dialogContext);
               final messenger = ScaffoldMessenger.of(dialogContext);
-              final authProvider = Provider.of<AuthProvider>(dialogContext, listen: false);
+              final authProvider = Provider.of<AuthProvider>(
+                dialogContext,
+                listen: false,
+              );
 
               navigator.pop();
               await authProvider.signOut();
-              
+
               if (dialogContext.mounted) {
                 messenger.showSnackBar(
                   const SnackBar(

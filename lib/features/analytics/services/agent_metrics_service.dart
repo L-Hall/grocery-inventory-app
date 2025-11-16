@@ -6,7 +6,7 @@ class AgentMetricsService {
   final FirebaseFirestore _firestore;
 
   AgentMetricsService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   Stream<AgentMetrics?> watchGlobalMetrics() {
     return _firestore.doc('agent_metrics/global').snapshots().map((snapshot) {

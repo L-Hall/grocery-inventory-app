@@ -39,10 +39,12 @@ class FieldValidation {
 
     if (value is String) {
       if (minLength != null && value.length < minLength!) {
-        return errorMessage ?? '$fieldName must be at least $minLength characters';
+        return errorMessage ??
+            '$fieldName must be at least $minLength characters';
       }
       if (maxLength != null && value.length > maxLength!) {
-        return errorMessage ?? '$fieldName must be at most $maxLength characters';
+        return errorMessage ??
+            '$fieldName must be at most $maxLength characters';
       }
       if (pattern != null && pattern!.isNotEmpty) {
         final regex = RegExp(pattern!);
@@ -67,7 +69,8 @@ class InventoryValidationRules {
       minLength: 1,
       maxLength: 100,
       pattern: r'^[a-zA-Z0-9\s\-_.&]+$',
-      errorMessage: 'Item name must contain only letters, numbers, spaces, and basic punctuation',
+      errorMessage:
+          'Item name must contain only letters, numbers, spaces, and basic punctuation',
     ),
     'quantity': FieldValidation(
       required: true,
@@ -75,22 +78,14 @@ class InventoryValidationRules {
       maxValue: 99999,
       errorMessage: 'Quantity must be between 0 and 99999',
     ),
-    'unit': FieldValidation(
-      required: true,
-      minLength: 1,
-      maxLength: 20,
-    ),
-    'category': FieldValidation(
-      required: true,
-    ),
+    'unit': FieldValidation(required: true, minLength: 1, maxLength: 20),
+    'category': FieldValidation(required: true),
     'lowStockThreshold': FieldValidation(
       required: true,
       minValue: 0,
       maxValue: 1000,
     ),
-    'notes': FieldValidation(
-      maxLength: 500,
-    ),
+    'notes': FieldValidation(maxLength: 500),
   };
 
   static String? validateField(String fieldName, dynamic value) {
@@ -101,12 +96,12 @@ class InventoryValidationRules {
 
   static Map<String, String> validateItem(Map<String, dynamic> itemData) {
     final errors = <String, String>{};
-    
+
     for (final entry in rules.entries) {
       final fieldName = entry.key;
       final value = itemData[fieldName];
       final error = entry.value.validate(value, fieldName);
-      
+
       if (error != null) {
         errors[fieldName] = error;
       }
@@ -114,11 +109,16 @@ class InventoryValidationRules {
 
     if (itemData['expirationDate'] != null) {
       final expDate = itemData['expirationDate'];
-      if (expDate is DateTime && expDate.isBefore(DateTime.now().subtract(const Duration(days: 365 * 10)))) {
+      if (expDate is DateTime &&
+          expDate.isBefore(
+            DateTime.now().subtract(const Duration(days: 365 * 10)),
+          )) {
         errors['expirationDate'] = 'Expiration date seems too far in the past';
       }
-      if (expDate is DateTime && expDate.isAfter(DateTime.now().add(const Duration(days: 365 * 10)))) {
-        errors['expirationDate'] = 'Expiration date seems too far in the future';
+      if (expDate is DateTime &&
+          expDate.isAfter(DateTime.now().add(const Duration(days: 365 * 10)))) {
+        errors['expirationDate'] =
+            'Expiration date seems too far in the future';
       }
     }
 
@@ -177,7 +177,7 @@ class UnitValidator {
 
   static String normalizeUnit(String unit) {
     final normalized = unit.toLowerCase().trim();
-    
+
     final abbreviations = {
       'pounds': 'lb',
       'pound': 'lb',

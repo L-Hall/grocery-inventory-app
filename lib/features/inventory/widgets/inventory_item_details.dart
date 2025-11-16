@@ -208,16 +208,16 @@ class _InventoryItemDetailsSheetState
         label: item.expirationDate == null
             ? 'Expiry date'
             : item.isExpired
-                ? 'Expired'
-                : 'Expires',
+            ? 'Expired'
+            : 'Expires',
         value: item.expirationDate != null
             ? item.expirationDate!.toLocal().toString().split(' ').first
             : 'Not set',
         icon: item.expirationDate == null
             ? Icons.schedule
             : item.isExpired
-                ? Icons.error
-                : Icons.schedule,
+            ? Icons.error
+            : Icons.schedule,
       ),
     ];
 
@@ -465,7 +465,9 @@ class _ActionChipButton extends StatelessWidget {
       onPressed: onPressed,
       backgroundColor: destructive
           ? Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.2)
-          : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+          : Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withValues(alpha: 0.3),
     );
   }
 }

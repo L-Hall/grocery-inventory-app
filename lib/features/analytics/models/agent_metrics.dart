@@ -35,11 +35,9 @@ class AgentMetrics {
     );
   }
 
-  double get successRate =>
-      totalCount == 0 ? 0 : successCount / totalCount;
+  double get successRate => totalCount == 0 ? 0 : successCount / totalCount;
 
-  double get fallbackRate =>
-      totalCount == 0 ? 0 : fallbackCount / totalCount;
+  double get fallbackRate => totalCount == 0 ? 0 : fallbackCount / totalCount;
 }
 
 int? _parseInt(dynamic value) {

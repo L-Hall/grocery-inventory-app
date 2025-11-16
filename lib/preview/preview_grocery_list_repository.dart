@@ -218,9 +218,10 @@ bought 1.5 kg potatoes
       ..removeWhere((line) => line.isEmpty);
 
     final items = <ParsedItem>[];
-    final pattern =
-        RegExp(r'(?:(\d+(?:\.\d+)?)\s*)?(kg|g|litre|litres|ml|pack|packs|tin|tins|jar|box|bag|bottle|loaf|loaves|pcs|piece|pieces)?\s*(.*)',
-            caseSensitive: false);
+    final pattern = RegExp(
+      r'(?:(\d+(?:\.\d+)?)\s*)?(kg|g|litre|litres|ml|pack|packs|tin|tins|jar|box|bag|bottle|loaf|loaves|pcs|piece|pieces)?\s*(.*)',
+      caseSensitive: false,
+    );
 
     for (final line in lines) {
       final match = pattern.firstMatch(line);
@@ -230,8 +231,7 @@ bought 1.5 kg potatoes
       final double quantity = quantityString != null
           ? double.tryParse(quantityString) ?? 1
           : 1;
-      final unit = (match.group(2) ??
-              (quantity > 1 ? 'pcs' : 'pc'))
+      final unit = (match.group(2) ?? (quantity > 1 ? 'pcs' : 'pc'))
           .toLowerCase()
           .replaceFirst('pieces', 'pcs')
           .replaceFirst('piece', 'pc');

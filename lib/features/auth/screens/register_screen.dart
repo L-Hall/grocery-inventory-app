@@ -32,12 +32,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Create Account'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -47,7 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 20),
-                
+
                 // Welcome message
                 Text(
                   'Join Grocery Inventory',
@@ -57,7 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 Text(
                   'Start managing your groceries with ease',
                   style: theme.textTheme.bodyLarge?.copyWith(
@@ -65,9 +62,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // Name field
                 TextFormField(
                   controller: _nameController,
@@ -90,9 +87,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Email field
                 TextFormField(
                   controller: _emailController,
@@ -109,15 +106,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    if (!RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    ).hasMatch(value)) {
                       return 'Please enter a valid email';
                     }
                     return null;
                   },
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Password field
                 TextFormField(
                   controller: _passwordController,
@@ -128,7 +127,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -150,9 +151,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Confirm password field
                 TextFormField(
                   controller: _confirmPasswordController,
@@ -163,7 +164,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                        _obscureConfirmPassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -186,9 +189,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                   onFieldSubmitted: (_) => _handleSignUp(),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Terms and conditions
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,9 +241,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Sign up button
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, _) {
@@ -260,14 +263,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             )
                           : const Text(
                               'Create Account',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                     );
                   },
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Error message
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, _) {
@@ -309,9 +315,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return const SizedBox.shrink();
                   },
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Sign in link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -339,11 +345,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     if (!_agreeToTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please agree to the Terms of Service and Privacy Policy'),
+          content: Text(
+            'Please agree to the Terms of Service and Privacy Policy',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -351,7 +359,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     final success = await authProvider.createUserWithEmailAndPassword(
       email: _emailController.text.trim(),
       password: _passwordController.text,

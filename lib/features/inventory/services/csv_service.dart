@@ -3,11 +3,7 @@ import '../models/inventory_item.dart';
 import '../models/field_validation.dart';
 import 'inventory_service.dart';
 
-enum DuplicateHandling {
-  skip,
-  update,
-  create,
-}
+enum DuplicateHandling { skip, update, create }
 
 class ImportConfig {
   final Map<String, String> fieldMapping;
@@ -46,7 +42,7 @@ class ImportResult {
 
 class CsvService {
   final InventoryService _inventoryService = InventoryService();
-  
+
   static const List<String> defaultHeaders = [
     'name',
     'quantity',
@@ -67,7 +63,7 @@ class CsvService {
     includeFields ??= defaultHeaders;
 
     final rows = <List<String>>[];
-    
+
     rows.add(includeFields);
 
     for (final item in items) {
@@ -87,7 +83,7 @@ class CsvService {
     ImportConfig config,
   ) async {
     final rows = const CsvToListConverter().convert(csvContent);
-    
+
     if (rows.isEmpty) {
       return ImportResult(
         totalRows: 0,
@@ -101,7 +97,7 @@ class CsvService {
 
     final headers = rows.first.map((e) => e.toString()).toList();
     final dataRows = config.skipFirstRow ? rows.skip(1).toList() : rows;
-    
+
     final errors = <String>[];
     final importedItems = <InventoryItem>[];
     int successCount = 0;
@@ -111,12 +107,14 @@ class CsvService {
     for (int i = 0; i < dataRows.length; i++) {
       final row = dataRows[i];
       final rowNumber = config.skipFirstRow ? i + 2 : i + 1;
-      
+
       try {
         final itemData = _parseRow(row, headers, config.fieldMapping);
-        
+
         if (config.validateData) {
-          final validationErrors = InventoryValidationRules.validateItem(itemData);
+          final validationErrors = InventoryValidationRules.validateItem(
+            itemData,
+          );
           if (validationErrors.isNotEmpty) {
             errors.add('Row $rowNumber: ${validationErrors.values.join(', ')}');
             errorCount++;
@@ -125,7 +123,7 @@ class CsvService {
         }
 
         final existingItem = await _findExistingItem(itemData['name']);
-        
+
         if (existingItem != null) {
           switch (config.duplicateHandling) {
             case DuplicateHandling.skip:
@@ -168,12 +166,12 @@ class CsvService {
     Map<String, String> fieldMapping,
   ) {
     final data = <String, dynamic>{};
-    
+
     for (int i = 0; i < headers.length && i < row.length; i++) {
       final csvHeader = headers[i];
       final fieldName = fieldMapping[csvHeader] ?? csvHeader;
       final value = row[i];
-      
+
       if (fieldName == 'quantity' || fieldName == 'lowStockThreshold') {
         data[fieldName] = _parseNumber(value);
       } else if (fieldName == 'expirationDate') {
@@ -184,16 +182,16 @@ class CsvService {
         data[fieldName] = value?.toString() ?? '';
       }
     }
-    
+
     _applyDefaults(data);
-    
+
     return data;
   }
 
   double _parseNumber(dynamic value) {
     if (value == null || value.toString().isEmpty) return 0.0;
     if (value is num) return value.toDouble();
-    
+
     final stringValue = value.toString().replaceAll(RegExp(r'[^\d.-]'), '');
     return double.tryParse(stringValue) ?? 0.0;
   }
@@ -201,9 +199,9 @@ class CsvService {
   DateTime? _parseDate(dynamic value) {
     if (value == null || value.toString().isEmpty) return null;
     if (value is DateTime) return value;
-    
+
     final stringValue = value.toString();
-    
+
     try {
       return DateTime.parse(stringValue);
     } catch (_) {
@@ -212,7 +210,7 @@ class CsvService {
         RegExp(r'(\d{4})-(\d{1,2})-(\d{1,2})'),
         RegExp(r'(\d{1,2})-(\d{1,2})-(\d{4})'),
       ];
-      
+
       for (final format in formats) {
         final match = format.firstMatch(stringValue);
         if (match != null) {
@@ -234,7 +232,7 @@ class CsvService {
         }
       }
     }
-    
+
     return null;
   }
 
@@ -268,22 +266,38 @@ class CsvService {
 
   dynamic _getFieldValue(InventoryItem item, String field) {
     switch (field) {
-      case 'id': return item.id;
-      case 'name': return item.name;
-      case 'quantity': return item.quantity;
-      case 'unit': return item.unit;
-      case 'category': return item.category;
-      case 'location': return item.location ?? '';
-      case 'lowStockThreshold': return item.lowStockThreshold;
-      case 'expirationDate': return item.expirationDate?.toIso8601String() ?? '';
-      case 'notes': return item.notes ?? '';
-      case 'createdAt': return item.createdAt.toIso8601String();
-      case 'updatedAt': return item.updatedAt.toIso8601String();
-      case 'stockStatus': return item.stockStatus.displayName;
-      case 'daysUntilExpiration': return item.daysUntilExpiration ?? '';
-      case 'isExpired': return item.isExpired;
-      case 'isExpiringSoon': return item.isExpiringSoon;
-      default: return '';
+      case 'id':
+        return item.id;
+      case 'name':
+        return item.name;
+      case 'quantity':
+        return item.quantity;
+      case 'unit':
+        return item.unit;
+      case 'category':
+        return item.category;
+      case 'location':
+        return item.location ?? '';
+      case 'lowStockThreshold':
+        return item.lowStockThreshold;
+      case 'expirationDate':
+        return item.expirationDate?.toIso8601String() ?? '';
+      case 'notes':
+        return item.notes ?? '';
+      case 'createdAt':
+        return item.createdAt.toIso8601String();
+      case 'updatedAt':
+        return item.updatedAt.toIso8601String();
+      case 'stockStatus':
+        return item.stockStatus.displayName;
+      case 'daysUntilExpiration':
+        return item.daysUntilExpiration ?? '';
+      case 'isExpired':
+        return item.isExpired;
+      case 'isExpiringSoon':
+        return item.isExpiringSoon;
+      default:
+        return '';
     }
   }
 
@@ -298,35 +312,47 @@ class CsvService {
   List<String> detectHeaders(String csvContent) {
     final rows = const CsvToListConverter().convert(csvContent);
     if (rows.isEmpty) return [];
-    
+
     return rows.first.map((e) => e.toString()).toList();
   }
 
   Map<String, String> suggestFieldMapping(List<String> csvHeaders) {
     final mapping = <String, String>{};
-    
+
     for (final header in csvHeaders) {
       final normalized = header.toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
-      
+
       if (normalized.contains('name') || normalized.contains('item')) {
         mapping[header] = 'name';
-      } else if (normalized.contains('quantity') || normalized.contains('qty') || normalized.contains('amount')) {
+      } else if (normalized.contains('quantity') ||
+          normalized.contains('qty') ||
+          normalized.contains('amount')) {
         mapping[header] = 'quantity';
-      } else if (normalized.contains('unit') || normalized.contains('measure')) {
+      } else if (normalized.contains('unit') ||
+          normalized.contains('measure')) {
         mapping[header] = 'unit';
-      } else if (normalized.contains('category') || normalized.contains('type')) {
+      } else if (normalized.contains('category') ||
+          normalized.contains('type')) {
         mapping[header] = 'category';
-      } else if (normalized.contains('location') || normalized.contains('place') || normalized.contains('storage')) {
+      } else if (normalized.contains('location') ||
+          normalized.contains('place') ||
+          normalized.contains('storage')) {
         mapping[header] = 'location';
-      } else if (normalized.contains('threshold') || normalized.contains('minimum') || normalized.contains('reorder')) {
+      } else if (normalized.contains('threshold') ||
+          normalized.contains('minimum') ||
+          normalized.contains('reorder')) {
         mapping[header] = 'lowStockThreshold';
-      } else if (normalized.contains('expire') || normalized.contains('expiry') || normalized.contains('bestbefore')) {
+      } else if (normalized.contains('expire') ||
+          normalized.contains('expiry') ||
+          normalized.contains('bestbefore')) {
         mapping[header] = 'expirationDate';
-      } else if (normalized.contains('note') || normalized.contains('comment') || normalized.contains('description')) {
+      } else if (normalized.contains('note') ||
+          normalized.contains('comment') ||
+          normalized.contains('description')) {
         mapping[header] = 'notes';
       }
     }
-    
+
     return mapping;
   }
 }

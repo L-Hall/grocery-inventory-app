@@ -44,7 +44,10 @@ class InventoryItem {
 
   // Check if item is expired or expiring soon
   bool get isExpired => daysUntilExpiration != null && daysUntilExpiration! < 0;
-  bool get isExpiringSoon => daysUntilExpiration != null && daysUntilExpiration! <= 3 && daysUntilExpiration! >= 0;
+  bool get isExpiringSoon =>
+      daysUntilExpiration != null &&
+      daysUntilExpiration! <= 3 &&
+      daysUntilExpiration! >= 0;
 
   // Factory constructors
   factory InventoryItem.fromJson(Map<String, dynamic> json) {
@@ -57,7 +60,7 @@ class InventoryItem {
       location: json['location'] as String?,
       size: json['size'] as String?,
       lowStockThreshold: (json['lowStockThreshold'] as num).toDouble(),
-      expirationDate: json['expirationDate'] != null 
+      expirationDate: json['expirationDate'] != null
           ? DateTime.parse(json['expirationDate'] as String)
           : null,
       notes: json['notes'] as String?,
@@ -217,7 +220,7 @@ class InventoryUpdate {
       category: json['category'] as String?,
       location: json['location'] as String?,
       size: json['size'] as String?,
-      lowStockThreshold: json['lowStockThreshold'] != null 
+      lowStockThreshold: json['lowStockThreshold'] != null
           ? (json['lowStockThreshold'] as num).toDouble()
           : null,
       expirationDate: json['expirationDate'] != null

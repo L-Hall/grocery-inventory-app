@@ -140,10 +140,7 @@ class UploadQueueResult {
   final String jobId;
   final UploadJobStatus status;
 
-  UploadQueueResult({
-    required this.jobId,
-    required this.status,
-  });
+  UploadQueueResult({required this.jobId, required this.status});
 
   factory UploadQueueResult.fromJson(Map<String, dynamic> json) {
     return UploadQueueResult(

@@ -3,18 +3,15 @@ import '../models/view_config.dart';
 
 class ViewManager {
   static ViewManager? _instance;
-  
+
   ViewManager._();
-  
+
   static ViewManager get instance {
     _instance ??= ViewManager._();
     return _instance!;
   }
 
-  List<InventoryItem> applyView(
-    List<InventoryItem> items,
-    InventoryView view,
-  ) {
+  List<InventoryItem> applyView(List<InventoryItem> items, InventoryView view) {
     var filteredItems = List<InventoryItem>.from(items);
 
     for (final filter in view.filters) {
@@ -34,11 +31,11 @@ class ViewManager {
   ) {
     return items.where((item) {
       final fieldValue = _getFieldValue(item, filter.field);
-      
+
       switch (filter.operator) {
         case FilterOperator.equals:
           return fieldValue == filter.value;
-        
+
         case FilterOperator.contains:
           if (fieldValue is String && filter.value is String) {
             return fieldValue.toLowerCase().contains(
@@ -46,7 +43,7 @@ class ViewManager {
             );
           }
           return false;
-        
+
         case FilterOperator.greaterThan:
           if (fieldValue is num && filter.value is num) {
             return fieldValue > filter.value;
@@ -55,7 +52,7 @@ class ViewManager {
             return fieldValue.isAfter(filter.value);
           }
           return false;
-        
+
         case FilterOperator.lessThan:
           if (fieldValue is num && filter.value is num) {
             return fieldValue < filter.value;
@@ -64,13 +61,13 @@ class ViewManager {
             return fieldValue.isBefore(filter.value);
           }
           return false;
-        
+
         case FilterOperator.isEmpty:
           if (fieldValue == null) return true;
           if (fieldValue is String) return fieldValue.isEmpty;
           if (fieldValue is num) return fieldValue == 0;
           return false;
-        
+
         case FilterOperator.isNotEmpty:
           if (fieldValue == null) return false;
           if (fieldValue is String) return fieldValue.isNotEmpty;
@@ -85,15 +82,15 @@ class ViewManager {
     SortConfig sortConfig,
   ) {
     final sorted = List<InventoryItem>.from(items);
-    
+
     sorted.sort((a, b) {
       final aValue = _getFieldValue(a, sortConfig.field);
       final bValue = _getFieldValue(b, sortConfig.field);
-      
+
       if (aValue == null && bValue == null) return 0;
       if (aValue == null) return sortConfig.ascending ? 1 : -1;
       if (bValue == null) return sortConfig.ascending ? -1 : 1;
-      
+
       int comparison;
       if (aValue is num && bValue is num) {
         comparison = aValue.compareTo(bValue);
@@ -104,10 +101,10 @@ class ViewManager {
       } else {
         comparison = aValue.toString().compareTo(bValue.toString());
       }
-      
+
       return sortConfig.ascending ? comparison : -comparison;
     });
-    
+
     return sorted;
   }
 
@@ -116,12 +113,12 @@ class ViewManager {
     String groupBy,
   ) {
     final groups = <String, List<InventoryItem>>{};
-    
+
     for (final item in items) {
       final groupValue = _getFieldValue(item, groupBy)?.toString() ?? 'Other';
       groups.putIfAbsent(groupValue, () => []).add(item);
     }
-    
+
     return groups;
   }
 
@@ -169,15 +166,15 @@ class ViewManager {
     bool fuzzyMatch = true,
   }) {
     if (query.isEmpty) return items;
-    
+
     final lowercaseQuery = query.toLowerCase();
-    
+
     return items.where((item) {
       for (final field in searchFields) {
         final value = _getFieldValue(item, field);
         if (value != null) {
           final stringValue = value.toString().toLowerCase();
-          
+
           if (fuzzyMatch) {
             if (_fuzzyContains(stringValue, lowercaseQuery)) {
               return true;

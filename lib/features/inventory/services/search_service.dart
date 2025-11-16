@@ -36,15 +36,19 @@ class SearchConfig {
   factory SearchConfig.fromJson(Map<String, dynamic> json) {
     return SearchConfig(
       query: (json['query'] ?? '').toString(),
-      searchFields: (json['searchFields'] as List?)
+      searchFields:
+          (json['searchFields'] as List?)
               ?.map((field) => field.toString())
               .toList() ??
           const ['name', 'category', 'notes', 'location'],
-      fuzzyMatch: json['fuzzyMatch'] is bool ? json['fuzzyMatch'] as bool : true,
-      filters: (json['filters'] as List?)
-              ?.map((f) => FilterRule.fromJson(
-                    Map<String, dynamic>.from(f as Map),
-                  ))
+      fuzzyMatch: json['fuzzyMatch'] is bool
+          ? json['fuzzyMatch'] as bool
+          : true,
+      filters:
+          (json['filters'] as List?)
+              ?.map(
+                (f) => FilterRule.fromJson(Map<String, dynamic>.from(f as Map)),
+              )
               .toList() ??
           const [],
       sortConfig: json['sortConfig'] != null
@@ -113,7 +117,7 @@ class SavedSearch {
 
     return SavedSearch(
       id: ((json['id'] ?? json['name'] ?? DateTime.now().millisecondsSinceEpoch)
-              .toString()),
+          .toString()),
       name: (json['name'] ?? '').toString(),
       config: SearchConfig.fromJson(configMap),
       createdAt: parseDate(json['createdAt']),
@@ -135,20 +139,24 @@ class SearchService {
 
   Future<List<InventoryItem>> search(SearchConfig config) async {
     final allItems = await _inventoryService.getAllItems();
-    
-    var results = _performTextSearch(allItems, config.query, 
-        config.searchFields, config.fuzzyMatch);
-    
+
+    var results = _performTextSearch(
+      allItems,
+      config.query,
+      config.searchFields,
+      config.fuzzyMatch,
+    );
+
     for (final filter in config.filters) {
       results = _applyFilter(results, filter);
     }
-    
+
     if (config.sortConfig != null) {
       results = _applySort(results, config.sortConfig!);
     }
-    
+
     await _addToHistory(config.query);
-    
+
     return results;
   }
 
@@ -159,32 +167,30 @@ class SearchService {
     bool fuzzyMatch,
   ) {
     if (query.isEmpty) return items;
-    
+
     final lowercaseQuery = query.toLowerCase();
     final queryWords = lowercaseQuery.split(' ');
-    
+
     return items.where((item) {
       for (final field in searchFields) {
         final value = _getFieldValue(item, field);
         if (value != null) {
           final stringValue = value.toString().toLowerCase();
-          
+
           if (fuzzyMatch) {
             if (_fuzzyContains(stringValue, lowercaseQuery)) {
               return true;
             }
-            
-            if (queryWords.every((word) => 
-                _fuzzyContains(stringValue, word))) {
+
+            if (queryWords.every((word) => _fuzzyContains(stringValue, word))) {
               return true;
             }
           } else {
             if (stringValue.contains(lowercaseQuery)) {
               return true;
             }
-            
-            if (queryWords.every((word) => 
-                stringValue.contains(word))) {
+
+            if (queryWords.every((word) => stringValue.contains(word))) {
               return true;
             }
           }
@@ -210,7 +216,7 @@ class SearchService {
   ) {
     return items.where((item) {
       final fieldValue = _getFieldValue(item, filter.field);
-      
+
       switch (filter.operator) {
         case FilterOperator.equals:
           return fieldValue == filter.value;
@@ -248,15 +254,15 @@ class SearchService {
     SortConfig sortConfig,
   ) {
     final sorted = List<InventoryItem>.from(items);
-    
+
     sorted.sort((a, b) {
       final aValue = _getFieldValue(a, sortConfig.field);
       final bValue = _getFieldValue(b, sortConfig.field);
-      
+
       if (aValue == null && bValue == null) return 0;
       if (aValue == null) return sortConfig.ascending ? 1 : -1;
       if (bValue == null) return sortConfig.ascending ? -1 : 1;
-      
+
       int comparison;
       if (aValue is num && bValue is num) {
         comparison = aValue.compareTo(bValue);
@@ -265,26 +271,37 @@ class SearchService {
       } else {
         comparison = aValue.toString().compareTo(bValue.toString());
       }
-      
+
       return sortConfig.ascending ? comparison : -comparison;
     });
-    
+
     return sorted;
   }
 
   dynamic _getFieldValue(InventoryItem item, String field) {
     switch (field) {
-      case 'name': return item.name;
-      case 'quantity': return item.quantity;
-      case 'unit': return item.unit;
-      case 'category': return item.category;
-      case 'location': return item.location;
-      case 'lowStockThreshold': return item.lowStockThreshold;
-      case 'expirationDate': return item.expirationDate;
-      case 'notes': return item.notes;
-      case 'createdAt': return item.createdAt;
-      case 'updatedAt': return item.updatedAt;
-      default: return null;
+      case 'name':
+        return item.name;
+      case 'quantity':
+        return item.quantity;
+      case 'unit':
+        return item.unit;
+      case 'category':
+        return item.category;
+      case 'location':
+        return item.location;
+      case 'lowStockThreshold':
+        return item.lowStockThreshold;
+      case 'expirationDate':
+        return item.expirationDate;
+      case 'notes':
+        return item.notes;
+      case 'createdAt':
+        return item.createdAt;
+      case 'updatedAt':
+        return item.updatedAt;
+      default:
+        return null;
     }
   }
 
@@ -295,17 +312,17 @@ class SearchService {
 
   Future<void> _addToHistory(String query) async {
     if (query.trim().isEmpty) return;
-    
+
     final prefs = await SharedPreferences.getInstance();
     final history = prefs.getStringList(_searchHistoryKey) ?? [];
-    
+
     history.remove(query);
     history.insert(0, query);
-    
+
     if (history.length > _maxHistoryItems) {
       history.removeLast();
     }
-    
+
     await prefs.setStringList(_searchHistoryKey, history);
   }
 
@@ -326,9 +343,10 @@ class SearchService {
       final response = await _apiService.getUserPreferences();
       final saved = (response['savedSearches'] as List?) ?? const [];
       return saved
-          .map((entry) => SavedSearch.fromJson(
-                Map<String, dynamic>.from(entry as Map),
-              ))
+          .map(
+            (entry) =>
+                SavedSearch.fromJson(Map<String, dynamic>.from(entry as Map)),
+          )
           .toList();
     } on ApiException {
       return _loadSavedSearchesLocal();
@@ -337,19 +355,17 @@ class SearchService {
     }
   }
 
-  Future<SavedSearch> saveSearch(String name, SearchConfig config,
-      {String? id}) async {
-    final searchId = id?.isNotEmpty ?? false
-        ? id!
-        : _generateSearchId(name);
+  Future<SavedSearch> saveSearch(
+    String name,
+    SearchConfig config, {
+    String? id,
+  }) async {
+    final searchId = id?.isNotEmpty ?? false ? id! : _generateSearchId(name);
 
     try {
       final response = await _apiService.upsertSavedSearch(
         searchId: searchId,
-        payload: {
-          'name': name,
-          'config': config.toJson(),
-        },
+        payload: {'name': name, 'config': config.toJson()},
       );
 
       final saved = response['savedSearch'];
@@ -401,10 +417,7 @@ class SearchService {
       );
       await _apiService.upsertSavedSearch(
         searchId: id,
-        payload: {
-          'name': existing.name,
-          'config': existing.config.toJson(),
-        },
+        payload: {'name': existing.name, 'config': existing.config.toJson()},
       );
     } on StateError {
       await _incrementSavedSearchUseCountLocal(id);
@@ -417,10 +430,10 @@ class SearchService {
 
   Future<List<String>> getSuggestions(String query) async {
     if (query.isEmpty) return [];
-    
+
     final items = await _inventoryService.getAllItems();
     final suggestions = <String>{};
-    
+
     for (final item in items) {
       if (item.name.toLowerCase().contains(query.toLowerCase())) {
         suggestions.add(item.name);
@@ -428,34 +441,37 @@ class SearchService {
       if (item.category.toLowerCase().contains(query.toLowerCase())) {
         suggestions.add(item.category);
       }
-      if (item.location != null && 
+      if (item.location != null &&
           item.location!.toLowerCase().contains(query.toLowerCase())) {
         suggestions.add(item.location!);
       }
     }
-    
+
     final history = await getSearchHistory();
     for (final historyItem in history) {
       if (historyItem.toLowerCase().contains(query.toLowerCase())) {
         suggestions.add(historyItem);
       }
     }
-    
+
     return suggestions.toList()..sort();
   }
 
   Future<List<SavedSearch>> _loadSavedSearchesLocal() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_savedSearchesKey) ?? [];
-    return raw.map((item) {
-      try {
-        final map = jsonDecode(item);
-        if (map is Map<String, dynamic>) {
-          return SavedSearch.fromJson(map);
-        }
-      } catch (_) {}
-      return null;
-    }).whereType<SavedSearch>().toList();
+    return raw
+        .map((item) {
+          try {
+            final map = jsonDecode(item);
+            if (map is Map<String, dynamic>) {
+              return SavedSearch.fromJson(map);
+            }
+          } catch (_) {}
+          return null;
+        })
+        .whereType<SavedSearch>()
+        .toList();
   }
 
   Future<void> _persistSavedSearchesLocal(List<SavedSearch> searches) async {
@@ -493,7 +509,10 @@ class SearchService {
   }
 
   String _generateSearchId(String name) {
-    final base = name.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    final base = name.toLowerCase().trim().replaceAll(
+      RegExp(r'[^a-z0-9]+'),
+      '-',
+    );
     final cleaned = base.isEmpty ? 'search' : base;
     return '$cleaned-${DateTime.now().millisecondsSinceEpoch}';
   }

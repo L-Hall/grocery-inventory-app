@@ -27,15 +27,13 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final UserCredential result = await firebaseAuth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential result = await firebaseAuth
+          .signInWithEmailAndPassword(email: email, password: password);
 
       if (result.user != null) {
         final userModel = UserModel.fromFirebaseUser(result.user!);
         await _saveUserLocally(userModel);
-        
+
         // Initialize user data in backend if needed
         try {
           await apiService.initializeUser();
@@ -43,7 +41,7 @@ class AuthService {
           // Don't fail sign in if backend initialization fails
           debugPrint('Backend initialization failed: $e');
         }
-        
+
         return userModel;
       }
       return null;
@@ -59,10 +57,8 @@ class AuthService {
     String? name,
   }) async {
     try {
-      final UserCredential result = await firebaseAuth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential result = await firebaseAuth
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       if (result.user != null) {
         // Update display name if provided
@@ -72,14 +68,14 @@ class AuthService {
 
         final userModel = UserModel.fromFirebaseUser(result.user!);
         await _saveUserLocally(userModel);
-        
+
         // Initialize user data in backend
         try {
           await apiService.initializeUser();
         } catch (e) {
           debugPrint('Backend initialization failed: $e');
         }
-        
+
         return userModel;
       }
       return null;
@@ -133,7 +129,7 @@ class AuthService {
       if (user != null) {
         if (name != null) await user.updateDisplayName(name);
         if (photoUrl != null) await user.updatePhotoURL(photoUrl);
-        
+
         final userModel = UserModel.fromFirebaseUser(user);
         await _saveUserLocally(userModel);
       }
@@ -151,10 +147,16 @@ class AuthService {
   // Save user data locally
   Future<void> _saveUserLocally(UserModel user) async {
     await storageService.setString(StorageService.keyUserId, user.uid);
-    await storageService.setString(StorageService.keyUserEmail, user.email ?? '');
-    
+    await storageService.setString(
+      StorageService.keyUserEmail,
+      user.email ?? '',
+    );
+
     if (user.idToken != null) {
-      await storageService.setSecureString(StorageService.keyAuthToken, user.idToken!);
+      await storageService.setSecureString(
+        StorageService.keyAuthToken,
+        user.idToken!,
+      );
     }
   }
 

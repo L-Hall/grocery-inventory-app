@@ -23,9 +23,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
     super.initState();
     _textController = TextEditingController();
     _focusNode = FocusNode();
-    
+
     // Initialize with any existing text from provider
-    final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+    final groceryProvider = Provider.of<GroceryListProvider>(
+      context,
+      listen: false,
+    );
     _textController.text = groceryProvider.currentInputText;
   }
 
@@ -39,7 +42,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -95,9 +98,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Text input area
               Expanded(
                 child: Consumer<GroceryListProvider>(
@@ -122,9 +125,11 @@ class _TextInputScreenState extends State<TextInputScreen> {
                               textAlignVertical: TextAlignVertical.top,
                               style: theme.textTheme.bodyLarge,
                               decoration: InputDecoration(
-                                hintText: 'Examples:\n• bought 2 gallons milk and 3 loaves bread\n• used 4 eggs for cooking\n• have 5 apples left in fridge\n• finished the orange juice',
+                                hintText:
+                                    'Examples:\n• bought 2 gallons milk and 3 loaves bread\n• used 4 eggs for cooking\n• have 5 apples left in fridge\n• finished the orange juice',
                                 hintStyle: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.7),
                                   height: 1.5,
                                 ),
                                 border: InputBorder.none,
@@ -136,12 +141,13 @@ class _TextInputScreenState extends State<TextInputScreen> {
                               },
                             ),
                           ),
-                          
+
                           // Action bar
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                              color: theme.colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.3),
                               borderRadius: const BorderRadius.only(
                                 bottomLeft: Radius.circular(12),
                                 bottomRight: Radius.circular(12),
@@ -156,9 +162,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                
+
                                 const Spacer(),
-                                
+
                                 // Clear button
                                 if (_textController.text.isNotEmpty)
                                   TextButton.icon(
@@ -169,16 +175,20 @@ class _TextInputScreenState extends State<TextInputScreen> {
                                     icon: const Icon(Icons.clear, size: 18),
                                     label: const Text('Clear'),
                                     style: TextButton.styleFrom(
-                                      foregroundColor: theme.colorScheme.onSurfaceVariant,
+                                      foregroundColor:
+                                          theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
-                                
+
                                 const SizedBox(width: 8),
-                                
+
                                 // Paste button
                                 TextButton.icon(
                                   onPressed: _handlePaste,
-                                  icon: const Icon(Icons.content_paste, size: 18),
+                                  icon: const Icon(
+                                    Icons.content_paste,
+                                    size: 18,
+                                  ),
                                   label: const Text('Paste'),
                                   style: TextButton.styleFrom(
                                     foregroundColor: theme.primaryColor,
@@ -193,9 +203,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   },
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Process button and status
               Consumer<GroceryListProvider>(
                 builder: (context, groceryProvider, _) {
@@ -239,10 +249,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
                         ),
                         const SizedBox(height: 12),
                       ],
-                      
+
                       // Process button
                       ElevatedButton(
-                        onPressed: _canProcess(groceryProvider) ? _handleProcess : null,
+                        onPressed: _canProcess(groceryProvider)
+                            ? _handleProcess
+                            : null,
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -256,14 +268,15 @@ class _TextInputScreenState extends State<TextInputScreen> {
                                   const SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
                                     'Processing...',
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               )
@@ -274,9 +287,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
                                   const SizedBox(width: 8),
                                   Text(
                                     'Process with AI',
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
@@ -294,11 +306,11 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
   Widget _buildTipsSection(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Consumer<GroceryListProvider>(
       builder: (context, groceryProvider, _) {
         final tips = groceryProvider.getParsingTips();
-        
+
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -316,26 +328,30 @@ class _TextInputScreenState extends State<TextInputScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...tips.take(6).map((tip) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '• ',
-                      style: TextStyle(color: theme.primaryColor),
-                    ),
-                    Expanded(
-                      child: Text(
-                        tip,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+              ...tips
+                  .take(6)
+                  .map(
+                    (tip) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '• ',
+                            style: TextStyle(color: theme.primaryColor),
+                          ),
+                          Expanded(
+                            child: Text(
+                              tip,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              )),
+                  ),
             ],
           ),
         );
@@ -344,8 +360,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   bool _canProcess(GroceryListProvider groceryProvider) {
-    return _textController.text.trim().isNotEmpty && 
-           !groceryProvider.isParsing;
+    return _textController.text.trim().isNotEmpty && !groceryProvider.isParsing;
   }
 
   void _handlePaste() async {
@@ -353,7 +368,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (data?.text != null && mounted) {
       final currentText = _textController.text;
       final pastedText = data!.text!;
-      
+
       // Insert at cursor or append if no selection
       final selection = _textController.selection;
       if (selection.isValid) {
@@ -372,11 +387,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
           offset: _textController.text.length,
         );
       }
-      
+
       // Update provider
-      final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+      final groceryProvider = Provider.of<GroceryListProvider>(
+        context,
+        listen: false,
+      );
       groceryProvider.setCurrentInputText(_textController.text);
-      
+
       // Show feedback
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -391,26 +409,23 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
-    
-    final success = await groceryProvider.parseGroceryText(
-      text: text,
+    final groceryProvider = Provider.of<GroceryListProvider>(
+      context,
+      listen: false,
     );
+
+    final success = await groceryProvider.parseGroceryText(text: text);
 
     if (success && mounted) {
       // Navigate to review screen
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const ReviewScreen(),
-        ),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const ReviewScreen()));
     } else if (mounted) {
       // Show error message if parsing failed
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            groceryProvider.error ?? 'Failed to process text',
-          ),
+          content: Text(groceryProvider.error ?? 'Failed to process text'),
           backgroundColor: Colors.red,
           action: groceryProvider.error?.contains('API key') == true
               ? SnackBarAction(

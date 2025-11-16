@@ -42,16 +42,14 @@ class GroceryListRepository implements GroceryListDataSource {
   @override
   Future<ParseResult> parseGroceryText({required String text}) async {
     try {
-      final response = await _apiService.parseGroceryText(
-        text: text,
-      );
+      final response = await _apiService.parseGroceryText(text: text);
 
       return ParseResult.fromJson(response);
     } catch (e) {
       throw GroceryListRepositoryException('Failed to parse grocery text: $e');
     }
   }
-  
+
   // Parse image (receipt or grocery list photo) into structured updates
   @override
   Future<ParseResult> parseGroceryImage({
@@ -78,8 +76,10 @@ class GroceryListRepository implements GroceryListDataSource {
     List<GroceryListItemTemplate>? customItems,
   }) async {
     try {
-      final customItemsData = customItems?.map((item) => item.toJson()).toList();
-      
+      final customItemsData = customItems
+          ?.map((item) => item.toJson())
+          .toList();
+
       final response = await _apiService.createGroceryList(
         name: name,
         fromLowStock: fromLowStock,
@@ -94,13 +94,9 @@ class GroceryListRepository implements GroceryListDataSource {
 
   // Get all grocery lists
   @override
-  Future<List<GroceryList>> getGroceryLists({
-    GroceryListStatus? status,
-  }) async {
+  Future<List<GroceryList>> getGroceryLists({GroceryListStatus? status}) async {
     try {
-      final response = await _apiService.getGroceryLists(
-        status: status?.name,
-      );
+      final response = await _apiService.getGroceryLists(status: status?.name);
 
       return response
           .map((list) => GroceryList.fromJson(list as Map<String, dynamic>))
@@ -124,9 +120,7 @@ class GroceryListRepository implements GroceryListDataSource {
 
   // Create grocery list from low stock items
   @override
-  Future<GroceryList> createGroceryListFromLowStock({
-    String? name,
-  }) async {
+  Future<GroceryList> createGroceryListFromLowStock({String? name}) async {
     return createGroceryList(
       name: name ?? 'Low Stock Items - ${DateTime.now().toLocal()}',
       fromLowStock: true,
@@ -154,9 +148,7 @@ class GroceryListRepository implements GroceryListDataSource {
           .map((item) => item.toInventoryUpdate().toJson())
           .toList();
 
-      final response = await _apiService.applyParsedUpdates(
-        updates: updates,
-      );
+      final response = await _apiService.applyParsedUpdates(updates: updates);
 
       if (response['success'] != true) {
         final errors = <String>[];
@@ -186,7 +178,9 @@ class GroceryListRepository implements GroceryListDataSource {
         );
       }
     } catch (e) {
-      throw GroceryListRepositoryException('Failed to apply inventory updates: $e');
+      throw GroceryListRepositoryException(
+        'Failed to apply inventory updates: $e',
+      );
     }
   }
 
@@ -196,12 +190,32 @@ class GroceryListRepository implements GroceryListDataSource {
     // This would typically query purchase history or common items
     // For now, return some common grocery items as suggestions
     final commonItems = [
-      'milk', 'bread', 'eggs', 'butter', 'cheddar', 'yoghurt',
-      'chicken', 'beef mince', 'salmon fillets', 'rice',
-      'pasta', 'potatoes', 'onions', 'garlic', 'tomatoes',
-      'carrots', 'broccoli', 'apples', 'bananas', 'oranges',
-      'strawberries', 'olive oil', 'salt', 'pepper', 'caster sugar',
-      'plain flour'
+      'milk',
+      'bread',
+      'eggs',
+      'butter',
+      'cheddar',
+      'yoghurt',
+      'chicken',
+      'beef mince',
+      'salmon fillets',
+      'rice',
+      'pasta',
+      'potatoes',
+      'onions',
+      'garlic',
+      'tomatoes',
+      'carrots',
+      'broccoli',
+      'apples',
+      'bananas',
+      'oranges',
+      'strawberries',
+      'olive oil',
+      'salt',
+      'pepper',
+      'caster sugar',
+      'plain flour',
     ];
 
     if (query == null || query.isEmpty) {
@@ -227,7 +241,9 @@ class GroceryListRepository implements GroceryListDataSource {
 
       // Check for unusual quantities
       if (item.quantity > 100) {
-        warnings.add('Unusually high quantity for "${item.name}": ${item.quantity}');
+        warnings.add(
+          'Unusually high quantity for "${item.name}": ${item.quantity}',
+        );
       }
 
       // Check for missing units
@@ -259,31 +275,33 @@ class GroceryListRepository implements GroceryListDataSource {
   Future<ParseResult> parseCommonFormats(String text) async {
     // Try to enhance the text with common patterns before sending to API
     final enhancedText = _enhanceTextForParsing(text);
-    
+
     return parseGroceryText(text: enhancedText);
   }
 
   String _enhanceTextForParsing(String text) {
     // Add common prefixes if missing action words
     final lowerText = text.toLowerCase().trim();
-    
+
     // If it looks like a shopping list (items with quantities), assume "bought"
     if (_looksLikeShoppingList(lowerText)) {
       return 'bought $text';
     }
-    
+
     // If it mentions consumption words, assume "used"
     if (_containsConsumptionWords(lowerText)) {
       return text; // Already has action context
     }
-    
+
     return text; // Return as-is
   }
 
   bool _looksLikeShoppingList(String text) {
     // Check if text has quantity patterns like "2 milk", "3 lb beef"
-    final quantityPattern = RegExp(r'\d+(\.\d+)?\s*(kg|g|litre|litres|ml|pack|packs|tin|tins|jar|box|bag|bottle|loaf|loaves|tray)', 
-        caseSensitive: false);
+    final quantityPattern = RegExp(
+      r'\d+(\.\d+)?\s*(kg|g|litre|litres|ml|pack|packs|tin|tins|jar|box|bag|bottle|loaf|loaves|tray)',
+      caseSensitive: false,
+    );
     return quantityPattern.hasMatch(text);
   }
 
@@ -295,7 +313,7 @@ class GroceryListRepository implements GroceryListDataSource {
       'consumed',
       'drank',
       'cooked',
-      'made'
+      'made',
     ];
     return consumptionWords.any((word) => text.contains(word));
   }
@@ -312,9 +330,7 @@ class GroceryListRepository implements GroceryListDataSource {
       );
       return IngestionJobHandle.fromJson(response);
     } catch (e) {
-      throw GroceryListRepositoryException(
-        'Failed to start ingestion job: $e',
-      );
+      throw GroceryListRepositoryException('Failed to start ingestion job: $e');
     }
   }
 }

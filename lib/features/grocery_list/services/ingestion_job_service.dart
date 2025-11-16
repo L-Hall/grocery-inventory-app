@@ -6,7 +6,7 @@ class IngestionJobService {
   final FirebaseFirestore? _firestore;
 
   const IngestionJobService({FirebaseFirestore? firestore})
-      : _firestore = firestore;
+    : _firestore = firestore;
 
   bool get isAvailable => _firestore != null;
 

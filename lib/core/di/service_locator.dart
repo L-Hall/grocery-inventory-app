@@ -22,7 +22,7 @@ Future<void> setupServiceLocator() async {
   // External dependencies
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(prefs);
-  
+
   getIt.registerSingleton<FirebaseAuth>(FirebaseAuth.instance);
   getIt.registerSingleton<FirebaseFirestore>(FirebaseFirestore.instance);
 
@@ -30,7 +30,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<StorageService>(
     StorageService(prefs: getIt<SharedPreferences>()),
   );
-  
+
   getIt.registerSingleton<ApiService>(
     ApiService(storageService: getIt<StorageService>()),
   );

@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum TemperatureType {
-  frozen,
-  refrigerated,
-  room,
-}
+enum TemperatureType { frozen, refrigerated, room }
 
 class LocationOption {
   final String id;
@@ -24,9 +20,11 @@ class LocationOption {
   });
 
   Map<String, dynamic> toJson() {
-    final rgbHex = [color.red, color.green, color.blue]
-        .map((component) => component.toRadixString(16).padLeft(2, '0'))
-        .join();
+    final rgbHex = [
+      color.red,
+      color.green,
+      color.blue,
+    ].map((component) => component.toRadixString(16).padLeft(2, '0')).join();
 
     return {
       'id': id,

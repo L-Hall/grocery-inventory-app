@@ -5,10 +5,9 @@ import 'package:grocery_app/features/inventory/providers/inventory_provider.dart
 import 'package:grocery_app/features/inventory/repositories/inventory_repository.dart';
 
 class _FakeInventoryRepository extends InventoryRepository {
-  _FakeInventoryRepository({
-    required List<LocationOption> initialLocations,
-  })  : _locations = initialLocations,
-        super.preview();
+  _FakeInventoryRepository({required List<LocationOption> initialLocations})
+    : _locations = initialLocations,
+      super.preview();
 
   List<LocationOption> _locations;
   bool throwError = false;
