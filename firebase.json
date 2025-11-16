@@ -5,6 +5,7 @@
   },
   "functions": {
     "source": "functions",
+    "runtime": "nodejs20",
     "predeploy": [
       "bash \"$RESOURCE_DIR/scripts/predeploy.sh\""
     ]
