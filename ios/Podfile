@@ -1,7 +1,5 @@
-# Uncomment this line to define a global platform for your project
 platform :ios, '14.0'
 
-# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -25,19 +23,44 @@ end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
+# Standard Flutter iOS setup
 flutter_ios_podfile_setup
 
 target 'Runner' do
+  # Use dynamic frameworks and modular headers for Swift + Firebase pods
   use_frameworks!
+  use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
   target 'RunnerTests' do
     inherit! :search_paths
   end
 end
 
 post_install do |installer|
+  # Let Flutter apply its additional iOS build settings to each target
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+  end
+
+  # Allow non-modular headers inside framework modules (fixes FirebaseAppCheck etc)
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+  end
+
+  # Fix BoringSSL-GRPC unsupported compiler flags on newer Xcode SDKs
+  installer.pods_project.targets.each do |target|
+    if target.name == 'BoringSSL-GRPC'
+      target.source_build_phase.files.each do |file|
+        settings = file.settings
+        next unless settings && settings['COMPILER_FLAGS']
+
+        flags = settings['COMPILER_FLAGS'].split(' ')
+        # Remove problematic flags
+        flags.reject! { |flag| flag == '-G' || flag == '-GCC_WARN_INHIBIT_ALL_WARNINGS' }
+        settings['COMPILER_FLAGS'] = flags.join(' ')
+      end
+    end
   end
 end
