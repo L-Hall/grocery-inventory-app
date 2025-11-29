@@ -26,11 +26,7 @@ class ChangeDetail {
   });
 
   Map<String, dynamic> toJson() {
-    return {
-      'field': field,
-      'oldValue': oldValue,
-      'newValue': newValue,
-    };
+    return {'field': field, 'oldValue': oldValue, 'newValue': newValue};
   }
 
   factory ChangeDetail.fromJson(Map<String, dynamic> json) {
@@ -84,12 +80,10 @@ class AuditLog {
       id: json['id'],
       userId: json['userId'],
       itemId: json['itemId'],
-      itemIds: json['itemIds'] != null 
-          ? List<String>.from(json['itemIds']) 
+      itemIds: json['itemIds'] != null
+          ? List<String>.from(json['itemIds'])
           : null,
-      action: AuditAction.values.firstWhere(
-        (e) => e.name == json['action'],
-      ),
+      action: AuditAction.values.firstWhere((e) => e.name == json['action']),
       changes: (json['changes'] as List)
           .map((c) => ChangeDetail.fromJson(c))
           .toList(),
@@ -104,21 +98,16 @@ class AuditService {
   final FirebaseFirestore _firestore;
   final AuthService _authService;
 
-  AuditService({
-    FirebaseFirestore? firestore,
-    AuthService? authService,
-  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
-        _authService = authService ?? getIt<AuthService>();
+  AuditService({FirebaseFirestore? firestore, AuthService? authService})
+    : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+      _authService = authService ?? getIt<AuthService>();
 
   CollectionReference<Map<String, dynamic>> get _auditCollection {
     final userId = _authService.currentUser?.uid;
     if (userId == null) {
       throw Exception('User not authenticated');
     }
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('audit_logs');
+    return _firestore.collection('users').doc(userId).collection('audit_logs');
   }
 
   Future<void> logChange({
@@ -134,7 +123,7 @@ class AuditService {
       if (userId == null) return;
 
       final changes = _extractChanges(oldData, newData);
-      
+
       final log = AuditLog(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         userId: userId,
@@ -147,7 +136,7 @@ class AuditService {
       );
 
       await _auditCollection.add(log.toJson());
-      
+
       await _cleanupOldLogs();
     } catch (e) {
       debugPrint('Failed to log audit: $e');
@@ -165,14 +154,18 @@ class AuditService {
       final userId = _authService.currentUser?.uid;
       if (userId == null) return;
 
-      final changeDetails = changes?.entries.map((e) => 
-        ChangeDetail(
-          field: e.key,
-          oldValue: null,
-          newValue: e.value,
-        )
-      ).toList() ?? [];
-      
+      final changeDetails =
+          changes?.entries
+              .map(
+                (e) => ChangeDetail(
+                  field: e.key,
+                  oldValue: null,
+                  newValue: e.value,
+                ),
+              )
+              .toList() ??
+          [];
+
       final log = AuditLog(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         userId: userId,
@@ -185,7 +178,7 @@ class AuditService {
       );
 
       await _auditCollection.add(log.toJson());
-      
+
       await _cleanupOldLogs();
     } catch (e) {
       debugPrint('Failed to log bulk audit: $e');
@@ -197,50 +190,56 @@ class AuditService {
     Map<String, dynamic>? newData,
   ) {
     final changes = <ChangeDetail>[];
-    
+
     if (oldData == null && newData != null) {
       for (final entry in newData.entries) {
-        if (entry.key != 'id' && 
-            entry.key != 'createdAt' && 
+        if (entry.key != 'id' &&
+            entry.key != 'createdAt' &&
             entry.key != 'updatedAt') {
-          changes.add(ChangeDetail(
-            field: entry.key,
-            oldValue: null,
-            newValue: entry.value,
-          ));
+          changes.add(
+            ChangeDetail(
+              field: entry.key,
+              oldValue: null,
+              newValue: entry.value,
+            ),
+          );
         }
       }
     } else if (oldData != null && newData == null) {
       for (final entry in oldData.entries) {
-        if (entry.key != 'id' && 
-            entry.key != 'createdAt' && 
+        if (entry.key != 'id' &&
+            entry.key != 'createdAt' &&
             entry.key != 'updatedAt') {
-          changes.add(ChangeDetail(
-            field: entry.key,
-            oldValue: entry.value,
-            newValue: null,
-          ));
+          changes.add(
+            ChangeDetail(
+              field: entry.key,
+              oldValue: entry.value,
+              newValue: null,
+            ),
+          );
         }
       }
     } else if (oldData != null && newData != null) {
       for (final entry in newData.entries) {
-        if (entry.key != 'id' && 
-            entry.key != 'createdAt' && 
+        if (entry.key != 'id' &&
+            entry.key != 'createdAt' &&
             entry.key != 'updatedAt') {
           final oldValue = oldData[entry.key];
           final newValue = entry.value;
-          
+
           if (oldValue != newValue) {
-            changes.add(ChangeDetail(
-              field: entry.key,
-              oldValue: oldValue,
-              newValue: newValue,
-            ));
+            changes.add(
+              ChangeDetail(
+                field: entry.key,
+                oldValue: oldValue,
+                newValue: newValue,
+              ),
+            );
           }
         }
       }
     }
-    
+
     return changes;
   }
 
@@ -251,7 +250,7 @@ class AuditService {
           .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
@@ -268,7 +267,7 @@ class AuditService {
           .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
@@ -289,7 +288,7 @@ class AuditService {
           .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
@@ -307,12 +306,15 @@ class AuditService {
   }) async {
     try {
       final snapshot = await _auditCollection
-          .where('timestamp', isGreaterThanOrEqualTo: startDate.toIso8601String())
+          .where(
+            'timestamp',
+            isGreaterThanOrEqualTo: startDate.toIso8601String(),
+          )
           .where('timestamp', isLessThanOrEqualTo: endDate.toIso8601String())
           .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
@@ -329,15 +331,15 @@ class AuditService {
   ) async {
     try {
       final logs = await getLogsForItem(itemId, limit: 100);
-      
-      final relevantLogs = logs.where((log) => 
-        log.timestamp.isBefore(beforeDate)
-      ).toList();
-      
+
+      final relevantLogs = logs
+          .where((log) => log.timestamp.isBefore(beforeDate))
+          .toList();
+
       if (relevantLogs.isEmpty) return null;
-      
+
       Map<String, dynamic> snapshot = {};
-      
+
       for (final log in relevantLogs.reversed) {
         if (log.action == AuditAction.create) {
           for (final change in log.changes) {
@@ -351,7 +353,7 @@ class AuditService {
           return null;
         }
       }
-      
+
       return snapshot;
     } catch (e) {
       throw Exception('Failed to get item snapshot: $e');
@@ -361,12 +363,12 @@ class AuditService {
   Future<void> _cleanupOldLogs() async {
     try {
       final cutoffDate = DateTime.now().subtract(const Duration(days: 90));
-      
+
       final snapshot = await _auditCollection
           .where('timestamp', isLessThan: cutoffDate.toIso8601String())
           .limit(100)
           .get();
-      
+
       if (snapshot.docs.isNotEmpty) {
         final batch = _firestore.batch();
         for (final doc in snapshot.docs) {
@@ -385,11 +387,11 @@ class AuditService {
         .limit(limit)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return AuditLog.fromJson(data);
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id;
+            return AuditLog.fromJson(data);
+          }).toList();
+        });
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -9,9 +10,17 @@ import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:csv/csv.dart';
 
+import '../../../core/di/service_locator.dart';
+import '../../../core/utils/file_downloader.dart';
+import '../../analytics/models/agent_metrics.dart';
+import '../../analytics/services/agent_metrics_service.dart';
+import '../../uploads/models/upload_models.dart';
 import '../providers/grocery_list_provider.dart';
 import 'review_screen.dart';
+import '../../inventory/services/csv_service.dart';
+import '../../inventory/providers/inventory_provider.dart';
 
 class TextInputScreen extends StatefulWidget {
   const TextInputScreen({super.key});
@@ -28,13 +37,16 @@ class _TextInputScreenState extends State<TextInputScreen> {
   bool _isSpeechAvailable = false;
   bool _isListening = false;
   String _interimTranscript = '';
-  
+  String? _lastInventoryRefreshJobId;
+  Timer? _refreshTimer;
+
   // Input mode state
   InputMode _inputMode = InputMode.text;
   Uint8List? _selectedFileBytes;
   String? _selectedFileName;
   String? _imageBase64;
   bool _showTips = false;
+  Stream<AgentMetrics?>? _agentMetricsStream;
 
   @override
   void initState() {
@@ -43,9 +55,15 @@ class _TextInputScreenState extends State<TextInputScreen> {
     _focusNode = FocusNode();
     _speechToText = stt.SpeechToText();
     _initSpeechEngine();
-    
+    if (getIt.isRegistered<AgentMetricsService>()) {
+      _agentMetricsStream = getIt<AgentMetricsService>().watchGlobalMetrics();
+    }
+
     // Initialize with any existing text from provider
-    final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+    final groceryProvider = Provider.of<GroceryListProvider>(
+      context,
+      listen: false,
+    );
     _textController.text = groceryProvider.currentInputText;
   }
 
@@ -55,13 +73,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
     _speechToText.cancel();
     _textController.dispose();
     _focusNode.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -71,23 +90,25 @@ class _TextInputScreenState extends State<TextInputScreen> {
             children: [
               // Instructions card
               _buildInstructionsCard(theme),
-              
+
               const SizedBox(height: 16),
-              
+
               // Input mode selector
               _buildInputModeSelector(theme),
-              
+
               const SizedBox(height: 16),
-              
+
               // Input area (changes based on mode)
-              Expanded(
-                child: _buildInputArea(theme),
-              ),
-              
+              Expanded(child: _buildInputArea(theme)),
+
               const SizedBox(height: 16),
-              
+
               // Process button and status
               _buildProcessSection(theme),
+
+              const SizedBox(height: 16),
+
+              _buildAgentMetricsCard(theme),
             ],
           ),
         ),
@@ -170,30 +191,15 @@ class _TextInputScreenState extends State<TextInputScreen> {
       padding: const EdgeInsets.all(4),
       child: Row(
         children: [
-          _buildModeButton(
-            InputMode.text,
-            Icons.text_fields,
-            'Text',
-            theme,
-          ),
-          _buildModeButton(
-            InputMode.camera,
-            Icons.camera_alt,
-            'Camera',
-            theme,
-          ),
+          _buildModeButton(InputMode.text, Icons.text_fields, 'Text', theme),
+          _buildModeButton(InputMode.camera, Icons.camera_alt, 'Camera', theme),
           _buildModeButton(
             InputMode.gallery,
             Icons.photo_library,
             'Gallery',
             theme,
           ),
-          _buildModeButton(
-            InputMode.file,
-            Icons.upload_file,
-            'File',
-            theme,
-          ),
+          _buildModeButton(InputMode.file, Icons.upload_file, 'File', theme),
         ],
       ),
     );
@@ -206,7 +212,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     ThemeData theme,
   ) {
     final isSelected = _inputMode == mode;
-    
+
     return Expanded(
       child: GestureDetector(
         onTap: () => _selectInputMode(mode),
@@ -222,16 +228,16 @@ class _TextInputScreenState extends State<TextInputScreen> {
               Icon(
                 icon,
                 size: 20,
-                color: isSelected 
-                    ? theme.colorScheme.onPrimary 
+                color: isSelected
+                    ? theme.colorScheme.onPrimary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: isSelected 
-                      ? theme.colorScheme.onPrimary 
+                  color: isSelected
+                      ? theme.colorScheme.onPrimary
                       : theme.colorScheme.onSurfaceVariant,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -259,10 +265,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
       builder: (context, groceryProvider, _) {
         return Container(
           decoration: BoxDecoration(
-            border: Border.all(
-              color: theme.colorScheme.outline,
-              width: 1,
-            ),
+            border: Border.all(color: theme.colorScheme.outline, width: 1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -276,11 +279,13 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
                   style: theme.textTheme.bodyLarge,
-                    decoration: InputDecoration(
-                      hintText:
-                          'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
+                  decoration: InputDecoration(
+                    hintText:
+                        'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
                     hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                       height: 1.5,
                     ),
                     border: InputBorder.none,
@@ -292,12 +297,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   },
                 ),
               ),
-              
+
               // Action bar
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.3,
+                  ),
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(12),
                     bottomRight: Radius.circular(12),
@@ -344,7 +351,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                             _isListening ? Icons.mic_off : Icons.mic_none,
                             size: 18,
                           ),
-                          label: Text(_isListening ? 'Stop dictation' : 'Dictate'),
+                          label: Text(
+                            _isListening ? 'Stop dictation' : 'Dictate',
+                          ),
                         ),
                       ],
                     ),
@@ -366,8 +375,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final message = _interimTranscript.isNotEmpty
         ? _interimTranscript
         : (_isListening
-            ? 'Listening… speak naturally and we will transcribe in UK English.'
-            : '');
+              ? 'Listening… speak naturally and we will transcribe in UK English.'
+              : '');
 
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
@@ -389,9 +398,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                message.isEmpty
-                    ? 'Listening idle'
-                    : message,
+                message.isEmpty ? 'Listening idle' : message,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface,
                 ),
@@ -409,10 +416,10 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildImageInput(ThemeData theme) {
-    if (_selectedFileBytes != null || (_selectedFileName != null && _selectedFileName!.toLowerCase().endsWith('.pdf'))) {
+    if (_selectedFileBytes != null || (_selectedFileName ?? '').isNotEmpty) {
       return _buildImagePreview(theme);
     }
-    
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
@@ -445,7 +452,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
             Text(
               _getPlaceholderSubtext(),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.7,
+                ),
               ),
               textAlign: TextAlign.center,
             ),
@@ -455,9 +464,20 @@ class _TextInputScreenState extends State<TextInputScreen> {
               icon: Icon(_getActionIcon()),
               label: Text(_getActionText()),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
+            if (_inputMode == InputMode.file) ...[
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: _downloadCsvTemplate,
+                icon: const Icon(Icons.download),
+                label: const Text('Download CSV template'),
+              ),
+            ],
           ],
         ),
       ),
@@ -465,39 +485,35 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildImagePreview(ThemeData theme) {
-    final isPdf = (_selectedFileName ?? '').toLowerCase().endsWith('.pdf');
+    final fileName = _selectedFileName ?? '';
+    final isPreviewableImage = _isPreviewableImage(fileName);
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(
-          color: theme.colorScheme.outline,
-          width: 1,
-        ),
+        border: Border.all(color: theme.colorScheme.outline, width: 1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
           Expanded(
             child: ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (!isPdf && _selectedFileBytes != null)
-                    Image.memory(
-                      _selectedFileBytes!,
-                      fit: BoxFit.contain,
-                    )
+                  if (isPreviewableImage && _selectedFileBytes != null)
+                    Image.memory(_selectedFileBytes!, fit: BoxFit.contain)
                   else
                     Container(
-                      color:
-                          theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.25),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.picture_as_pdf,
+                              _getDocumentIcon(fileName),
                               size: 64,
                               color: theme.colorScheme.primary,
                             ),
@@ -532,14 +548,19 @@ class _TextInputScreenState extends State<TextInputScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius:
-                  const BorderRadius.vertical(bottom: Radius.circular(12)),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.3,
+              ),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(12),
+              ),
             ),
             child: Row(
               children: [
                 Icon(
-                  isPdf ? Icons.picture_as_pdf : Icons.check_circle,
+                  isPreviewableImage
+                      ? Icons.check_circle
+                      : _getDocumentIcon(fileName),
                   color: theme.colorScheme.primary,
                   size: 20,
                 ),
@@ -604,10 +625,79 @@ class _TextInputScreenState extends State<TextInputScreen> {
       case InputMode.gallery:
         return 'Choose an existing photo';
       case InputMode.file:
-        return 'PDF or image files supported';
+        return 'PDF, image, CSV, or XLSX files supported';
       default:
         return '';
     }
+  }
+
+  Future<void> _downloadCsvTemplate() async {
+    final headers = CsvService.defaultHeaders;
+    final sampleRows = [
+      [
+        'semi-skimmed milk',
+        '2',
+        'litre',
+        'dairy',
+        'fridge',
+        '1',
+        '2025-12-31',
+        'organic'
+      ],
+      [
+        'brown rice',
+        '1',
+        'kg',
+        'dry goods',
+        'pantry',
+        '0',
+        '',
+        'wholegrain'
+      ],
+    ];
+    final csvContent =
+        const ListToCsvConverter().convert([headers, ...sampleRows]);
+
+    try {
+      await saveTextFile(
+        filename: 'grocery-template.csv',
+        content: csvContent,
+        mimeType: 'text/csv',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template CSV downloaded.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to download template: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  bool _isPreviewableImage(String fileName) {
+    final lower = fileName.toLowerCase();
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.bmp') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.heic');
+  }
+
+  IconData _getDocumentIcon(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return Icons.picture_as_pdf;
+    if (lower.endsWith('.csv')) return Icons.table_chart;
+    if (lower.endsWith('.xlsx')) return Icons.grid_on;
+    return Icons.description;
   }
 
   IconData _getActionIcon() {
@@ -621,6 +711,32 @@ class _TextInputScreenState extends State<TextInputScreen> {
       default:
         return Icons.add;
     }
+  }
+
+  void _scheduleAutoRefresh(GroceryListProvider provider) {
+    // If there is no active ingestion job, cancel any pending refresh timer.
+    if (provider.activeIngestionJob == null) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+      return;
+    }
+
+    // If we already scheduled a refresh for this job, skip.
+    final currentJobId = provider.activeIngestionJob?.id;
+    if (_refreshTimer != null && _lastInventoryRefreshJobId == currentJobId) {
+      return;
+    }
+
+    // Schedule a single refresh to pull latest inventory in case tracking is
+    // limited or delayed.
+    _refreshTimer?.cancel();
+    _lastInventoryRefreshJobId = currentJobId;
+    _refreshTimer = Timer(const Duration(seconds: 12), () {
+      final inventoryProvider =
+          Provider.of<InventoryProvider>(context, listen: false);
+      inventoryProvider.loadInventory(refresh: true);
+      inventoryProvider.loadStats();
+    });
   }
 
   String _getActionText() {
@@ -639,6 +755,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildProcessSection(ThemeData theme) {
     return Consumer<GroceryListProvider>(
       builder: (context, groceryProvider, _) {
+        _scheduleAutoRefresh(groceryProvider);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -679,7 +796,16 @@ class _TextInputScreenState extends State<TextInputScreen> {
               ),
               const SizedBox(height: 12),
             ],
-            
+            if (groceryProvider.isUploading ||
+                groceryProvider.activeUpload != null) ...[
+              _buildUploadStatus(theme, groceryProvider),
+              const SizedBox(height: 12),
+            ],
+            if (groceryProvider.activeIngestionJob != null) ...[
+              _buildIngestionJobStatus(theme, groceryProvider),
+              const SizedBox(height: 12),
+            ],
+
             // Process button
             ElevatedButton(
               onPressed: _canProcess(groceryProvider) ? _handleProcess : null,
@@ -689,7 +815,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: groceryProvider.isParsing
+              child: groceryProvider.isProcessing
                   ? Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -700,7 +826,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'Processing...',
+                          groceryProvider.isUploading
+                              ? 'Uploading...'
+                              : 'Processing...',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -729,11 +857,11 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
   Widget _buildTipsSection(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Consumer<GroceryListProvider>(
       builder: (context, groceryProvider, _) {
         final tips = groceryProvider.getParsingTips();
-        
+
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -751,26 +879,30 @@ class _TextInputScreenState extends State<TextInputScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...tips.take(6).map((tip) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '• ',
-                      style: TextStyle(color: theme.colorScheme.primary),
-                    ),
-                    Expanded(
-                      child: Text(
-                        tip,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+              ...tips
+                  .take(6)
+                  .map(
+                    (tip) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '• ',
+                            style: TextStyle(color: theme.colorScheme.primary),
+                          ),
+                          Expanded(
+                            child: Text(
+                              tip,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              )),
+                  ),
             ],
           ),
         );
@@ -819,7 +951,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
       if (!_isSpeechAvailable) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Speech recognition unavailable on this device.')),
+          const SnackBar(
+            content: Text('Speech recognition unavailable on this device.'),
+          ),
         );
         return;
       }
@@ -867,10 +1001,13 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final current = _textController.text.trimRight();
     final newText = current.isEmpty ? recognised : '$current\n$recognised';
     _textController.text = newText;
-    _textController.selection =
-        TextSelection.collapsed(offset: _textController.text.length);
-    final groceryProvider =
-        Provider.of<GroceryListProvider>(context, listen: false);
+    _textController.selection = TextSelection.collapsed(
+      offset: _textController.text.length,
+    );
+    final groceryProvider = Provider.of<GroceryListProvider>(
+      context,
+      listen: false,
+    );
     groceryProvider.setCurrentInputText(_textController.text);
   }
 
@@ -907,10 +1044,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (image != null) {
       final bytes = await image.readAsBytes();
       final fileName = _resolveFileName(path: image.path, name: image.name);
-      await _processPickedFile(
-        bytes: bytes,
-        fileName: fileName,
-      );
+      await _processPickedFile(bytes: bytes, fileName: fileName);
     }
   }
 
@@ -923,23 +1057,25 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (image != null) {
       final bytes = await image.readAsBytes();
       final fileName = _resolveFileName(path: image.path, name: image.name);
-      await _processPickedFile(
-        bytes: bytes,
-        fileName: fileName,
-      );
+      await _processPickedFile(bytes: bytes, fileName: fileName);
     }
   }
 
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'csv', 'xlsx'],
       withData: true,
     );
 
     if (result == null) return;
 
     final file = result.files.single;
+    final resolvedFileName = _resolveFileName(
+      // On web, accessing path throws; rely on provided name instead.
+      path: kIsWeb ? null : file.path,
+      name: file.name,
+    );
     Uint8List? bytes = file.bytes;
 
     if (bytes == null) {
@@ -960,7 +1096,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
     await _processPickedFile(
       bytes: bytes,
-      fileName: _resolveFileName(path: file.path, name: file.name),
+      fileName: resolvedFileName,
     );
   }
 
@@ -986,12 +1122,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   bool _canProcess(GroceryListProvider groceryProvider) {
-    if (groceryProvider.isParsing) return false;
+    if (groceryProvider.isProcessing) return false;
 
     if (_inputMode == InputMode.text) {
       return _textController.text.trim().isNotEmpty;
     } else {
-      return _imageBase64 != null;
+      return _selectedFileBytes != null || _imageBase64 != null;
     }
   }
 
@@ -1002,8 +1138,34 @@ class _TextInputScreenState extends State<TextInputScreen> {
     return segments.isNotEmpty ? segments.last : path;
   }
 
+  String _inferContentType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.csv')) return 'text/csv';
+    if (lower.endsWith('.xlsx')) {
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+    return 'application/octet-stream';
+  }
+
+  String _inferUploadSourceType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'pdf';
+    if (lower.endsWith('.csv') || lower.endsWith('.xlsx')) {
+      return 'text';
+    }
+    return 'image_receipt';
+  }
+
   Future<void> _handleProcess() async {
-    final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+    final groceryProvider = Provider.of<GroceryListProvider>(
+      context,
+      listen: false,
+    );
     if (_isListening) {
       await _speechToText.stop();
       setState(() {
@@ -1011,30 +1173,407 @@ class _TextInputScreenState extends State<TextInputScreen> {
         _interimTranscript = '';
       });
     }
-    
-    bool success;
+
     if (_inputMode == InputMode.text) {
       final text = _textController.text.trim();
       if (text.isEmpty) return;
-      
-      success = await groceryProvider.parseGroceryText(text: text);
-    } else {
-      if (_imageBase64 == null) return;
-      
-      success = await groceryProvider.parseGroceryImage(
-        imageBase64: _imageBase64!,
-        imageType: 'receipt',
-      );
+
+      if (groceryProvider.supportsAsyncIngestion) {
+        final started = await groceryProvider.submitIngestionJob(
+          text: text,
+          metadata: const {'source': 'text_input'},
+        );
+        if (started && mounted) {
+          _textController.clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Processing your update in the background...'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final success = await groceryProvider.parseGroceryText(text: text);
+      if (success && mounted) {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (context) => const ReviewScreen()));
+      }
+      return;
     }
 
-    if (success && mounted) {
-      // Navigate to review screen
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const ReviewScreen(),
-        ),
+    final bytes = _selectedFileBytes;
+    if (bytes == null) return;
+
+    if (groceryProvider.supportsUploadIngestion) {
+      final fileName = _selectedFileName ?? 'receipt.png';
+      final success = await groceryProvider.submitUploadForIngestion(
+        bytes: bytes,
+        filename: fileName,
+        contentType: _inferContentType(fileName),
+        sourceType: _inferUploadSourceType(fileName),
       );
+
+      if (success && mounted) {
+        _clearImage();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload queued for background processing...'),
+          ),
+        );
+      }
+      return;
     }
+
+    if (_imageBase64 == null) return;
+
+    final success = await groceryProvider.parseGroceryImage(
+      imageBase64: _imageBase64!,
+      imageType: 'receipt',
+    );
+
+    if (success && mounted) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const ReviewScreen()));
+    }
+  }
+
+  Widget _buildIngestionJobStatus(
+    ThemeData theme,
+    GroceryListProvider provider,
+  ) {
+    final job = provider.activeIngestionJob!;
+    final isProcessing = !job.isTerminal;
+    final isSuccess = job.isComplete;
+    final baseColor = isProcessing
+        ? theme.colorScheme.surfaceContainerHighest
+        : isSuccess
+        ? theme.colorScheme.primaryContainer
+        : theme.colorScheme.errorContainer;
+    final onColor = isProcessing
+        ? theme.colorScheme.onSurfaceVariant
+        : isSuccess
+        ? theme.colorScheme.onPrimaryContainer
+        : theme.colorScheme.onErrorContainer;
+
+    final title = isProcessing
+        ? 'Applying your update...'
+        : isSuccess
+        ? 'Inventory updated automatically'
+        : 'Background processing failed';
+
+    String? message;
+    if (isProcessing) {
+      final snippet = job.text != null && job.text!.isNotEmpty
+          ? '"${_truncate(job.text!, 80)}"'
+          : null;
+      message = snippet != null
+          ? 'Hang tight while we process $snippet'
+          : 'Hang tight while we process your update.';
+      if (provider.ingestionTrackingLimited) {
+        message =
+            'Processing in the background. Updates may take a moment to appear.';
+      }
+    } else if (isSuccess) {
+      message =
+          job.resultSummary ??
+          job.agentResponse ??
+          'The AI agent applied your grocery updates.';
+    } else {
+      message = job.lastError ?? 'Please try again in a moment.';
+    }
+
+    final icon = isProcessing
+        ? Icons.sync
+        : isSuccess
+        ? Icons.check_circle
+        : Icons.error_outline;
+
+    // Refresh inventory once per completed job so users see updates without
+    // manual reloads.
+    if (isSuccess &&
+        job.id.isNotEmpty &&
+        _lastInventoryRefreshJobId != job.id) {
+      _lastInventoryRefreshJobId = job.id;
+      final inventoryProvider =
+          Provider.of<InventoryProvider>(context, listen: false);
+      inventoryProvider.loadInventory(refresh: true);
+      inventoryProvider.loadStats();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: baseColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: onColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: onColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (job.isTerminal)
+                TextButton(
+                  onPressed: provider.dismissIngestionJobStatus,
+                  style: TextButton.styleFrom(foregroundColor: onColor),
+                  child: const Text('Dismiss'),
+                ),
+              if (provider.ingestionTrackingLimited && isProcessing)
+                TextButton(
+                  onPressed: () {
+                    final inventoryProvider =
+                        Provider.of<InventoryProvider>(context, listen: false);
+                    inventoryProvider.loadInventory(refresh: true);
+                    inventoryProvider.loadStats();
+                  },
+                  style: TextButton.styleFrom(foregroundColor: onColor),
+                  child: const Text('Refresh now'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: theme.textTheme.bodySmall?.copyWith(color: onColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadStatus(ThemeData theme, GroceryListProvider provider) {
+    final upload = provider.activeUpload;
+    final isUploading = provider.isUploading;
+    final status = upload?.status;
+
+    if (!isUploading && upload == null) {
+      return const SizedBox.shrink();
+    }
+
+    final bool isError = status == UploadStatus.failed;
+    final bool isComplete = status == UploadStatus.completed;
+    final baseColor = isUploading
+        ? theme.colorScheme.surfaceContainerHighest
+        : isError
+        ? theme.colorScheme.errorContainer
+        : theme.colorScheme.secondaryContainer;
+    final onColor = isUploading
+        ? theme.colorScheme.onSurfaceVariant
+        : isError
+        ? theme.colorScheme.onErrorContainer
+        : theme.colorScheme.onSecondaryContainer;
+
+    String title;
+    String message;
+    IconData icon;
+
+    if (isUploading) {
+      final percent = (provider.uploadProgress * 100).clamp(0, 100).round();
+      title = 'Uploading your file...';
+      message = 'Sent $percent% of the receipt to the server.';
+      icon = Icons.cloud_upload;
+    } else if (status == UploadStatus.queued) {
+      title = 'Queued for processing';
+      message = 'Waiting for the AI parser to pick up your upload.';
+      icon = Icons.schedule;
+    } else if (status == UploadStatus.processing) {
+      title = 'Processing upload...';
+      message = upload?.processingStage != null
+          ? 'Stage: ${upload!.processingStage}'
+          : 'Preparing the ingestion job.';
+      icon = Icons.sync;
+    } else if (isError) {
+      title = 'Upload failed';
+      message = upload?.lastError ?? 'Please try again in a moment.';
+      icon = Icons.error_outline;
+    } else {
+      title = 'Upload processed';
+      final preview = upload?.textPreview;
+      message = preview != null && preview.isNotEmpty
+          ? 'Preview: ${_truncate(preview, 80)}'
+          : 'Ingestion job starting shortly.';
+      icon = Icons.check_circle;
+    }
+
+    final showDismiss =
+        !isUploading &&
+        (upload == null ||
+            isError ||
+            (isComplete && (provider.activeIngestionJob?.isTerminal ?? false)));
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: baseColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: onColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: onColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (showDismiss)
+                TextButton(
+                  onPressed: provider.dismissUploadStatus,
+                  style: TextButton.styleFrom(foregroundColor: onColor),
+                  child: const Text('Dismiss'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: theme.textTheme.bodySmall?.copyWith(color: onColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAgentMetricsCard(ThemeData theme) {
+    final stream = _agentMetricsStream;
+    if (stream == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<AgentMetrics?>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final metrics = snapshot.data;
+        if (metrics == null) {
+          return const SizedBox.shrink();
+        }
+
+        final successRate = (metrics.successRate * 100)
+            .clamp(0, 100)
+            .toStringAsFixed(0);
+        final fallbackRate = (metrics.fallbackRate * 100)
+            .clamp(0, 100)
+            .toStringAsFixed(0);
+        final latency = metrics.averageLatencyMs;
+        final confidence = metrics.averageConfidence;
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Agent health',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _buildMetricPill(
+                      theme,
+                      label: 'Runs',
+                      value: metrics.totalCount.toString(),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildMetricPill(
+                      theme,
+                      label: 'Success',
+                      value: '$successRate%',
+                    ),
+                    const SizedBox(width: 8),
+                    _buildMetricPill(
+                      theme,
+                      label: 'Fallback',
+                      value: '$fallbackRate%',
+                    ),
+                  ],
+                ),
+                if (latency != null || confidence != null)
+                  const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (latency != null)
+                      Text(
+                        'Avg latency: ${latency.toStringAsFixed(0)} ms',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    if (confidence != null)
+                      Text(
+                        'Avg confidence: ${confidence.toStringAsFixed(2)}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMetricPill(
+    ThemeData theme, {
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _truncate(String value, int maxChars) {
+    if (value.length <= maxChars) return value;
+    return '${value.substring(0, maxChars).trim()}...';
   }
 
   void _handlePaste() async {
@@ -1042,7 +1581,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (data?.text != null && mounted) {
       final currentText = _textController.text;
       final pastedText = data!.text!;
-      
+
       // Insert at cursor or append if no selection
       final selection = _textController.selection;
       if (selection.isValid) {
@@ -1061,11 +1600,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
           offset: _textController.text.length,
         );
       }
-      
+
       // Update provider
-      final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
+      final groceryProvider = Provider.of<GroceryListProvider>(
+        context,
+        listen: false,
+      );
       groceryProvider.setCurrentInputText(_textController.text);
-      
+
       // Show feedback
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1102,9 +1644,4 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 }
 
-enum InputMode {
-  text,
-  camera,
-  gallery,
-  file,
-}
+enum InputMode { text, camera, gallery, file }

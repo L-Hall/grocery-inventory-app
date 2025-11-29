@@ -51,6 +51,101 @@ Updated backend endpoints replacing the preview repository shims. These routes a
 ### `POST /inventory/parse`
 - Backwards compatible combined endpoint. Accepts either `text` or `image`, and is now a thin wrapper around the dedicated routes.
 
+## Upload Ingestion Endpoints
+
+Async parsing for large PDFs or high-resolution receipts occurs through a small upload pipeline:
+
+### `POST /uploads`
+- **Purpose:** Reserve Storage space and get a signed URL for direct uploads.
+- **Request body:**
+  ```json
+  {
+    "filename": "receipt.pdf",
+    "contentType": "application/pdf",
+    "sizeBytes": 1048576,
+    "sourceType": "pdf" // optional: pdf, text, receipt, list
+  }
+  ```
+- **Response (200):**
+  ```json
+  {
+    "success": true,
+    "uploadId": "9b4a4d50-8e35-4f6e-9dbf-1a4d560ab1d8",
+    "storagePath": "uploads/USER_ID/UPLOAD_ID/receipt.pdf",
+    "bucket": "grocery-app.appspot.com",
+    "uploadUrl": "https://storage.googleapis.com/...",
+    "uploadUrlExpiresAt": "2024-06-01T12:34:56.000Z",
+    "status": "awaiting_upload"
+  }
+  ```
+
+### `GET /uploads/{uploadId}`
+- **Purpose:** Retrieve metadata + current processing status for a specific upload.
+- **Response (200):**
+  ```json
+  {
+    "success": true,
+    "upload": {
+      "id": "UPLOAD_ID",
+      "filename": "receipt.pdf",
+      "storagePath": "uploads/USER_ID/UPLOAD_ID/receipt.pdf",
+      "bucket": "grocery-app.appspot.com",
+      "contentType": "application/pdf",
+      "status": "queued",
+      "processingStage": "queued",
+      "processingJobId": "job_abc123",
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+  ```
+
+### `POST /uploads/{uploadId}/queue`
+- **Purpose:** Flag that the file is present in Storage and enqueue it for AI parsing.
+- **Response (200):**
+  ```json
+  {
+    "success": true,
+    "jobId": "job_abc123",
+    "status": "queued"
+  }
+  ```
+
+Creating a job adds a document to the global `upload_jobs` collection. A Firestore-triggered worker updates the job to `awaiting_parser` and marks the user upload document as `processing`, ready for the agent pipeline to take over.
+
+### `POST /inventory/ingest`
+- **Purpose:** Create an ingestion job that runs the AI agent asynchronously (no blocking wait). Accepts either raw text or an `uploadId` that will be wired up later.
+- **Request body:**
+  ```json
+  {
+    "text": "used 2 eggs and bought 3 yogurts",
+    "metadata": {
+      "source": "manual-entry"
+    }
+  }
+  ```
+- **Response (200):**
+  ```json
+  {
+    "success": true,
+    "jobId": "f53f7f0f-6a6e-437d-98ab-d2e9761b3180",
+    "status": "pending",
+    "jobPath": "users/UID/ingestion_jobs/f53f7f0f-6a6e-437d-98ab-d2e9761b3180"
+  }
+  ```
+- The client should watch `users/{uid}/ingestion_jobs/{jobId}` (or poll) until `status` is `completed` or `failed`. On completion the document contains `agentResponse` and `resultSummary`; on failure `lastError` is populated.
+- When an `/uploads/{uploadId}/queue` job is created, the backend now downloads the uploaded blob, extracts text (plain text directly, PDFs via a lightweight text extractor, receipts/photos via the OpenAI Vision parser), and immediately writes an ingestion job that references the upload metadata. The original upload document records the `ingestionJobId` plus a `textPreview` so the UI can link the background process to the originating file.
+
+### Agent Metrics Stream
+- Every agent interaction (including ingestion jobs) now writes to `agent_interactions/`.
+- A metrics trigger aggregates these events into:
+  - `agent_metrics/global` – lifetime totals.
+  - `agent_metrics/daily/{YYYY-MM-DD}` – per-day snapshots.
+- Each doc tracks totals, success count, fallback count, latency sums, confidence sums, and bucketed histograms:
+  - `latencyBuckets.lt_2s`, `latencyBuckets.2s_5s`, `latencyBuckets.gt_5s`.
+  - `confidenceBuckets.low` (<0.5), `confidenceBuckets.medium` (0.5–0.8), `confidenceBuckets.high` (>0.8).
+- Dashboards can bind directly to these docs (or export to BigQuery) to monitor latency, fallback rate, and confidence distribution over time.
+
 ## Apply Endpoint
 
 ### `POST /inventory/apply`
@@ -146,3 +241,25 @@ node scripts/backfill-inventory-metadata.js
 ```
 
 The script will iterate each user’s inventory collection, batching updates in groups of 400 writes and reporting counts per user.
+
+## Agent Endpoints
+
+### `POST /agent/ingest`
+- **Purpose:** Send free-form grocery text through the OpenAI Agent runner so it can parse and immediately apply updates using the same validation logic as `/inventory/apply`.
+- **Request body:**
+  ```json
+  {
+    "text": "Bought 2 gallons of milk and used 3 eggs",
+    "metadata": {
+      "source": "upload:receipt_123"
+    }
+  }
+  ```
+- **Response (200):**
+  ```json
+  {
+    "success": true,
+    "response": "Applied 2 updates. Milk increased to 5 gallons; Eggs decreased to 9 count."
+  }
+  ```
+- On failure the route returns `{ success: false, error: "..." }` with an HTTP 500 status so clients can fall back to manual review.

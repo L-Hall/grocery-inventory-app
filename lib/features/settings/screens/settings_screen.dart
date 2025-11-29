@@ -9,8 +9,10 @@ import '../../auth/providers/auth_provider.dart';
 import '../../inventory/models/view_config.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../../inventory/services/search_service.dart';
+import '../../inventory/services/csv_service.dart';
 import '../../grocery_list/providers/grocery_list_provider.dart';
 import 'user_management_screen.dart';
+import '../../../core/utils/file_downloader.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,20 +25,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final StorageService _storageService;
   late final ApiService _apiService;
   bool _isLoading = false;
-  
+
   // Preference states
   bool _notificationsEnabled = true;
   bool _lowStockAlerts = true;
-  String _defaultUnit = 'item';
+  String _unitSystem = 'metric';
   ThemeMode _themeMode = ThemeMode.system;
   List<SavedSearch> _savedSearches = const [];
   List<InventoryView> _customViews = const [];
 
   void _showSnackMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showSnack(SnackBar snackBar) {
@@ -59,7 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
-    
+
     try {
       // Load saved preferences
       final notifications = _storageService.getBool(
@@ -70,14 +72,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'low_stock_alerts',
         defaultValue: true,
       );
-      final unit = _storageService.getString('default_unit');
+      final unitSystem =
+          _storageService.getString(StorageService.keyUnitSystem) ??
+          _legacyUnitSystemFallback();
       final theme = _storageService.getString('theme_mode');
-      
+
       if (mounted) {
         setState(() {
           _notificationsEnabled = notifications;
           _lowStockAlerts = lowStock;
-          _defaultUnit = unit ?? 'item';
+          _unitSystem = unitSystem;
           _themeMode = _parseThemeMode(theme);
         });
       }
@@ -103,6 +107,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  String _legacyUnitSystemFallback() {
+    // Map any previously stored default units to a system preference.
+    final legacyUnit = _storageService.getString(StorageService.keyDefaultUnit);
+    if (legacyUnit == null) return 'metric';
+    final lower = legacyUnit.toLowerCase();
+    if (lower.contains('lb') || lower.contains('pound') || lower == 'oz') {
+      return 'imperial';
+    }
+    return 'metric';
+  }
+
   Future<void> _loadRemotePreferences() async {
     try {
       final response = await _apiService.getUserPreferences();
@@ -111,14 +126,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final customViews = response['customViews'];
 
       if (settings is Map<String, dynamic>) {
-        final remoteDefaultUnit = settings['defaultUnit'] as String?;
+        final remoteDefaultUnit = settings['unitSystem'] as String? ??
+            settings['defaultUnit'] as String?;
         final remoteNotifications = settings['notificationsEnabled'] as bool?;
         final remoteLowStock = settings['lowStockAlerts'] as bool?;
 
         if (mounted) {
           setState(() {
             if (remoteDefaultUnit != null && remoteDefaultUnit.isNotEmpty) {
-              _defaultUnit = remoteDefaultUnit;
+              _unitSystem = remoteDefaultUnit;
             }
             if (remoteNotifications != null) {
               _notificationsEnabled = remoteNotifications;
@@ -169,17 +185,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   // User profile section
                   _buildUserProfileSection(context),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // App preferences section
                   _buildAppPreferencesSection(context),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Inventory preferences section
                   _buildInventoryPreferencesSection(context),
-                  
+
                   const SizedBox(height: 24),
                   if (_savedSearches.isNotEmpty) ...[
                     _buildSavedSearchesSection(context),
@@ -191,16 +207,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
 
                   // Data management section
-                  
                   _buildDataManagementSection(context),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // About section
                   _buildAboutSection(context),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Sign out button
                   _buildSignOutSection(context),
                 ],
@@ -213,7 +228,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
         final user = authProvider.user;
-        
+
         return _buildSection(
           context,
           title: 'Profile',
@@ -221,7 +236,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                backgroundColor: Theme.of(
+                  context,
+                ).primaryColor.withValues(alpha: 0.1),
                 child: Text(
                   _getUserInitials(user?.displayName ?? user?.email ?? ''),
                   style: TextStyle(
@@ -240,7 +257,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: const Icon(Icons.admin_panel_settings_outlined),
               title: const Text('Account & subscriptions'),
-              subtitle: const Text('Manage sync, billing, and account deletion'),
+              subtitle: const Text(
+                'Manage sync, billing, and account deletion',
+              ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: _openUserManagement,
             ),
@@ -258,49 +277,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         ListTile(
           leading: const Icon(Icons.straighten),
-          title: const Text('Default Unit'),
-          subtitle: const Text('Used when no unit is specified'),
-          trailing: PopupMenuButton<String>(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _defaultUnit,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const Icon(Icons.arrow_drop_down),
-              ],
-            ),
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'item',
-                child: Text('item'),
+          title: const Text('Preferred Units'),
+          subtitle: const Text('Tell the AI to use metric or imperial by default'),
+          trailing: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'metric',
+                label: Text('Metric'),
+                icon: Icon(Icons.speed),
               ),
-              const PopupMenuItem<String>(
-                value: 'piece',
-                child: Text('piece'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'package',
-                child: Text('package'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'pound',
-                child: Text('pound'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'kg',
-                child: Text('kilogram'),
+              ButtonSegment(
+                value: 'imperial',
+                label: Text('Imperial'),
+                icon: Icon(Icons.straighten),
               ),
             ],
-            onSelected: (unit) async {
+            selected: {_unitSystem},
+            onSelectionChanged: (selection) async {
+              final value = selection.first;
               setState(() {
-                _defaultUnit = unit;
+                _unitSystem = value;
               });
-              await _storageService.setString('default_unit', unit);
-              _showSnackMessage('Default unit changed to $unit');
+              await _storageService.setString(
+                StorageService.keyUnitSystem,
+                value,
+              );
+              try {
+                await _apiService.updatePreferenceSettings(
+                  {'unitSystem': value},
+                );
+              } catch (_) {
+                // non-blocking: ignore failures to persist remotely
+              }
+              _showSnackMessage(
+                value == 'metric'
+                    ? 'Metric units will be used by default.'
+                    : 'Imperial units will be used by default.',
+              );
             },
           ),
         ),
@@ -450,7 +463,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _themeMode = themeMode;
               });
               await _storageService.setString('theme_mode', themeMode.name);
-              _showSnackMessage('Theme changed to ${_getThemeModeName(themeMode)}');
+              _showSnackMessage(
+                'Theme changed to ${_getThemeModeName(themeMode)}',
+              );
             },
           ),
         ),
@@ -465,7 +480,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _notificationsEnabled = value;
               });
               await _storageService.setBool('notifications_enabled', value);
-              _showSnackMessage('Notifications ${value ? 'enabled' : 'disabled'}');
+              _showSnackMessage(
+                'Notifications ${value ? 'enabled' : 'disabled'}',
+              );
             },
           ),
         ),
@@ -475,7 +492,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle: const Text('English'),
           trailing: const Icon(Icons.arrow_forward_ios),
           onTap: () {
-            _showSnack(const SnackBar(content: Text('Language settings coming soon')));
+            _showSnack(
+              const SnackBar(content: Text('Language settings coming soon')),
+            );
           },
         ),
       ],
@@ -504,7 +523,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         ListTile(
           leading: const Icon(Icons.delete_sweep, color: Colors.red),
-          title: const Text('Clear All Data', style: TextStyle(color: Colors.red)),
+          title: const Text(
+            'Clear All Data',
+            style: TextStyle(color: Colors.red),
+          ),
           subtitle: const Text('Remove all inventory items and lists'),
           trailing: const Icon(Icons.arrow_forward_ios),
           onTap: _showClearDataConfirmation,
@@ -569,13 +591,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSection(BuildContext context, {
+  Widget _buildSection(
+    BuildContext context, {
     required String title,
     required IconData icon,
     required List<Widget> children,
   }) {
     final theme = Theme.of(context);
-    
+
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -604,7 +627,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _getUserInitials(String name) {
     if (name.isEmpty) return '?';
-    
+
     final parts = name.split(' ');
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
@@ -612,7 +635,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return name[0].toUpperCase();
     }
   }
-  
+
   String _getThemeModeName(ThemeMode mode) {
     switch (mode) {
       case ThemeMode.light:
@@ -628,7 +651,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.user;
     final nameController = TextEditingController(text: user?.displayName ?? '');
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -650,15 +673,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final newName = nameController.text.trim();
               if (newName.isNotEmpty) {
                 final success = await authProvider.updateProfile(name: newName);
-                
+
                 if (dialogContext.mounted) {
                   Navigator.of(dialogContext).pop();
-                  
+
                   _showSnack(
                     SnackBar(
                       content: Text(
-                        success 
-                            ? 'Profile updated successfully' 
+                        success
+                            ? 'Profile updated successfully'
                             : 'Failed to update profile',
                       ),
                       backgroundColor: success ? Colors.green : Colors.red,
@@ -676,14 +699,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _syncData() async {
     try {
-      final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
-      final groceryProvider = Provider.of<GroceryListProvider>(context, listen: false);
-      
+      final inventoryProvider = Provider.of<InventoryProvider>(
+        context,
+        listen: false,
+      );
+      final groceryProvider = Provider.of<GroceryListProvider>(
+        context,
+        listen: false,
+      );
+
       await Future.wait([
         inventoryProvider.refresh(),
         groceryProvider.refresh(),
       ]);
-      
+
       if (mounted) {
         _showSnack(
           const SnackBar(
@@ -704,8 +733,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _exportData() {
-    _showSnack(const SnackBar(content: Text('Export feature coming soon')));
+  Future<void> _exportData() async {
+    try {
+      final csvService = CsvService();
+      final csv = await csvService.exportInventoryToCsv();
+      await saveTextFile(
+        filename: 'grocery-inventory-export.csv',
+        content: csv,
+        mimeType: 'text/csv',
+      );
+      _showSnack(
+        const SnackBar(content: Text('CSV export ready to share/download')),
+      );
+    } catch (e) {
+      _showSnack(
+        SnackBar(
+          content: Text('Failed to export inventory: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showClearDataConfirmation() {
@@ -755,13 +802,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Getting Started:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text('• Use the "Add Items" tab to input grocery text\n• Try natural language like "bought 2 gallons milk"\n• Review AI-parsed items before applying changes\n• View your inventory in the first tab'),
-              SizedBox(height: 16),
               Text(
-                'Tips:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                '• Use the "Add Items" tab to input grocery text\n• Try natural language like "bought 2 gallons milk"\n• Review AI-parsed items before applying changes\n• View your inventory in the first tab',
               ),
-              Text('• Include quantities and units for best results\n• Use action words like "bought", "used", "finished"\n• Set low stock thresholds to get alerts\n• Export your inventory data anytime'),
+              SizedBox(height: 16),
+              Text('Tips:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                '• Include quantities and units for best results\n• Use action words like "bought", "used", "finished"\n• Set low stock thresholds to get alerts\n• Export your inventory data anytime',
+              ),
             ],
           ),
         ),
@@ -776,7 +824,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _reportBug() {
-    _showSnack(const SnackBar(content: Text('Bug reporting feature coming soon')));
+    _showSnack(
+      const SnackBar(content: Text('Bug reporting feature coming soon')),
+    );
   }
 
   void _rateApp() {
@@ -785,9 +835,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _openUserManagement() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const UserManagementScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const UserManagementScreen()),
     );
   }
 
@@ -806,11 +854,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () async {
               final navigator = Navigator.of(dialogContext);
               final messenger = ScaffoldMessenger.of(dialogContext);
-              final authProvider = Provider.of<AuthProvider>(dialogContext, listen: false);
+              final authProvider = Provider.of<AuthProvider>(
+                dialogContext,
+                listen: false,
+              );
 
               navigator.pop();
               await authProvider.signOut();
-              
+
               if (dialogContext.mounted) {
                 messenger.showSnackBar(
                   const SnackBar(

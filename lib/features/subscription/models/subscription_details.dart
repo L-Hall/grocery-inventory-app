@@ -20,7 +20,8 @@ class SubscriptionDetails {
   factory SubscriptionDetails.fromJson(Map<String, dynamic> json) {
     final usage = json['usage'];
     DateTime? parsedRenewsOn;
-    final renewsValue = json['renewsOn'] ?? json['renewsAt'] ?? json['currentPeriodEnd'];
+    final renewsValue =
+        json['renewsOn'] ?? json['renewsAt'] ?? json['currentPeriodEnd'];
     if (renewsValue is String) {
       parsedRenewsOn = DateTime.tryParse(renewsValue);
     } else if (renewsValue is int) {
@@ -28,14 +29,20 @@ class SubscriptionDetails {
     }
 
     return SubscriptionDetails(
-      planName: json['planName'] as String? ??
+      planName:
+          json['planName'] as String? ??
           json['plan'] as String? ??
           (json['planId'] as String? ?? 'Free'),
       status: (json['status'] as String? ?? 'inactive').toLowerCase(),
       renewsOn: parsedRenewsOn,
-      usageLimit: usage is Map<String, dynamic> ? usage['limit'] as int? : json['usageLimit'] as int?,
-      usageUsed: usage is Map<String, dynamic> ? usage['used'] as int? : json['usageUsed'] as int?,
-      managementPortalUrl: json['portalUrl'] as String? ?? json['manageUrl'] as String?,
+      usageLimit: usage is Map<String, dynamic>
+          ? usage['limit'] as int?
+          : json['usageLimit'] as int?,
+      usageUsed: usage is Map<String, dynamic>
+          ? usage['used'] as int?
+          : json['usageUsed'] as int?,
+      managementPortalUrl:
+          json['portalUrl'] as String? ?? json['manageUrl'] as String?,
       canCancel: json['canCancel'] as bool? ?? true,
     );
   }
@@ -55,5 +62,6 @@ class SubscriptionDetails {
     }
   }
 
-  bool get isFreeTier => status == 'inactive' || planName.toLowerCase() == 'free';
+  bool get isFreeTier =>
+      status == 'inactive' || planName.toLowerCase() == 'free';
 }

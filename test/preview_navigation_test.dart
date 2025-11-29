@@ -12,42 +12,39 @@ import 'package:grocery_app/preview/preview_inventory_repository.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets(
-    'Preview navigation shell renders with Add items tab',
-    (tester) async {
-      final inventoryProvider = InventoryProvider(PreviewInventoryRepository());
-      final groceryProvider = GroceryListProvider(
-        PreviewGroceryListRepository(),
-      );
+  testWidgets('Preview navigation shell renders with Add items tab', (
+    tester,
+  ) async {
+    final inventoryProvider = InventoryProvider(PreviewInventoryRepository());
+    final groceryProvider = GroceryListProvider(PreviewGroceryListRepository());
 
-      addTearDown(() {
-        inventoryProvider.dispose();
-        groceryProvider.dispose();
-      });
+    addTearDown(() {
+      inventoryProvider.dispose();
+      groceryProvider.dispose();
+    });
 
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<InventoryProvider>.value(
-              value: inventoryProvider,
-            ),
-            ChangeNotifierProvider<GroceryListProvider>.value(
-              value: groceryProvider,
-            ),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.lightTheme,
-            themeMode: ThemeMode.light,
-            home: const PreviewNavigationShell(),
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<InventoryProvider>.value(
+            value: inventoryProvider,
           ),
+          ChangeNotifierProvider<GroceryListProvider>.value(
+            value: groceryProvider,
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          themeMode: ThemeMode.light,
+          home: const PreviewNavigationShell(),
         ),
-      );
+      ),
+    );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
 
-      expect(find.text('Add items'), findsOneWidget);
-      expect(find.byIcon(Icons.mic_none_outlined), findsOneWidget);
-    },
-  );
+    expect(find.text('Add items'), findsOneWidget);
+    expect(find.byIcon(Icons.mic_none_outlined), findsOneWidget);
+  });
 }

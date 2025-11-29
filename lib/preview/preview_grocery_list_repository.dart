@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../features/grocery_list/models/grocery_list.dart';
+import '../features/grocery_list/models/ingestion_job.dart';
 import '../features/grocery_list/models/parsed_item.dart';
 import '../features/grocery_list/repositories/grocery_list_repository.dart';
 import '../features/inventory/models/inventory_item.dart';
@@ -46,7 +47,10 @@ class PreviewGroceryListRepository implements GroceryListDataSource {
   final _random = Random(42);
 
   @override
-  Future<ParseResult> parseGroceryText({required String text}) async {
+  Future<ParseResult> parseGroceryText({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
       return ParseResult(
@@ -202,14 +206,25 @@ bought 1.5 kg potatoes
     return parseGroceryText(text: text);
   }
 
+  @override
+  Future<IngestionJobHandle> startIngestionJob({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
+    throw UnimplementedError(
+      'Ingestion jobs are not supported in preview mode.',
+    );
+  }
+
   List<ParsedItem> _parseLines(String text) {
     final lines = text.split(RegExp(r'[\n,]+')).map((l) => l.trim()).toList()
       ..removeWhere((line) => line.isEmpty);
 
     final items = <ParsedItem>[];
-    final pattern =
-        RegExp(r'(?:(\d+(?:\.\d+)?)\s*)?(kg|g|litre|litres|ml|pack|packs|tin|tins|jar|box|bag|bottle|loaf|loaves|pcs|piece|pieces)?\s*(.*)',
-            caseSensitive: false);
+    final pattern = RegExp(
+      r'(?:(\d+(?:\.\d+)?)\s*)?(kg|g|litre|litres|ml|pack|packs|tin|tins|jar|box|bag|bottle|loaf|loaves|pcs|piece|pieces)?\s*(.*)',
+      caseSensitive: false,
+    );
 
     for (final line in lines) {
       final match = pattern.firstMatch(line);
@@ -219,8 +234,7 @@ bought 1.5 kg potatoes
       final double quantity = quantityString != null
           ? double.tryParse(quantityString) ?? 1
           : 1;
-      final unit = (match.group(2) ??
-              (quantity > 1 ? 'pcs' : 'pc'))
+      final unit = (match.group(2) ?? (quantity > 1 ? 'pcs' : 'pc'))
           .toLowerCase()
           .replaceFirst('pieces', 'pcs')
           .replaceFirst('piece', 'pc');

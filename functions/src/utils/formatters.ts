@@ -135,16 +135,16 @@ export function formatUserPreferences(
   return {
     id: doc.id,
     defaultView: data.defaultView ?? null,
-    searchHistory: Array.isArray(data.searchHistory)
-      ? data.searchHistory.slice(-25)
-      : [],
+    searchHistory: Array.isArray(data.searchHistory) ?
+      data.searchHistory.slice(-25) :
+      [],
     exportPreferences:
-      data.exportPreferences && typeof data.exportPreferences === "object"
-        ? data.exportPreferences
-        : {},
-    bulkOperationHistory: Array.isArray(data.bulkOperationHistory)
-      ? data.bulkOperationHistory.slice(-100)
-      : [],
+      data.exportPreferences && typeof data.exportPreferences === "object" ?
+        data.exportPreferences :
+        {},
+    bulkOperationHistory: Array.isArray(data.bulkOperationHistory) ?
+      data.bulkOperationHistory.slice(-100) :
+      [],
     createdAt: formatTimestamp(data.createdAt),
     updatedAt: formatTimestamp(data.updatedAt ?? data.createdAt),
   };
@@ -175,9 +175,9 @@ export function formatCustomView(
     type: data.type ?? "custom",
     filters: Array.isArray(data.filters) ? data.filters : [],
     sortConfig:
-      data.sortConfig && typeof data.sortConfig === "object"
-        ? data.sortConfig
-        : null,
+      data.sortConfig && typeof data.sortConfig === "object" ?
+        data.sortConfig :
+        null,
     groupBy: data.groupBy ?? null,
     isDefault: Boolean(data.isDefault),
     createdAt: formatTimestamp(data.createdAt),

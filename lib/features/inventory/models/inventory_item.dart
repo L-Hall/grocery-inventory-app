@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class InventoryItem {
   final String id;
   final String name;
@@ -27,14 +29,12 @@ class InventoryItem {
     required this.updatedAt,
   });
 
-  // Stock status
   StockStatus get stockStatus {
     if (quantity <= 0) return StockStatus.out;
     if (quantity <= lowStockThreshold) return StockStatus.low;
     return StockStatus.good;
   }
 
-  // Days until expiration (null if no expiration date)
   int? get daysUntilExpiration {
     if (expirationDate == null) return null;
     final now = DateTime.now();
@@ -42,12 +42,21 @@ class InventoryItem {
     return difference.inDays;
   }
 
-  // Check if item is expired or expiring soon
   bool get isExpired => daysUntilExpiration != null && daysUntilExpiration! < 0;
-  bool get isExpiringSoon => daysUntilExpiration != null && daysUntilExpiration! <= 3 && daysUntilExpiration! >= 0;
+  bool get isExpiringSoon =>
+      daysUntilExpiration != null &&
+      daysUntilExpiration! <= 3 &&
+      daysUntilExpiration! >= 0;
 
-  // Factory constructors
   factory InventoryItem.fromJson(Map<String, dynamic> json) {
+    DateTime? _parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value);
+      return null;
+    }
+
     return InventoryItem(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -57,12 +66,10 @@ class InventoryItem {
       location: json['location'] as String?,
       size: json['size'] as String?,
       lowStockThreshold: (json['lowStockThreshold'] as num).toDouble(),
-      expirationDate: json['expirationDate'] != null 
-          ? DateTime.parse(json['expirationDate'] as String)
-          : null,
+      expirationDate: _parseDate(json['expirationDate']),
       notes: json['notes'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now(),
     );
   }
 
@@ -83,7 +90,6 @@ class InventoryItem {
     };
   }
 
-  // Copy with method for updates
   InventoryItem copyWith({
     String? id,
     String? name,
@@ -146,7 +152,6 @@ enum StockStatus {
   }
 }
 
-// Update action types for inventory changes
 enum UpdateAction {
   add,
   subtract,
@@ -164,7 +169,6 @@ enum UpdateAction {
   }
 }
 
-// Inventory update model for API calls
 class InventoryUpdate {
   final String name;
   final double quantity;
@@ -217,7 +221,7 @@ class InventoryUpdate {
       category: json['category'] as String?,
       location: json['location'] as String?,
       size: json['size'] as String?,
-      lowStockThreshold: json['lowStockThreshold'] != null 
+      lowStockThreshold: json['lowStockThreshold'] != null
           ? (json['lowStockThreshold'] as num).toDouble()
           : null,
       expirationDate: json['expirationDate'] != null

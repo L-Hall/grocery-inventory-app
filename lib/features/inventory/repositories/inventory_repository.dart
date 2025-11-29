@@ -50,9 +50,7 @@ class InventoryRepository {
 
         final validationErrors = response['validationErrors'];
         if (validationErrors is List) {
-          errors.addAll(
-            validationErrors.whereType<String>(),
-          );
+          errors.addAll(validationErrors.whereType<String>());
         }
 
         final results = response['results'];
@@ -70,7 +68,9 @@ class InventoryRepository {
         final message = errors.isNotEmpty
             ? errors.join('; ')
             : 'Unknown validation error';
-        throw InventoryRepositoryException('Failed to update inventory: $message');
+        throw InventoryRepositoryException(
+          'Failed to update inventory: $message',
+        );
       }
     } catch (e) {
       throw InventoryRepositoryException('Failed to update inventory: $e');

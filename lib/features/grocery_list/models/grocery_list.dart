@@ -21,7 +21,7 @@ class GroceryList {
   int get totalItems => items.length;
   int get checkedItems => items.where((item) => item.isChecked).length;
   int get remainingItems => totalItems - checkedItems;
-  double get completionPercentage => 
+  double get completionPercentage =>
       totalItems > 0 ? (checkedItems / totalItems) * 100 : 0;
 
   bool get isEmpty => items.isEmpty;
@@ -29,7 +29,7 @@ class GroceryList {
 
   factory GroceryList.fromJson(Map<String, dynamic> json) {
     final itemsJson = json['items'] as List<dynamic>? ?? [];
-    
+
     return GroceryList(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -123,7 +123,7 @@ class GroceryListItem {
       category: json['category'] as String,
       isChecked: json['isChecked'] as bool? ?? false,
       notes: json['notes'] as String?,
-      addedAt: json['addedAt'] != null 
+      addedAt: json['addedAt'] != null
           ? DateTime.parse(json['addedAt'] as String)
           : null,
     );
@@ -201,27 +201,24 @@ class GroceryListTemplate {
   final String name;
   final List<GroceryListItemTemplate> items;
 
-  GroceryListTemplate({
-    required this.name,
-    required this.items,
-  });
+  GroceryListTemplate({required this.name, required this.items});
 
   factory GroceryListTemplate.fromJson(Map<String, dynamic> json) {
     final itemsJson = json['items'] as List<dynamic>? ?? [];
-    
+
     return GroceryListTemplate(
       name: json['name'] as String,
       items: itemsJson
-          .map((item) => GroceryListItemTemplate.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) =>
+                GroceryListItemTemplate.fromJson(item as Map<String, dynamic>),
+          )
           .toList(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'items': items.map((item) => item.toJson()).toList(),
-    };
+    return {'name': name, 'items': items.map((item) => item.toJson()).toList()};
   }
 }
 

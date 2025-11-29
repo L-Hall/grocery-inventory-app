@@ -126,8 +126,7 @@ class _InventoryTableState extends State<InventoryTable> {
       case InventoryColumn.location:
         return (item.location ?? '').toLowerCase();
       case InventoryColumn.expiry:
-        return item.expirationDate ??
-            DateTime.fromMillisecondsSinceEpoch(0);
+        return item.expirationDate ?? DateTime.fromMillisecondsSinceEpoch(0);
       case InventoryColumn.minQty:
         return item.lowStockThreshold;
       case InventoryColumn.status:
@@ -151,7 +150,9 @@ class _InventoryTableState extends State<InventoryTable> {
             children: [
               Container(
                 width: double.infinity,
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
@@ -263,9 +264,8 @@ class _InventoryTableState extends State<InventoryTable> {
                       Expanded(
                         child: Text(
                           'Choose columns',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
                       IconButton(
@@ -357,10 +357,7 @@ class _InventoryTableState extends State<InventoryTable> {
     }
   }
 
-  TableRow _buildHeaderRow(
-    ThemeData theme,
-    List<InventoryColumn> columns,
-  ) {
+  TableRow _buildHeaderRow(ThemeData theme, List<InventoryColumn> columns) {
     Widget headerCell(InventoryColumn column) {
       final sortable = column != InventoryColumn.actions;
       final isSorted = _sortColumn == column;
@@ -387,8 +384,7 @@ class _InventoryTableState extends State<InventoryTable> {
       }
 
       return InkWell(
-        onTap: () =>
-            _applySort(column, isSorted ? !_sortAscending : true),
+        onTap: () => _applySort(column, isSorted ? !_sortAscending : true),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
@@ -440,17 +436,14 @@ class _InventoryTableState extends State<InventoryTable> {
 
     Widget cell(
       Widget child, {
-        EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-          vertical: 12,
-          horizontal: 4,
-        ),
-      }) {
+      EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: 4,
+      ),
+    }) {
       return Padding(
         padding: padding,
-        child: Align(
-          alignment: Alignment.center,
-          child: child,
-        ),
+        child: Align(alignment: Alignment.center, child: child),
       );
     }
 
@@ -519,7 +512,11 @@ class _InventoryTableState extends State<InventoryTable> {
             );
           }
 
-          return Wrap(spacing: 4, alignment: WrapAlignment.center, children: buttons);
+          return Wrap(
+            spacing: 4,
+            alignment: WrapAlignment.center,
+            children: buttons,
+          );
         },
       );
     }
@@ -556,8 +553,9 @@ class _InventoryTableState extends State<InventoryTable> {
           );
         case InventoryColumn.expiry:
           final expiration = item.expirationDate;
-          final label =
-              expiration != null ? _dateFormat.format(expiration.toLocal()) : '—';
+          final label = expiration != null
+              ? _dateFormat.format(expiration.toLocal())
+              : '—';
           return textCell(label);
         case InventoryColumn.minQty:
           return textCell(_numberFormat.format(item.lowStockThreshold));

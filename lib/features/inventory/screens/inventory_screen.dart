@@ -242,7 +242,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.3,
+                ),
               ),
               onChanged: inventoryProvider.setSearchQuery,
             ),
@@ -275,7 +277,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 'Category'
                           : 'Category',
                       icon: Icons.category,
-                      isActive: inventoryProvider.selectedCategoryFilter != null,
+                      isActive:
+                          inventoryProvider.selectedCategoryFilter != null,
                       onSelected: (value) {
                         inventoryProvider.setCategoryFilter(
                           value.isEmpty ? null : value,
@@ -310,7 +313,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                   if (inventoryProvider.availableLocations.isNotEmpty)
                     _FilterChipButton(
                       label:
-                          inventoryProvider.selectedLocationFilter ?? 'Location',
+                          inventoryProvider.selectedLocationFilter ??
+                          'Location',
                       icon: Icons.location_on,
                       isActive:
                           inventoryProvider.selectedLocationFilter != null,
@@ -471,9 +475,13 @@ class _FilterChipButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.4)),
+          border: Border.all(
+            color: theme.colorScheme.outline.withValues(alpha: 0.4),
+          ),
           borderRadius: BorderRadius.circular(20),
-          color: isActive ? theme.colorScheme.primary.withValues(alpha: 0.1) : null,
+          color: isActive
+              ? theme.colorScheme.primary.withValues(alpha: 0.1)
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

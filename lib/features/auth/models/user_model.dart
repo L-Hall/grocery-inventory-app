@@ -39,7 +39,7 @@ class UserModel {
       displayName: json['displayName'],
       photoUrl: json['photoUrl'],
       isEmailVerified: json['isEmailVerified'] ?? false,
-      createdAt: json['createdAt'] != null 
+      createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : null,
       idToken: json['idToken'],
@@ -88,22 +88,22 @@ class UserModel {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
+
     return other is UserModel &&
-      other.uid == uid &&
-      other.email == email &&
-      other.displayName == displayName &&
-      other.photoUrl == photoUrl &&
-      other.isEmailVerified == isEmailVerified;
+        other.uid == uid &&
+        other.email == email &&
+        other.displayName == displayName &&
+        other.photoUrl == photoUrl &&
+        other.isEmailVerified == isEmailVerified;
   }
 
   @override
   int get hashCode {
     return uid.hashCode ^
-      email.hashCode ^
-      displayName.hashCode ^
-      photoUrl.hashCode ^
-      isEmailVerified.hashCode;
+        email.hashCode ^
+        displayName.hashCode ^
+        photoUrl.hashCode ^
+        isEmailVerified.hashCode;
   }
 
   // Get initials for avatar

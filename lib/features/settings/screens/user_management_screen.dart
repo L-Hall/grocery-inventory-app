@@ -61,9 +61,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Account management'),
-      ),
+      appBar: AppBar(title: const Text('Account management')),
       body: RefreshIndicator(
         onRefresh: _loadSubscription,
         child: ListView(
@@ -84,7 +82,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
     final uid =
-        user?.uid ?? _storageService.getString(StorageService.keyUserId) ?? 'Unknown';
+        user?.uid ??
+        _storageService.getString(StorageService.keyUserId) ??
+        'Unknown';
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -95,7 +95,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.cloud_sync_outlined, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.cloud_sync_outlined,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   'Cross-device sync',
@@ -172,7 +175,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.workspace_premium_outlined, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.workspace_premium_outlined,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   'Subscription',
@@ -182,7 +188,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ),
                 const Spacer(),
                 if (_subscriptionDetails != null)
-                  _buildStatusChip(theme, _subscriptionDetails!.formattedStatus),
+                  _buildStatusChip(
+                    theme,
+                    _subscriptionDetails!.formattedStatus,
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -218,7 +227,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               runSpacing: 12,
               children: [
                 OutlinedButton.icon(
-                  onPressed: _isPerformingAction ? null : _handleManageSubscription,
+                  onPressed: _isPerformingAction
+                      ? null
+                      : _handleManageSubscription,
                   icon: const Icon(Icons.launch),
                   label: const Text('Manage subscription'),
                 ),
@@ -230,7 +241,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     !_subscriptionDetails!.isFreeTier &&
                     _subscriptionDetails!.canCancel)
                   TextButton(
-                    onPressed: _isPerformingAction ? null : _confirmCancelSubscription,
+                    onPressed: _isPerformingAction
+                        ? null
+                        : _confirmCancelSubscription,
                     child: const Text('Cancel subscription'),
                   ),
               ],
@@ -241,7 +254,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
-  Widget _buildSubscriptionDetails(ThemeData theme, SubscriptionDetails details) {
+  Widget _buildSubscriptionDetails(
+    ThemeData theme,
+    SubscriptionDetails details,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -263,7 +279,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         if (details.usageLimit != null && details.usageUsed != null) ...[
           const SizedBox(height: 16),
           LinearProgressIndicator(
-            value: (details.usageUsed!.clamp(0, details.usageLimit!).toDouble()) /
+            value:
+                (details.usageUsed!.clamp(0, details.usageLimit!).toDouble()) /
                 details.usageLimit!.toDouble(),
             minHeight: 8,
             borderRadius: BorderRadius.circular(8),
@@ -288,7 +305,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.warning_amber_outlined, color: theme.colorScheme.error),
+                Icon(
+                  Icons.warning_amber_outlined,
+                  color: theme.colorScheme.error,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   'Danger zone',
@@ -463,9 +483,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => _PlanSelectionSheet(
-        onSelectPlan: _changePlan,
-      ),
+      builder: (context) => _PlanSelectionSheet(onSelectPlan: _changePlan),
     );
   }
 
@@ -488,9 +506,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   void _showSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _formatDate(DateTime dateTime) {
@@ -574,10 +592,7 @@ class _PlanSelectionSheet extends StatelessWidget {
                 itemCount: plans.length,
                 itemBuilder: (context, index) {
                   final plan = plans[index];
-                  return _PlanCard(
-                    option: plan,
-                    onSelectPlan: onSelectPlan,
-                  );
+                  return _PlanCard(option: plan, onSelectPlan: onSelectPlan);
                 },
               ),
             ),
@@ -645,7 +660,10 @@ class _PlanCard extends StatelessWidget {
               if (option.highlighted) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
                     color: theme.colorScheme.primary,

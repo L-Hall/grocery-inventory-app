@@ -5,8 +5,27 @@
   },
   "functions": {
     "source": "functions",
+    "runtime": "nodejs20",
     "predeploy": [
       "bash \"$RESOURCE_DIR/scripts/predeploy.sh\""
+    ]
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "function": "api"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
     ]
   },
   "emulators": {

@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -38,15 +38,11 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 60),
-              
+
               // App branding
-              Icon(
-                Icons.kitchen,
-                size: 80,
-                color: theme.primaryColor,
-              ),
+              Icon(Icons.kitchen, size: 80, color: theme.primaryColor),
               const SizedBox(height: 16),
-              
+
               Text(
                 'Grocery Inventory',
                 style: theme.textTheme.headlineMedium?.copyWith(
@@ -55,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               Text(
                 'Manage your groceries with natural language',
                 style: theme.textTheme.bodyLarge?.copyWith(
@@ -63,11 +59,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 48),
               _buildSyncInfoCard(theme),
               const SizedBox(height: 32),
-              
+
               // Login form
               Form(
                 key: _formKey,
@@ -96,9 +92,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Password field
                     TextFormField(
                       controller: _passwordController,
@@ -109,7 +105,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         prefixIcon: const Icon(Icons.lock_outlined),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                           ),
                           onPressed: () {
                             setState(() {
@@ -132,9 +130,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                       onFieldSubmitted: (_) => _handleSignIn(),
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Remember me and forgot password
                     Row(
                       children: [
@@ -154,14 +152,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     // Sign in button
                     Consumer<AuthProvider>(
                       builder: (context, authProvider, _) {
                         return ElevatedButton(
-                          onPressed: authProvider.isLoading ? null : _handleSignIn,
+                          onPressed: authProvider.isLoading
+                              ? null
+                              : _handleSignIn,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -172,18 +172,23 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Text(
                                   'Sign In',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                         );
                       },
                     ),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     // Error message
                     Consumer<AuthProvider>(
                       builder: (context, authProvider, _) {
@@ -225,9 +230,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         return const SizedBox.shrink();
                       },
                     ),
-                    
+
                     const SizedBox(height: 32),
-                    
+
                     // Sign up link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -248,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 16),
               Align(
                 alignment: Alignment.center,
@@ -275,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     final success = await authProvider.signInWithEmailAndPassword(
       email: _emailController.text.trim(),
       password: _passwordController.text,
@@ -310,7 +315,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            success 
+            success
                 ? 'Password reset email sent to $email'
                 : 'Failed to send password reset email',
           ),
@@ -321,11 +326,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _navigateToSignUp() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const RegisterScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const RegisterScreen()));
   }
 
   Widget _buildSyncInfoCard(ThemeData theme) {
@@ -338,10 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.cloud_sync_outlined,
-            color: theme.colorScheme.primary,
-          ),
+          Icon(Icons.cloud_sync_outlined, color: theme.colorScheme.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

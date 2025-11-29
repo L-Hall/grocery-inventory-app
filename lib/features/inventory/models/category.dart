@@ -134,24 +134,31 @@ class DefaultCategories {
     },
     {
       'id': 'household',
-      'name': 'Household',
+      'name': 'Household cleaning',
       'color': '607D8B', // Blue Grey
       'icon': 'home',
       'sortOrder': 8,
+    },
+    {
+      'id': 'pet',
+      'name': 'Pet',
+      'color': '8BC34A', // Light Green
+      'icon': 'pets',
+      'sortOrder': 9,
     },
     {
       'id': 'personal_care',
       'name': 'Personal Care',
       'color': 'E91E63', // Pink
       'icon': 'face',
-      'sortOrder': 9,
+      'sortOrder': 10,
     },
     {
       'id': 'other',
       'name': 'Other',
       'color': '9E9E9E', // Grey
       'icon': 'category',
-      'sortOrder': 10,
+      'sortOrder': 11,
     },
   ];
 

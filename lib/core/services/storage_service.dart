@@ -4,9 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class StorageService {
   final SharedPreferences prefs;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
@@ -61,6 +59,8 @@ class StorageService {
   }
 
   // App-specific keys
+  static const String keyUnitSystem = 'unit_system';
+  static const String keyDefaultUnit = 'default_unit';
   static const String keyUserId = 'user_id';
   static const String keyUserEmail = 'user_email';
   static const String keyAuthToken = 'auth_token';

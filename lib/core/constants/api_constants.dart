@@ -1,10 +1,12 @@
 class ApiConstants {
   // Base URL for the API - update this with your Firebase Functions URL
-  static const String baseUrl = 'https://us-central1-helical-button-461921-v6.cloudfunctions.net/api';
-  
+  static const String baseUrl =
+      'https://us-central1-helical-button-461921-v6.cloudfunctions.net/api';
+
   // Local development URL (for testing with Firebase emulators)
-  static const String localBaseUrl = 'http://localhost:5001/helical-button-461921-v6/us-central1/api';
-  
+  static const String localBaseUrl =
+      'http://localhost:5001/helical-button-461921-v6/us-central1/api';
+
   // Endpoints
   static const String inventory = '/inventory';
   static const String inventoryUpdate = '/inventory/update';
@@ -14,11 +16,11 @@ class ApiConstants {
   static const String categories = '/categories';
   static const String userInitialize = '/user/initialize';
   static const String health = '/health';
-  
+
   // Request timeouts
   static const Duration connectTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);
-  
+
   // Pagination
   static const int defaultPageSize = 50;
   static const int maxPageSize = 100;

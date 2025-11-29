@@ -8,21 +8,16 @@ class InventoryService {
   final FirebaseFirestore _firestore;
   final AuthService _authService;
 
-  InventoryService({
-    FirebaseFirestore? firestore,
-    AuthService? authService,
-  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
-        _authService = authService ?? getIt<AuthService>();
+  InventoryService({FirebaseFirestore? firestore, AuthService? authService})
+    : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+      _authService = authService ?? getIt<AuthService>();
 
   CollectionReference<Map<String, dynamic>> get _inventoryCollection {
     final userId = _authService.currentUser?.uid;
     if (userId == null) {
       throw Exception('User not authenticated');
     }
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('inventory');
+    return _firestore.collection('users').doc(userId).collection('inventory');
   }
 
   Future<List<InventoryItem>> getAllItems() async {
@@ -30,7 +25,7 @@ class InventoryService {
       final snapshot = await _inventoryCollection
           .orderBy('updatedAt', descending: true)
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
@@ -45,12 +40,12 @@ class InventoryService {
     try {
       data['createdAt'] = FieldValue.serverTimestamp();
       data['updatedAt'] = FieldValue.serverTimestamp();
-      
+
       final docRef = await _inventoryCollection.add(data);
       final snapshot = await docRef.get();
       final itemData = snapshot.data()!;
       itemData['id'] = docRef.id;
-      
+
       return InventoryItem.fromJson(itemData);
     } catch (e) {
       throw Exception('Failed to create item: $e');
@@ -79,19 +74,19 @@ class InventoryService {
         .orderBy('updatedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return InventoryItem.fromJson(data);
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id;
+            return InventoryItem.fromJson(data);
+          }).toList();
+        });
   }
 
   Future<InventoryItem?> getItemById(String id) async {
     try {
       final doc = await _inventoryCollection.doc(id).get();
       if (!doc.exists) return null;
-      
+
       final data = doc.data()!;
       data['id'] = doc.id;
       return InventoryItem.fromJson(data);
@@ -106,7 +101,7 @@ class InventoryService {
           .where('category', isEqualTo: category)
           .orderBy('name')
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
@@ -123,7 +118,7 @@ class InventoryService {
           .where('location', isEqualTo: location)
           .orderBy('name')
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
@@ -137,9 +132,9 @@ class InventoryService {
   Future<List<InventoryItem>> getLowStockItems() async {
     try {
       final items = await getAllItems();
-      return items.where((item) => 
-        item.quantity <= item.lowStockThreshold
-      ).toList();
+      return items
+          .where((item) => item.quantity <= item.lowStockThreshold)
+          .toList();
     } catch (e) {
       throw Exception('Failed to fetch low stock items: $e');
     }
@@ -149,7 +144,7 @@ class InventoryService {
     try {
       final items = await getAllItems();
       final cutoffDate = DateTime.now().add(Duration(days: daysAhead));
-      
+
       return items.where((item) {
         if (item.expirationDate == null) return false;
         return item.expirationDate!.isBefore(cutoffDate);

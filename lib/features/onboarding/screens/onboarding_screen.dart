@@ -132,8 +132,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _completeOnboarding() async {
-    final onboardingProvider =
-        Provider.of<OnboardingProvider>(context, listen: false);
+    final onboardingProvider = Provider.of<OnboardingProvider>(
+      context,
+      listen: false,
+    );
     await onboardingProvider.completeOnboarding();
   }
 }
@@ -170,11 +172,7 @@ class _OnboardingSlideView extends StatelessWidget {
             color: theme.colorScheme.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(32),
           ),
-          child: Icon(
-            slide.icon,
-            size: 72,
-            color: theme.colorScheme.primary,
-          ),
+          child: Icon(slide.icon, size: 72, color: theme.colorScheme.primary),
         ),
         const SizedBox(height: 32),
         Text(
@@ -198,10 +196,7 @@ class _OnboardingSlideView extends StatelessWidget {
 }
 
 class _DotsIndicator extends StatelessWidget {
-  const _DotsIndicator({
-    required this.count,
-    required this.activeIndex,
-  });
+  const _DotsIndicator({required this.count, required this.activeIndex});
 
   final int count;
   final int activeIndex;
@@ -212,24 +207,21 @@ class _DotsIndicator extends StatelessWidget {
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(
-        count,
-        (index) {
-          final isActive = index == activeIndex;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            height: 8,
-            width: isActive ? 24 : 10,
-            decoration: BoxDecoration(
-              color: isActive
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          );
-        },
-      ),
+      children: List.generate(count, (index) {
+        final isActive = index == activeIndex;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          height: 8,
+          width: isActive ? 24 : 10,
+          decoration: BoxDecoration(
+            color: isActive
+                ? theme.colorScheme.primary
+                : theme.colorScheme.primary.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+      }),
     );
   }
 }

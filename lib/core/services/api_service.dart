@@ -10,48 +10,53 @@ class ApiService {
   final StorageService storageService;
 
   ApiService({required this.storageService}) {
-    _dio = Dio(BaseOptions(
-      baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ));
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: ApiConstants.baseUrl,
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
 
     // Add request interceptor for auth token
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        // Add Firebase Auth token to all requests
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          final token = await user.getIdToken();
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        handler.next(options);
-      },
-      onError: (error, handler) async {
-        // Handle token refresh if needed
-        if (error.response?.statusCode == 401) {
-          try {
-            final user = FirebaseAuth.instance.currentUser;
-            if (user != null) {
-              await user.getIdToken(true); // Force refresh
-              // Retry the request
-              final newToken = await user.getIdToken();
-              error.requestOptions.headers['Authorization'] = 'Bearer $newToken';
-              final retryResponse = await _dio.fetch(error.requestOptions);
-              handler.resolve(retryResponse);
-              return;
-            }
-          } catch (e) {
-            // Token refresh failed, let the error through
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          // Add Firebase Auth token to all requests
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            final token = await user.getIdToken();
+            options.headers['Authorization'] = 'Bearer $token';
           }
-        }
-        handler.next(error);
-      },
-    ));
+          handler.next(options);
+        },
+        onError: (error, handler) async {
+          // Handle token refresh if needed
+          if (error.response?.statusCode == 401) {
+            try {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user != null) {
+                await user.getIdToken(true); // Force refresh
+                // Retry the request
+                final newToken = await user.getIdToken();
+                error.requestOptions.headers['Authorization'] =
+                    'Bearer $newToken';
+                final retryResponse = await _dio.fetch(error.requestOptions);
+                handler.resolve(retryResponse);
+                return;
+              }
+            } catch (e) {
+              // Token refresh failed, let the error through
+            }
+          }
+          handler.next(error);
+        },
+      ),
+    );
   }
 
   // Inventory endpoints
@@ -65,7 +70,8 @@ class ApiService {
       final queryParams = <String, dynamic>{};
       if (category != null) queryParams['category'] = category;
       if (location != null) queryParams['location'] = location;
-      if (lowStockOnly != null) queryParams['lowStockOnly'] = lowStockOnly.toString();
+      if (lowStockOnly != null)
+        queryParams['lowStockOnly'] = lowStockOnly.toString();
       if (search != null) queryParams['search'] = search;
 
       final response = await _dio.get(
@@ -104,14 +110,15 @@ class ApiService {
 
   Future<Map<String, dynamic>> parseGroceryText({
     required String text,
+    Map<String, dynamic>? metadata,
   }) async {
     try {
-      final data = {'text': text};
+      final data = {
+        'text': text,
+        if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+      };
 
-      final response = await _dio.post(
-        '/inventory/parse/text',
-        data: data,
-      );
+      final response = await _dio.post('/inventory/parse/text', data: data);
 
       if (response.statusCode == 200) {
         return response.data;
@@ -122,16 +129,93 @@ class ApiService {
       throw _handleDioException(e);
     }
   }
-  
+
+  Future<Map<String, dynamic>> createIngestionJob({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final payload = {
+        'text': text,
+        if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+      };
+
+      final response = await _dio.post('/inventory/ingest', data: payload);
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException(
+          'Failed to start ingestion job',
+          response.statusCode,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> requestUploadSlot({
+    required String filename,
+    required String contentType,
+    required int sizeBytes,
+    String? sourceType,
+  }) async {
+    try {
+      final payload = {
+        'filename': filename,
+        'contentType': contentType,
+        'sizeBytes': sizeBytes,
+        if (sourceType != null) 'sourceType': sourceType,
+      };
+
+      final response = await _dio.post('/uploads', data: payload);
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException(
+          'Failed to reserve upload slot',
+          response.statusCode,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getUpload(String uploadId) async {
+    try {
+      final response = await _dio.get('/uploads/$uploadId');
+      if (response.statusCode == 200) {
+        return (response.data?['upload'] ?? {}) as Map<String, dynamic>;
+      } else {
+        throw ApiException('Failed to fetch upload', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> queueUpload(String uploadId) async {
+    try {
+      final response = await _dio.post('/uploads/$uploadId/queue');
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Failed to queue upload', response.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
   Future<Map<String, dynamic>> parseGroceryImage({
     required String imageBase64,
     String imageType = 'receipt',
   }) async {
     try {
-      final data = {
-        'image': imageBase64,
-        'imageType': imageType,
-      };
+      final data = {'image': imageBase64, 'imageType': imageType};
 
       final response = await _dio.post(
         '/inventory/parse/image',
@@ -145,7 +229,10 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw ApiException('Failed to parse grocery image', response.statusCode);
+        throw ApiException(
+          'Failed to parse grocery image',
+          response.statusCode,
+        );
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -164,14 +251,19 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw ApiException('Failed to apply inventory updates', response.statusCode);
+        throw ApiException(
+          'Failed to apply inventory updates',
+          response.statusCode,
+        );
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
   }
 
-  Future<List<dynamic>> getLowStockItems({bool includeOutOfStock = true}) async {
+  Future<List<dynamic>> getLowStockItems({
+    bool includeOutOfStock = true,
+  }) async {
     try {
       final response = await _dio.get(
         '/inventory/low-stock',
@@ -181,7 +273,10 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data['items'] ?? [];
       } else {
-        throw ApiException('Failed to fetch low stock items', response.statusCode);
+        throw ApiException(
+          'Failed to fetch low stock items',
+          response.statusCode,
+        );
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -195,10 +290,8 @@ class ApiService {
     List<Map<String, dynamic>>? customItems,
   }) async {
     try {
-      final data = <String, dynamic>{
-        'fromLowStock': fromLowStock,
-      };
-      
+      final data = <String, dynamic>{'fromLowStock': fromLowStock};
+
       if (name != null) data['name'] = name;
       if (customItems != null) data['customItems'] = customItems;
 
@@ -207,7 +300,10 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw ApiException('Failed to create grocery list', response.statusCode);
+        throw ApiException(
+          'Failed to create grocery list',
+          response.statusCode,
+        );
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -227,7 +323,10 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data['lists'] ?? [];
       } else {
-        throw ApiException('Failed to fetch grocery lists', response.statusCode);
+        throw ApiException(
+          'Failed to fetch grocery lists',
+          response.statusCode,
+        );
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -268,10 +367,7 @@ class ApiService {
     required Map<String, dynamic> payload,
   }) async {
     try {
-      final response = await _dio.put(
-        '/locations/$locationId',
-        data: payload,
-      );
+      final response = await _dio.put('/locations/$locationId', data: payload);
 
       if (response.statusCode == 200) {
         return response.data;
@@ -384,7 +480,10 @@ class ApiService {
       );
 
       if (response.statusCode != 200) {
-        throw ApiException('Failed to delete saved search', response.statusCode);
+        throw ApiException(
+          'Failed to delete saved search',
+          response.statusCode,
+        );
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -447,7 +546,10 @@ class ApiService {
       if (response.statusCode == 200) {
         return Map<String, dynamic>.from(response.data);
       } else {
-        throw ApiException('Failed to create portal session', response.statusCode);
+        throw ApiException(
+          'Failed to create portal session',
+          response.statusCode,
+        );
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -476,7 +578,10 @@ class ApiService {
       final response = await _dio.post('/billing/subscription/cancel');
 
       if (response.statusCode != 200) {
-        throw ApiException('Failed to cancel subscription', response.statusCode);
+        throw ApiException(
+          'Failed to cancel subscription',
+          response.statusCode,
+        );
       }
     } on DioException catch (e) {
       throw _handleDioException(e);

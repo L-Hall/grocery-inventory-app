@@ -13,7 +13,12 @@ import * as logger from "firebase-functions/logger";
 import {GroceryParser} from "./ai-parser";
 import {getSecret, SECRETS, runtimeOpts} from "./secrets";
 import {randomUUID} from "crypto";
-import {processGroceryRequest, updateInventoryWithConfirmation} from "./agents";
+import {
+  processGroceryRequest,
+  updateInventoryWithConfirmation,
+  runIngestionAgent,
+  ToolInvocationRecord,
+} from "./agents";
 import {
   formatInventoryItem,
   formatGroceryList,
@@ -22,8 +27,20 @@ import {
   formatSavedSearch,
   formatCustomView,
 } from "./utils/formatters";
-import {generateSearchKeywords} from "./utils/search";
+import * as XLSX from "xlsx";
 import {createAuthenticateMiddleware} from "./middleware/authenticate";
+import {
+  UploadStatus,
+  UploadJobStatus,
+  sanitizeUploadFilename,
+  buildUploadStoragePath,
+  generateSignedUploadUrl,
+  getUploadDocRef,
+  UploadSourceType,
+  getUploadsBucketName,
+} from "./utils/uploads";
+import {applyInventoryUpdatesForUser} from "./services/inventory";
+import {recordAgentInteraction} from "./metrics/agent-metrics";
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
@@ -36,6 +53,37 @@ const app = express();
 
 const DEFAULT_QUERY_LIMIT = 100;
 const MAX_QUERY_LIMIT = 500;
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024; // 25MB hard cap for async uploads
+const MAX_INGEST_TEXT_LENGTH = 6000;
+const VALID_UPLOAD_SOURCES: Record<string, UploadSourceType> = {
+  pdf: "pdf",
+  text: "text",
+  receipt: "image_receipt",
+  image: "image_receipt",
+  photo: "image_receipt",
+  image_receipt: "image_receipt",
+  image_list: "image_list",
+  list: "image_list",
+};
+
+const IngestJobStatus = {
+  pending: "pending",
+  processing: "processing",
+  completed: "completed",
+  failed: "failed",
+} as const;
+
+const LATENCY_BUCKETS = [
+  {key: "lt_2s", max: 2000},
+  {key: "2s_5s", max: 5000},
+  {key: "gt_5s", max: Number.POSITIVE_INFINITY},
+];
+
+const CONFIDENCE_BUCKETS = [
+  {key: "low", max: 0.5},
+  {key: "medium", max: 0.8},
+  {key: "high", max: 1},
+];
 
 const parseLimit = (value: any): number => {
   const numeric = Number(value);
@@ -43,62 +91,6 @@ const parseLimit = (value: any): number => {
     return DEFAULT_QUERY_LIMIT;
   }
   return Math.min(Math.floor(numeric), MAX_QUERY_LIMIT);
-};
-
-const normalizeExpirationDateValue = (
-  value: any,
-): string | null | undefined => {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === null || value === "") {
-    return null;
-  }
-
-  if (typeof value === "string") {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString();
-    }
-    throw new Error(
-      `Invalid expiration date: "${value}" (expected ISO 8601 format)`,
-    );
-  }
-
-  if (typeof value === "number") {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString();
-    }
-    throw new Error(
-      "Invalid expiration date: numeric value could not be parsed",
-    );
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (value?.seconds) {
-    const milliseconds = value.seconds * 1000 + (value.nanoseconds ?? 0) / 1e6;
-    const parsed = new Date(milliseconds);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString();
-    }
-  }
-
-  if (value?._seconds) {
-    const milliseconds =
-      value._seconds * 1000 + (value._nanoseconds ?? 0) / 1e6;
-    const parsed = new Date(milliseconds);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString();
-    }
-  }
-
-  throw new Error(
-    "Invalid expiration date format: provide ISO string or timestamp",
-  );
 };
 
 const ensureArrayPayload = (payload: any, field: string) => {
@@ -111,6 +103,464 @@ const ensureArrayPayload = (payload: any, field: string) => {
 };
 
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+
+const normalizeUploadSourceType = (value: any): UploadSourceType => {
+  if (typeof value !== "string") {
+    return "unknown";
+  }
+  const normalized = value.trim().toLowerCase();
+  return VALID_UPLOAD_SOURCES[normalized] ?? "unknown";
+};
+
+const parseUploadSizeBytes = (value: any): number | null => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "sizeBytes must be a positive number.",
+    );
+  }
+  if (numeric > MAX_UPLOAD_SIZE_BYTES) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `File too large. Maximum size is ${MAX_UPLOAD_SIZE_BYTES} bytes.`,
+    );
+  }
+  return Math.floor(numeric);
+};
+
+const sanitizeJobMetadata = (value: any) => {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    logger.warn("Failed to sanitize ingestion metadata", {
+      error: error instanceof Error ? error.message : error,
+    });
+    return {};
+  }
+};
+
+interface AgentPipelineExecution {
+  success: boolean;
+  agentResponse: string | null;
+  summary: string;
+  error?: string | null;
+  toolInvocations: ToolInvocationRecord[];
+  usedFallback: boolean;
+  fallbackDetails?: Record<string, any> | null;
+  latencyMs: number;
+}
+
+const didAgentApplyInventoryUpdates = (
+  toolInvocations: ToolInvocationRecord[],
+) => {
+  return toolInvocations.some(
+    (invocation) => invocation.name === "apply_inventory_updates",
+  );
+};
+
+const buildFallbackSummary = (
+  summary: {total: number; successful: number; failed: number},
+) => {
+  return `Fallback parser applied ${summary.successful}/${summary.total} updates (${summary.failed} failed).`;
+};
+
+const runFallbackParserAndApply = async (
+  userId: string,
+  text: string,
+) => {
+  const apiKey = await getSecret(SECRETS.OPENAI_API_KEY) ?? "";
+  const parser = new GroceryParser(apiKey);
+  const parseResult = await parser.parseGroceryText(text);
+  const items = parser.validateItems(parseResult.items ?? []);
+
+  if (!items.length) {
+    throw new Error("Fallback parser did not detect any updates to apply.");
+  }
+
+  const applyResult = await applyInventoryUpdatesForUser(
+    userId,
+    items,
+    "inventory_agent",
+  );
+
+  return {
+    summary: buildFallbackSummary(applyResult.summary),
+    parsedItems: items,
+    applyResult,
+    parser: {
+      confidence: parseResult.confidence ?? null,
+      needsReview: parseResult.needsReview ?? false,
+    },
+  };
+};
+
+const executeAgentIngestionPipeline = async ({
+  userId,
+  text,
+  metadata,
+}: {
+  userId: string;
+  text: string;
+  metadata?: Record<string, any> | null;
+}): Promise<AgentPipelineExecution> => {
+  const agentResult = await runIngestionAgent({
+    userId,
+    text,
+    metadata: metadata ?? undefined,
+  });
+
+  const toolInvocations = agentResult.toolInvocations ?? [];
+  const originalResponse = agentResult.response ?? null;
+  let summary = originalResponse ?? "Ingestion completed.";
+  let success = agentResult.success;
+  let error = agentResult.error ?? null;
+  let usedFallback = false;
+  let fallbackDetails: Record<string, any> | null = null;
+  let totalLatency = agentResult.latencyMs;
+
+  const shouldFallback =
+    !agentResult.success ||
+    !didAgentApplyInventoryUpdates(toolInvocations);
+
+  if (shouldFallback) {
+    usedFallback = true;
+    const fallbackStarted = Date.now();
+    try {
+      const fallbackResult = await runFallbackParserAndApply(userId, text);
+      fallbackDetails = fallbackResult;
+      const fallbackSummary = buildFallbackSummary(
+        fallbackResult.applyResult.summary,
+      );
+      summary = originalResponse ?
+        `${originalResponse}\n\n${fallbackSummary}` :
+        fallbackSummary;
+      success = true;
+      error = null;
+    } catch (fallbackError: any) {
+      error = fallbackError instanceof Error ?
+        fallbackError.message :
+        String(fallbackError);
+      summary = originalResponse ?? error;
+      success = false;
+      fallbackDetails = {error};
+    } finally {
+      totalLatency += Date.now() - fallbackStarted;
+    }
+  }
+
+  await recordAgentInteraction({
+    userId,
+    input: text,
+    agent: "grocery_ingest",
+    success,
+    usedFallback,
+    latencyMs: totalLatency,
+    metadata: {
+      metadata: metadata ?? {},
+      toolInvocations,
+      fallbackDetails,
+    },
+    error: success ? null : error ?? "Unknown error",
+  });
+
+  return {
+    success,
+    agentResponse: summary ?? null,
+    summary,
+    error,
+    toolInvocations,
+    usedFallback,
+    fallbackDetails,
+    latencyMs: totalLatency,
+  };
+};
+
+const getLatencyBucketKey = (latencyMs: number) => {
+  for (const bucket of LATENCY_BUCKETS) {
+    if (latencyMs < bucket.max) {
+      return bucket.key;
+    }
+  }
+  return LATENCY_BUCKETS[LATENCY_BUCKETS.length - 1].key;
+};
+
+const getConfidenceBucketKey = (confidence: number) => {
+  for (const bucket of CONFIDENCE_BUCKETS) {
+    if (confidence <= bucket.max) {
+      return bucket.key;
+    }
+  }
+  return CONFIDENCE_BUCKETS[CONFIDENCE_BUCKETS.length - 1].key;
+};
+
+const formatDateKey = (date: Date) => {
+  return date.toISOString().slice(0, 10); // YYYY-MM-DD
+};
+
+const TEXT_CONTENT_TYPES = [
+  "text/plain",
+  "text/csv",
+  "application/json",
+  "application/xml",
+];
+
+const IMAGE_CONTENT_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/heic",
+  "image/heif",
+  "image/webp",
+  "image/jpg",
+];
+
+const PDF_CONTENT_TYPES = ["application/pdf"];
+
+type ExtractionParams = {
+  userId: string;
+  uploadId: string;
+  bucket: string | undefined;
+  storagePath: string;
+  contentType: string | undefined;
+  sourceType: UploadSourceType | undefined;
+};
+
+type TextExtractionResult = {
+  text: string;
+  preview: string;
+  metadata: Record<string, any>;
+};
+
+const sanitizeExtractedText = (value: string, limit = 240) => {
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  if (collapsed.length <= limit) {
+    return collapsed;
+  }
+  return `${collapsed.slice(0, limit).trim()}...`;
+};
+
+const isTextLike = (contentType?: string) => {
+  if (!contentType) return false;
+  return TEXT_CONTENT_TYPES.some((type) => contentType.includes(type));
+};
+
+const isPdfLike = (contentType?: string, path?: string) => {
+  if (contentType && PDF_CONTENT_TYPES.some((type) => contentType.includes(type))) {
+    return true;
+  }
+  if (!path) return false;
+  return path.toLowerCase().endsWith(".pdf");
+};
+
+const isImageLike = (contentType?: string, sourceType?: UploadSourceType) => {
+  if (sourceType === "image_receipt" || sourceType === "image_list") {
+    return true;
+  }
+  if (!contentType) return false;
+  return IMAGE_CONTENT_TYPES.some((type) => contentType.includes(type));
+};
+
+const isSpreadsheetLike = (contentType?: string, path?: string) => {
+  if (contentType && contentType.includes("spreadsheet")) {
+    return true;
+  }
+  if (!path) return false;
+  return path.toLowerCase().endsWith(".xlsx");
+};
+
+const extractTextFromPdfBuffer = async (buffer: Buffer) => {
+  // Try structured PDF parsing first (handles binary streams and mixed content).
+  try {
+    const pdfParse = (await import("pdf-parse")).default;
+    const {text} = await pdfParse(buffer);
+    const cleaned = text.replace(/\s+/g, " ").trim();
+    if (cleaned) return cleaned;
+  } catch (error) {
+    logger.warn("Structured PDF parse failed, falling back to regex extraction", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // Fallback: naive text pull from stringified PDF contents.
+  const raw = buffer.toString("latin1");
+  const matches = raw.match(/\(([^)]+)\)/g) ?? [];
+  const cleaned = matches
+    .map((segment) =>
+      segment
+        .slice(1, -1)
+        .replace(/\\\)/g, ")")
+        .replace(/\\\(/g, "(")
+        .replace(/\\\\/g, "\\"),
+    )
+    .filter((segment) => /[A-Za-z0-9]/.test(segment));
+
+  return cleaned.join(" ").trim();
+};
+
+const convertItemsToNarrative = (items: any[]) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return "";
+  }
+
+  const statements = items.map((item) => {
+    const quantity = Number.isFinite(item.quantity) ? item.quantity : 1;
+    const unit = item.unit || "count";
+    const name = item.name || "item";
+    const action = item.action || "add";
+    let verb = "bought";
+    if (action === "subtract") {
+      verb = "used";
+    } else if (action === "set") {
+      verb = "have";
+    }
+    return `${verb} ${quantity} ${unit} ${name}`;
+  });
+
+  return statements.join("\n");
+};
+
+const convertSpreadsheetToText = (buffer: Buffer) => {
+  const workbook = XLSX.read(buffer, {type: "buffer"});
+  if (!workbook.SheetNames.length) {
+    throw new Error("Spreadsheet does not contain any sheets.");
+  }
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    blankrows: false,
+  }) as any[][];
+
+  const normalizedRows = rows
+    .map((row) => {
+      const cells = (row || [])
+        .map((cell) => String(cell ?? "").trim())
+        .filter((cell) => cell.length > 0);
+      return cells.join(", ");
+    })
+    .filter((line) => line.length > 0);
+
+  const text = normalizedRows.join("\n").trim();
+  if (!text) {
+    throw new Error("Spreadsheet did not contain any readable cells.");
+  }
+
+  const columnCount = rows.reduce(
+    (max, row) => Math.max(max, Array.isArray(row) ? row.length : 0),
+    0,
+  );
+
+  return {
+    text,
+    preview: sanitizeExtractedText(text),
+    metadata: {
+      method: "spreadsheet",
+      sheetName,
+      sheetNames: workbook.SheetNames,
+      rowCount: rows.length,
+      columnCount,
+    },
+  };
+};
+
+const extractTextFromUpload = async ({
+  userId,
+  uploadId,
+  bucket,
+  storagePath,
+  contentType,
+  sourceType,
+}: ExtractionParams): Promise<TextExtractionResult> => {
+  if (!storagePath) {
+    throw new Error("Upload is missing storagePath.");
+  }
+
+  const bucketName = bucket?.trim() || getUploadsBucketName();
+  const file = admin.storage().bucket(bucketName).file(storagePath);
+  const [buffer] = await file.download();
+
+  if (buffer.length === 0) {
+    throw new Error("Uploaded file is empty.");
+  }
+
+  if (isTextLike(contentType)) {
+    const text = buffer.toString("utf8");
+    if (!text.trim()) {
+      throw new Error("Text file did not contain any content.");
+    }
+    return {
+      text,
+      preview: sanitizeExtractedText(text),
+      metadata: {method: "text/plain"},
+    };
+  }
+
+  if (isPdfLike(contentType, storagePath)) {
+    const extracted = await extractTextFromPdfBuffer(buffer);
+    if (!extracted) {
+      throw new Error("Could not extract text from PDF.");
+    }
+    return {
+      text: extracted,
+      preview: sanitizeExtractedText(extracted),
+      metadata: {method: "pdf"},
+    };
+  }
+
+  if (isImageLike(contentType, sourceType)) {
+    const apiKey = await getSecret(SECRETS.OPENAI_API_KEY);
+    if (!apiKey) {
+      throw new Error("OpenAI API key is required for image ingestion.");
+    }
+
+    const parser = new GroceryParser(apiKey);
+    const base64 = buffer.toString("base64");
+    const imageType = sourceType === "image_list" ? "list" : "receipt";
+    const parseResult = await parser.parseGroceryImage(base64, imageType);
+    const validatedItems = parser.validateItems(parseResult.items ?? []);
+
+    if (!validatedItems.length) {
+      throw new Error("Vision parser returned no items.");
+    }
+
+    const narrative = convertItemsToNarrative(validatedItems);
+    if (!narrative.trim()) {
+      throw new Error("Parsed items could not be converted to text.");
+    }
+
+    return {
+      text: narrative,
+      preview: sanitizeExtractedText(narrative),
+      metadata: {
+        method: "image_vision",
+        itemCount: validatedItems.length,
+        averageConfidence:
+          validatedItems.reduce((sum: number, item: any) => sum + (item.confidence ?? 0), 0) /
+          validatedItems.length,
+      },
+    };
+  }
+
+  if (isSpreadsheetLike(contentType, storagePath)) {
+    const spreadsheet = convertSpreadsheetToText(buffer);
+    return spreadsheet;
+  }
+
+  throw new Error(
+    `Unsupported upload type: ${contentType || "unknown"} (sourceType=${sourceType ?? "unknown"})`,
+  );
+};
 
 const sanitizeDocumentId = (value: any, maxLength = 120) => {
   if (typeof value !== "string") {
@@ -460,296 +910,6 @@ const sanitizeCustomViewPayload = (payload: any) => {
   return sanitized;
 };
 
-async function recordInventoryAuditLog(
-  uid: string,
-  data: {
-    action: "inventory_update" | "inventory_apply";
-    updates: any[];
-    results: Record<string, any>[];
-    summary: {total: number; successful: number; failed: number};
-    validationErrors: string[];
-  },
-) {
-  try {
-    if (!Array.isArray(data.results) || data.results.length === 0) {
-      return;
-    }
-
-    const successfulItemIds = data.results
-      .filter(
-        (result) => result.success && typeof result.id === "string" && result.id,
-      )
-      .map((result) => result.id as string)
-      .slice(0, 100);
-
-    const truncatedResults = data.results.slice(0, 50).map((result) => ({
-      id: result.id ?? null,
-      name: result.name ?? null,
-      success: Boolean(result.success),
-      action: result.action ?? null,
-      quantity:
-        typeof result.quantity === "number" ?
-          result.quantity :
-          Number.isFinite(Number(result.quantity)) ?
-            Number(result.quantity) :
-            null,
-      message: result.message ?? null,
-      error: result.error ?? null,
-    }));
-
-    const truncatedRequestedUpdates = Array.isArray(data.updates) ?
-      data.updates.slice(0, 50).map((update) => ({
-        name: typeof update?.name === "string" ? update.name : null,
-        action: typeof update?.action === "string" ? update.action : null,
-        quantity:
-          typeof update?.quantity === "number" ?
-            update.quantity :
-            Number.isFinite(Number(update?.quantity)) ?
-              Number(update?.quantity) :
-              null,
-        unit: typeof update?.unit === "string" ? update.unit : null,
-        category: typeof update?.category === "string" ? update.category : null,
-      })) :
-      [];
-
-    const description = `Processed ${data.summary.successful}/${data.summary.total} inventory updates (${data.action})`;
-
-    await db.collection(`users/${uid}/audit_logs`).add({
-      action: data.action,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      userId: uid,
-      itemIds: successfulItemIds,
-      description: description.slice(0, 500),
-      metadata: {
-        summary: data.summary,
-        validationErrors: data.validationErrors,
-        results: truncatedResults,
-        requestedUpdates: truncatedRequestedUpdates,
-      },
-    });
-  } catch (error: any) {
-    logger.error("Failed to record audit log entry", {
-      uid,
-      error: error?.message ?? String(error),
-    });
-  }
-}
-
-async function processInventoryUpdate(
-  uid: string,
-  update: Record<string, any>,
-): Promise<Record<string, any>> {
-  if (!update || typeof update !== "object") {
-    return {
-      name: update?.name ?? "unknown",
-      success: false,
-      error: "Invalid update payload",
-    };
-  }
-
-  const name = String(update.name ?? "").trim();
-  const providedQuantity = update.quantity;
-  const action = String(update.action ?? "").toLowerCase();
-
-  if (!name || providedQuantity === undefined || !action) {
-    return {
-      name: name || update.name || "unknown",
-      success: false,
-      error: "Missing required fields: name, quantity, action",
-    };
-  }
-
-  if (!["add", "subtract", "set"].includes(action)) {
-    return {
-      name,
-      success: false,
-      error: `Invalid action "${action}". Use add, subtract, or set.`,
-    };
-  }
-
-  const quantity = Number(providedQuantity);
-  if (!Number.isFinite(quantity) || quantity < 0) {
-    return {
-      name,
-      success: false,
-      error: "Quantity must be a non-negative number",
-    };
-  }
-
-  let normalizedExpiration: string | null | undefined;
-  try {
-    normalizedExpiration = normalizeExpirationDateValue(
-      update.expirationDate ?? update.expiryDate,
-    );
-  } catch (error: any) {
-    return {
-      name,
-      success: false,
-      error: error.message ?? "Invalid expiration date",
-    };
-  }
-
-  const inventoryCollection = db.collection(`users/${uid}/inventory`);
-  const snapshot = await inventoryCollection.get();
-
-  let existingDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
-  for (const doc of snapshot.docs) {
-    const docName = String(doc.data().name ?? "").toLowerCase();
-    if (docName === name.toLowerCase()) {
-      existingDoc = doc;
-      break;
-    }
-  }
-
-  const timestamp = admin.firestore.FieldValue.serverTimestamp();
-
-  if (!existingDoc) {
-    const newItem: Record<string, any> = {
-      name,
-      quantity,
-      unit: update.unit ?? "unit",
-      category: update.category ?? "uncategorized",
-      location: update.location ?? null,
-      lowStockThreshold:
-        Number.isFinite(Number(update.lowStockThreshold)) ?
-          Number(update.lowStockThreshold) :
-          1,
-      notes: update.notes ?? null,
-      brand: update.brand ?? null,
-      size: update.size ?? null,
-      expirationDate: normalizedExpiration ?? null,
-      searchKeywords: generateSearchKeywords(name),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      lastUpdated: timestamp,
-    };
-
-    const docRef = await inventoryCollection.add(newItem);
-
-    return {
-      id: docRef.id,
-      name,
-      success: true,
-      action: "created",
-      quantity,
-      expirationDate: newItem.expirationDate,
-      message: `Added ${name}: ${quantity} ${newItem.unit}`,
-    };
-  }
-
-  const currentData = existingDoc.data();
-  let newQuantity = Number(currentData.quantity ?? 0);
-
-  switch (action) {
-  case "add":
-    newQuantity += quantity;
-    break;
-  case "subtract":
-    newQuantity = Math.max(0, newQuantity - quantity);
-    break;
-  case "set":
-    newQuantity = quantity;
-    break;
-  default:
-    newQuantity = quantity;
-  }
-
-  const updateData: Record<string, any> = {
-    quantity: newQuantity,
-    updatedAt: timestamp,
-    lastUpdated: timestamp,
-    searchKeywords: generateSearchKeywords(name),
-  };
-
-  if (update.unit !== undefined) updateData.unit = update.unit;
-  if (update.category !== undefined) updateData.category = update.category;
-  if (update.location !== undefined) updateData.location = update.location;
-  if (update.brand !== undefined) updateData.brand = update.brand;
-  if (update.notes !== undefined) updateData.notes = update.notes;
-  if (update.size !== undefined) updateData.size = update.size;
-  if (update.lowStockThreshold !== undefined) {
-    updateData.lowStockThreshold = Number(update.lowStockThreshold);
-  }
-  if (normalizedExpiration !== undefined) {
-    updateData.expirationDate = normalizedExpiration;
-  }
-
-  await existingDoc.ref.update(updateData);
-
-  const actionText =
-    action === "add" ?
-      "Added" :
-      action === "subtract" ?
-        "Used" :
-        "Set";
-
-  return {
-    id: existingDoc.id,
-    name,
-    success: true,
-    action: "updated",
-    quantity: newQuantity,
-    expirationDate:
-      updateData.expirationDate ??
-      normalizeExpirationDateValue(currentData.expirationDate) ??
-      null,
-    message: `${actionText} ${name}: now ${newQuantity} ${update.unit ?? currentData.unit ?? "unit"}`,
-  };
-}
-
-async function applyInventoryUpdatesForUser(
-  uid: string,
-  updates: any[],
-  actionType: "inventory_update" | "inventory_apply" = "inventory_update",
-): Promise<{
-  results: Record<string, any>[];
-  summary: {total: number; successful: number; failed: number};
-  validationErrors: string[];
-}> {
-  const results: Record<string, any>[] = [];
-
-  for (const update of updates) {
-    try {
-      const result = await processInventoryUpdate(uid, update);
-      results.push(result);
-    } catch (error: any) {
-      results.push({
-        name: update?.name ?? "unknown",
-        success: false,
-        error: error.message ?? "Failed to process update",
-      });
-    }
-  }
-
-  const successful = results.filter((r) => r.success).length;
-  const failed = results.length - successful;
-  const validationErrors = results
-    .filter((r) => !r.success && r.error)
-    .map((r) => `${r.name}: ${r.error}`);
-
-  await recordInventoryAuditLog(uid, {
-    action: actionType,
-    updates,
-    results,
-    summary: {
-      total: results.length,
-      successful,
-      failed,
-    },
-    validationErrors,
-  });
-
-  return {
-    results,
-    summary: {
-      total: results.length,
-      successful,
-      failed,
-    },
-    validationErrors,
-  };
-}
-
 type ParsePayload = {
   text?: string;
   image?: string;
@@ -1081,6 +1241,294 @@ app.post("/inventory/parse", authenticate, async (req, res) => {
     image: req.body?.image,
     imageType: req.body?.imageType,
   });
+});
+
+// POST /inventory/ingest - Asynchronous ingestion job for agent pipeline
+app.post("/inventory/ingest", authenticate, async (req, res) => {
+  try {
+    const {text, metadata, uploadId} = req.body ?? {};
+
+    if (text !== undefined && typeof text !== "string") {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Text must be a string.",
+      });
+    }
+
+    if (!text && typeof uploadId !== "string") {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Provide text or uploadId for ingestion.",
+      });
+    }
+
+    const trimmedText = typeof text === "string" ? text.trim() : "";
+    if (!trimmedText && !uploadId) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Text cannot be empty.",
+      });
+    }
+
+    if (trimmedText.length > MAX_INGEST_TEXT_LENGTH) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `Text exceeds ${MAX_INGEST_TEXT_LENGTH} character limit.`,
+      });
+    }
+
+    const jobId = randomUUID();
+    const jobRef = db.doc(`users/${req.user.uid}/ingestion_jobs/${jobId}`);
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+    const sanitizedMetadata = sanitizeJobMetadata(metadata);
+
+    await jobRef.set({
+      userId: req.user.uid,
+      status: IngestJobStatus.pending,
+      text: trimmedText || null,
+      textLength: trimmedText.length,
+      uploadId: typeof uploadId === "string" ? uploadId : null,
+      metadata: sanitizedMetadata,
+      agentResponse: null,
+      lastError: null,
+      resultSummary: null,
+      toolInvocations: [],
+      fallbackApplied: false,
+      fallbackDetails: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    res.json({
+      success: true,
+      jobId,
+      status: IngestJobStatus.pending,
+      jobPath: `users/${req.user.uid}/ingestion_jobs/${jobId}`,
+    });
+  } catch (error: any) {
+    logger.error("Error creating ingestion job", {
+      uid: req.user?.uid,
+      error: error?.message ?? error,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error?.message ?? "Failed to create ingestion job",
+    });
+  }
+});
+
+// POST /uploads - Create metadata + signed URL for large uploads
+app.post("/uploads", authenticate, async (req, res) => {
+  try {
+    const {filename, contentType, sizeBytes, sourceType} = req.body ?? {};
+
+    if (typeof filename !== "string" || !filename.trim()) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "filename is required",
+      );
+    }
+
+    if (typeof contentType !== "string" || !contentType.trim()) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "contentType is required",
+      );
+    }
+
+    const sanitizedFilename = sanitizeUploadFilename(filename);
+    const normalizedSourceType = normalizeUploadSourceType(sourceType);
+    const parsedSize = parseUploadSizeBytes(sizeBytes);
+    const uploadId = randomUUID();
+    const storagePath = buildUploadStoragePath(req.user.uid, uploadId, sanitizedFilename);
+    const bucketName = getUploadsBucketName();
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+    const uploadRef = getUploadDocRef(req.user.uid, uploadId);
+
+    await uploadRef.set({
+      filename: sanitizedFilename,
+      originalFilename: filename,
+      contentType,
+      sizeBytes: parsedSize,
+      sourceType: normalizedSourceType,
+      bucket: bucketName,
+      storagePath,
+      status: UploadStatus.awaitingUpload,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      lastError: null,
+      processingJobId: null,
+      processingStage: "awaiting_upload",
+    });
+
+    let signedUrlData;
+    try {
+      signedUrlData = await generateSignedUploadUrl(
+        storagePath,
+        contentType,
+        undefined,
+        bucketName,
+      );
+    } catch (error: any) {
+      await uploadRef.update({
+        status: UploadStatus.failed,
+        lastError: error?.message ?? String(error),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      throw error;
+    }
+
+    res.json({
+      success: true,
+      uploadId,
+      bucket: signedUrlData.bucket,
+      storagePath,
+      uploadUrl: signedUrlData.uploadUrl,
+      uploadUrlExpiresAt: signedUrlData.expiresAt,
+      status: UploadStatus.awaitingUpload,
+    });
+  } catch (error: any) {
+    if (error instanceof functions.https.HttpsError) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: error.message,
+      });
+    }
+
+    logger.error("Error creating upload metadata", {
+      uid: req.user?.uid,
+      error: error?.message ?? error,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error?.message ?? "Failed to create upload metadata",
+    });
+  }
+});
+
+// GET /uploads/:uploadId - Fetch upload metadata/status
+app.get("/uploads/:uploadId", authenticate, async (req, res) => {
+  try {
+    const uploadId = sanitizeDocumentId(req.params.uploadId, 120);
+    const uploadRef = getUploadDocRef(req.user.uid, uploadId);
+    const snapshot = await uploadRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "Upload not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      upload: {
+        id: uploadId,
+        ...snapshot.data(),
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof functions.https.HttpsError) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: error.message,
+      });
+    }
+
+    logger.error("Error fetching upload metadata", {
+      uid: req.user?.uid,
+      uploadId: req.params.uploadId,
+      error: error?.message ?? error,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error?.message ?? "Failed to fetch upload",
+    });
+  }
+});
+
+// POST /uploads/:uploadId/queue - Queue upload for async processing
+app.post("/uploads/:uploadId/queue", authenticate, async (req, res) => {
+  try {
+    const uploadId = sanitizeDocumentId(req.params.uploadId, 120);
+    const uploadRef = getUploadDocRef(req.user.uid, uploadId);
+    const jobRef = db.collection("upload_jobs").doc();
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+    await db.runTransaction(async (tx) => {
+      const snapshot = await tx.get(uploadRef);
+      if (!snapshot.exists) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "Upload not found",
+        );
+      }
+
+      const uploadData = snapshot.data() ?? {};
+      const currentStatus = uploadData.status ?? UploadStatus.awaitingUpload;
+
+      if (
+        currentStatus === UploadStatus.processing ||
+        currentStatus === UploadStatus.completed
+      ) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Upload is already being processed",
+        );
+      }
+
+      if (!uploadData.storagePath || !uploadData.bucket || !uploadData.contentType) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Upload metadata is incomplete",
+        );
+      }
+
+      tx.update(uploadRef, {
+        status: UploadStatus.queued,
+        updatedAt: timestamp,
+        processingJobId: jobRef.id,
+        lastError: null,
+        processingStage: "queued",
+      });
+
+      tx.set(jobRef, {
+        uploadId,
+        userId: req.user.uid,
+        storagePath: uploadData.storagePath,
+        bucket: uploadData.bucket,
+        contentType: uploadData.contentType,
+        sourceType: uploadData.sourceType ?? "unknown",
+        status: UploadJobStatus.queued,
+        attempts: 0,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    });
+
+    res.json({
+      success: true,
+      jobId: jobRef.id,
+      status: UploadJobStatus.queued,
+    });
+  } catch (error: any) {
+    if (error instanceof functions.https.HttpsError) {
+      return res.status(error.code === "not-found" ? 404 : 400).json({
+        error: error.code === "not-found" ? "Not Found" : "Bad Request",
+        message: error.message,
+      });
+    }
+
+    logger.error("Error queueing upload", {
+      uid: req.user?.uid,
+      uploadId: req.params.uploadId,
+      error: error?.message ?? error,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error?.message ?? "Failed to queue upload",
+    });
+  }
 });
 
 // GET /inventory/low-stock - Get low stock items
@@ -1793,6 +2241,246 @@ app.post("/agent/process", authenticate, async (req, res) => {
   }
 });
 
+// POST /agent/ingest - Use the ingestion agent to parse & apply updates directly
+app.post("/agent/ingest", authenticate, async (req, res) => {
+  try {
+    const {text, metadata} = req.body ?? {};
+
+    if (typeof text !== "string" || !text.trim()) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Text is required for ingestion.",
+      });
+    }
+
+    const pipelineResult = await executeAgentIngestionPipeline({
+      userId: req.user.uid,
+      text: text.trim(),
+      metadata: sanitizeJobMetadata(metadata),
+    });
+
+    if (!pipelineResult.success) {
+      return res.status(500).json({
+        error: "Agent Error",
+        message: pipelineResult.error ?? "Ingestion agent failed",
+      });
+    }
+
+    res.json({
+      success: true,
+      response: pipelineResult.agentResponse,
+      summary: pipelineResult.summary,
+      usedFallback: pipelineResult.usedFallback,
+      toolInvocations: pipelineResult.toolInvocations,
+    });
+  } catch (error: any) {
+    logger.error("Error running ingestion agent", {
+      uid: req.user?.uid,
+      error: error?.message ?? error,
+    });
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error?.message ?? "Failed to run ingestion agent",
+    });
+  }
+});
+
+// Firestore trigger to acknowledge queued upload jobs
+export const processUploadJobs = functions
+  .runWith(runtimeOpts)
+  .firestore.document("upload_jobs/{jobId}")
+  .onCreate(async (snapshot, context) => {
+    const data = snapshot.data() ?? {};
+    const jobId = context.params.jobId;
+    const uploadId = data.uploadId;
+    const userId = data.userId;
+    const logContext = {
+      jobId,
+      uploadId,
+      userId,
+    };
+
+    if (!uploadId || !userId) {
+      logger.error("Upload job missing identifiers", logContext);
+      await snapshot.ref.update({
+        status: UploadJobStatus.failed,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        error: "Missing uploadId or userId",
+      });
+      return;
+    }
+
+    const uploadRef = getUploadDocRef(userId, uploadId);
+
+    try {
+      const uploadSnap = await uploadRef.get();
+      if (!uploadSnap.exists) {
+        logger.error("Upload metadata missing for job", logContext);
+        await snapshot.ref.update({
+          status: UploadJobStatus.failed,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          error: "Upload metadata missing",
+        });
+        return;
+      }
+
+      const uploadData = uploadSnap.data() ?? {};
+      const extraction = await extractTextFromUpload({
+        userId,
+        uploadId,
+        bucket: uploadData.bucket,
+        storagePath: uploadData.storagePath,
+        contentType: uploadData.contentType,
+        sourceType: uploadData.sourceType,
+      });
+
+      const ingestionJobRef = db
+        .collection(`users/${userId}/ingestion_jobs`)
+        .doc();
+
+      await ingestionJobRef.set({
+        text: extraction.text,
+        metadata: {
+          source: "upload",
+          uploadId,
+          storagePath: uploadData.storagePath ?? null,
+          contentType: uploadData.contentType ?? null,
+          sourceType: uploadData.sourceType ?? null,
+          extraction: extraction.metadata,
+        },
+        status: IngestJobStatus.pending,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await snapshot.ref.update({
+        status: UploadJobStatus.completed,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        ingestionJobId: ingestionJobRef.id,
+      });
+
+      await uploadRef.update({
+        status: UploadStatus.processing,
+        processingJobId: jobId,
+        processingStage: "ingestion_job_created",
+        ingestionJobId: ingestionJobRef.id,
+        textPreview: extraction.preview,
+        lastError: null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      logger.info("Upload job converted to ingestion job", {
+        ...logContext,
+        ingestionJobId: ingestionJobRef.id,
+      });
+    } catch (error: any) {
+      logger.error("Error handling upload job", {
+        ...logContext,
+        error: error?.message ?? error,
+      });
+
+      await snapshot.ref.update({
+        status: UploadJobStatus.failed,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        error: error?.message ?? "Unknown error",
+      });
+
+      await uploadRef.set({
+        status: UploadStatus.failed,
+        lastError: error?.message ?? "Failed to process upload job",
+        processingStage: "failed",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+    }
+  });
+
+
+export const processIngestionJobs = functions
+  .runWith(runtimeOpts)
+  .firestore.document("users/{userId}/ingestion_jobs/{jobId}")
+  .onCreate(async (snapshot, context) => {
+    const {userId, jobId} = context.params;
+    const data = snapshot.data() ?? {};
+    const text = typeof data.text === "string" ? data.text : "";
+    const metadata = typeof data.metadata === "object" ? data.metadata : {};
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+    if (!text) {
+      logger.error("Ingestion job missing text payload", {userId, jobId});
+      await snapshot.ref.update({
+        status: IngestJobStatus.failed,
+        updatedAt: timestamp,
+        lastError: "No text payload provided for ingestion.",
+      });
+      return;
+    }
+
+    try {
+      await snapshot.ref.update({
+        status: IngestJobStatus.processing,
+        updatedAt: timestamp,
+        lastError: null,
+      });
+
+      const pipelineResult = await executeAgentIngestionPipeline({
+        userId,
+        text,
+        metadata,
+      });
+
+      if (pipelineResult.success) {
+        await snapshot.ref.update({
+          status: IngestJobStatus.completed,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          completedAt: admin.firestore.FieldValue.serverTimestamp(),
+          agentResponse: pipelineResult.agentResponse ?? null,
+          resultSummary: pipelineResult.summary,
+          lastError: null,
+          toolInvocations: pipelineResult.toolInvocations ?? [],
+          fallbackApplied: pipelineResult.usedFallback,
+          fallbackDetails: pipelineResult.fallbackDetails ?? null,
+        });
+      } else {
+        await snapshot.ref.update({
+          status: IngestJobStatus.failed,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastError: pipelineResult.error ?? "Agent ingestion failed",
+          toolInvocations: pipelineResult.toolInvocations ?? [],
+          fallbackApplied: pipelineResult.usedFallback,
+          fallbackDetails: pipelineResult.fallbackDetails ?? null,
+        });
+      }
+    } catch (error: any) {
+      logger.error("Error running ingestion job", {
+        userId,
+        jobId,
+        error: error?.message ?? error,
+      });
+      await snapshot.ref.update({
+        status: IngestJobStatus.failed,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastError: error?.message ?? "Failed to process ingestion job",
+      });
+    }
+  });
+
+export const agentInteractionMetrics = functions
+  .runWith(runtimeOpts)
+  .firestore.document("agent_interactions/{interactionId}")
+  .onCreate(async (snapshot) => {
+    const data = snapshot.data() ?? {};
+    const eventDate = data.createdAt?.toDate ?
+      data.createdAt.toDate() :
+      new Date();
+
+    const dailyRef = db.doc(`agent_metrics/daily/${formatDateKey(eventDate)}`);
+    const globalRef = db.doc("agent_metrics/global");
+
+    await Promise.all([
+      updateAgentMetricsDoc(dailyRef, data, eventDate),
+      updateAgentMetricsDoc(globalRef, data, eventDate),
+    ]);
+  });
 
 // Export the Express app as a Firebase Function with secrets
 export const api = functions
@@ -1800,3 +2488,46 @@ export const api = functions
   .https.onRequest(app);
 
 export {app};
+
+async function updateAgentMetricsDoc(
+  docRef: FirebaseFirestore.DocumentReference,
+  data: FirebaseFirestore.DocumentData,
+  eventDate: Date,
+) {
+  await db.runTransaction(async (tx) => {
+    const snapshot = await tx.get(docRef);
+    const increment = admin.firestore.FieldValue.increment;
+    const updates: Record<string, any> = {
+      totalCount: increment(1),
+      successCount: increment(data.success ? 1 : 0),
+      fallbackCount: increment(data.usedFallback ? 1 : 0),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastEventAt: admin.firestore.Timestamp.fromDate(eventDate),
+    };
+
+    const latency = Number.isFinite(data.latencyMs) ? Number(data.latencyMs) : null;
+    if (latency !== null) {
+      updates.sumLatencyMs = increment(latency);
+      updates.latencySamples = increment(1);
+      updates[`latencyBuckets.${getLatencyBucketKey(latency)}`] = increment(1);
+    }
+
+    const confidence = Number.isFinite(data.confidence) ? Number(data.confidence) : null;
+    if (confidence !== null) {
+      updates.sumConfidence = increment(confidence);
+      updates.confidenceSamples = increment(1);
+      updates[`confidenceBuckets.${getConfidenceBucketKey(confidence)}`] = increment(1);
+    }
+
+    if (typeof data.agent === "string" && data.agent) {
+      updates[`perAgent.${data.agent}.count`] = increment(1);
+      updates[`perAgent.${data.agent}.success`] = increment(data.success ? 1 : 0);
+      updates[`perAgent.${data.agent}.fallback`] = increment(data.usedFallback ? 1 : 0);
+    }
+
+    tx.set(docRef, {
+      ...(snapshot.exists ? {} : {createdAt: admin.firestore.FieldValue.serverTimestamp()}),
+      ...updates,
+    }, {merge: true});
+  });
+}

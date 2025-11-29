@@ -6,13 +6,7 @@ import '../models/inventory_item.dart';
 import '../models/field_validation.dart';
 import '../../auth/services/auth_service.dart';
 
-enum BulkOperationType {
-  update,
-  delete,
-  move,
-  categoryChange,
-  export,
-}
+enum BulkOperationType { update, delete, move, categoryChange, export }
 
 class BulkOperation {
   final String id;
@@ -62,8 +56,7 @@ class BulkOperationResult {
   });
 
   bool get isSuccess => failureCount == 0;
-  double get successRate => 
-      successCount / (successCount + failureCount) * 100;
+  double get successRate => successCount / (successCount + failureCount) * 100;
 }
 
 class BulkOperationsService {
@@ -72,14 +65,14 @@ class BulkOperationsService {
   BulkOperationsService({
     FirebaseFirestore? firestore,
     AuthService? authService,
-  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
-        _authService = authService ?? getIt<AuthService>();
-  
+  }) : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+       _authService = authService ?? getIt<AuthService>();
+
   static const int _batchSize = 500;
   final List<BulkOperation> _operationHistory = [];
   StreamController<double>? _progressController;
 
-  Stream<double> get progressStream => 
+  Stream<double> get progressStream =>
       _progressController?.stream ?? const Stream.empty();
 
   Future<BulkOperationResult> performBulkUpdate({
@@ -90,7 +83,7 @@ class BulkOperationsService {
   }) async {
     final stopwatch = Stopwatch()..start();
     _progressController = StreamController<double>.broadcast();
-    
+
     final successIds = <String>[];
     final failedIds = <String>[];
     final errors = <String>[];
@@ -121,19 +114,19 @@ class BulkOperationsService {
 
       for (final batch in batches) {
         final writeBatch = _firestore.batch();
-        
+
         for (final itemId in batch) {
           final docRef = _firestore
               .collection('users')
               .doc(userId)
               .collection('inventory')
               .doc(itemId);
-          
+
           final updateData = {
             ...changes,
             'updatedAt': FieldValue.serverTimestamp(),
           };
-          
+
           writeBatch.update(docRef, updateData);
         }
 
@@ -141,7 +134,7 @@ class BulkOperationsService {
           await writeBatch.commit();
           successIds.addAll(batch);
           processedCount += batch.length;
-          
+
           final progress = processedCount / itemIds.length;
           _progressController?.add(progress);
           onProgress?.call(processedCount, itemIds.length);
@@ -151,15 +144,16 @@ class BulkOperationsService {
         }
       }
 
-      _recordOperation(BulkOperation(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        type: BulkOperationType.update,
-        itemIds: successIds,
-        changes: changes,
-        timestamp: DateTime.now(),
-        validate: validate,
-      ));
-
+      _recordOperation(
+        BulkOperation(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          type: BulkOperationType.update,
+          itemIds: successIds,
+          changes: changes,
+          timestamp: DateTime.now(),
+          validate: validate,
+        ),
+      );
     } catch (e) {
       errors.add('Bulk update failed: ${e.toString()}');
       failedIds.addAll(itemIds);
@@ -184,7 +178,7 @@ class BulkOperationsService {
   }) async {
     final stopwatch = Stopwatch()..start();
     _progressController = StreamController<double>.broadcast();
-    
+
     final successIds = <String>[];
     final failedIds = <String>[];
     final errors = <String>[];
@@ -200,14 +194,14 @@ class BulkOperationsService {
 
       for (final batch in batches) {
         final writeBatch = _firestore.batch();
-        
+
         for (final itemId in batch) {
           final docRef = _firestore
               .collection('users')
               .doc(userId)
               .collection('inventory')
               .doc(itemId);
-          
+
           writeBatch.delete(docRef);
         }
 
@@ -215,7 +209,7 @@ class BulkOperationsService {
           await writeBatch.commit();
           successIds.addAll(batch);
           processedCount += batch.length;
-          
+
           final progress = processedCount / itemIds.length;
           _progressController?.add(progress);
           onProgress?.call(processedCount, itemIds.length);
@@ -225,13 +219,14 @@ class BulkOperationsService {
         }
       }
 
-      _recordOperation(BulkOperation(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        type: BulkOperationType.delete,
-        itemIds: successIds,
-        timestamp: DateTime.now(),
-      ));
-
+      _recordOperation(
+        BulkOperation(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          type: BulkOperationType.delete,
+          itemIds: successIds,
+          timestamp: DateTime.now(),
+        ),
+      );
     } catch (e) {
       errors.add('Bulk delete failed: ${e.toString()}');
       failedIds.addAll(itemIds);
@@ -282,7 +277,7 @@ class BulkOperationsService {
   }) async {
     final stopwatch = Stopwatch()..start();
     _progressController = StreamController<double>.broadcast();
-    
+
     final successIds = <String>[];
     final failedIds = <String>[];
     final errors = <String>[];
@@ -302,7 +297,7 @@ class BulkOperationsService {
               .doc(userId)
               .collection('inventory')
               .doc(itemId);
-          
+
           await _firestore.runTransaction((transaction) async {
             final snapshot = await transaction.get(docRef);
             if (!snapshot.exists) {
@@ -317,7 +312,10 @@ class BulkOperationsService {
                 newQuantity = currentQuantity + adjustment;
                 break;
               case UpdateAction.subtract:
-                newQuantity = (currentQuantity - adjustment).clamp(0.0, double.infinity);
+                newQuantity = (currentQuantity - adjustment).clamp(
+                  0.0,
+                  double.infinity,
+                );
                 break;
               case UpdateAction.set:
                 newQuantity = adjustment;
@@ -342,18 +340,16 @@ class BulkOperationsService {
         onProgress?.call(processedCount, itemIds.length);
       }
 
-      _recordOperation(BulkOperation(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        type: BulkOperationType.update,
-        itemIds: successIds,
-        changes: {
-          'adjustment': adjustment,
-          'action': action.name,
-        },
-        timestamp: DateTime.now(),
-        description: 'Bulk quantity ${action.displayName}: $adjustment',
-      ));
-
+      _recordOperation(
+        BulkOperation(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          type: BulkOperationType.update,
+          itemIds: successIds,
+          changes: {'adjustment': adjustment, 'action': action.name},
+          timestamp: DateTime.now(),
+          description: 'Bulk quantity ${action.displayName}: $adjustment',
+        ),
+      );
     } catch (e) {
       errors.add('Bulk quantity adjustment failed: ${e.toString()}');
       failedIds.addAll(itemIds);
@@ -382,7 +378,9 @@ class BulkOperationsService {
   List<List<String>> _createBatches(List<String> items) {
     final batches = <List<String>>[];
     for (int i = 0; i < items.length; i += _batchSize) {
-      final end = (i + _batchSize < items.length) ? i + _batchSize : items.length;
+      final end = (i + _batchSize < items.length)
+          ? i + _batchSize
+          : items.length;
       batches.add(items.sublist(i, end));
     }
     return batches;
@@ -395,7 +393,8 @@ class BulkOperationsService {
     }
   }
 
-  List<BulkOperation> get operationHistory => List.unmodifiable(_operationHistory);
+  List<BulkOperation> get operationHistory =>
+      List.unmodifiable(_operationHistory);
 
   void clearHistory() {
     _operationHistory.clear();

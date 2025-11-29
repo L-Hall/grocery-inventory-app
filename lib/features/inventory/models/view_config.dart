@@ -24,18 +24,10 @@ class FilterRule {
   final FilterOperator operator;
   final dynamic value;
 
-  FilterRule({
-    required this.field,
-    required this.operator,
-    this.value,
-  });
+  FilterRule({required this.field, required this.operator, this.value});
 
   Map<String, dynamic> toJson() {
-    return {
-      'field': field,
-      'operator': operator.name,
-      'value': value,
-    };
+    return {'field': field, 'operator': operator.name, 'value': value};
   }
 
   factory FilterRule.fromJson(Map<String, dynamic> json) {
@@ -54,16 +46,10 @@ class SortConfig {
   final String field;
   final bool ascending;
 
-  SortConfig({
-    required this.field,
-    this.ascending = true,
-  });
+  SortConfig({required this.field, this.ascending = true});
 
   Map<String, dynamic> toJson() {
-    return {
-      'field': field,
-      'ascending': ascending,
-    };
+    return {'field': field, 'ascending': ascending};
   }
 
   factory SortConfig.fromJson(Map<String, dynamic> json) {
@@ -117,7 +103,8 @@ class InventoryView {
         (e) => e.name == json['type'],
         orElse: () => ViewType.all,
       ),
-      filters: (json['filters'] as List?)
+      filters:
+          (json['filters'] as List?)
               ?.map((f) => FilterRule.fromJson(f as Map<String, dynamic>))
               .toList() ??
           [],

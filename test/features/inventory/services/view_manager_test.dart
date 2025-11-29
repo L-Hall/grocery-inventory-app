@@ -129,15 +129,16 @@ void main() {
     });
 
     test('should filter by multiple categories', () {
-      final filtered = viewManager.filterByMultipleCategories(
-        testItems,
-        ['Dairy', 'Frozen'],
-      );
+      final filtered = viewManager.filterByMultipleCategories(testItems, [
+        'Dairy',
+        'Frozen',
+      ]);
 
       expect(filtered.length, 3);
       expect(
-        filtered.every((item) =>
-            item.category == 'Dairy' || item.category == 'Frozen'),
+        filtered.every(
+          (item) => item.category == 'Dairy' || item.category == 'Frozen',
+        ),
         true,
       );
     });

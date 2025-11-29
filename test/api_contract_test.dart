@@ -30,7 +30,10 @@ void main() {
       expect(item.category, 'dairy');
       expect(item.location, 'fridge');
       expect(item.lowStockThreshold, 1);
-      expect(item.expirationDate?.toIso8601String(), '2024-03-20T12:00:00.000Z');
+      expect(
+        item.expirationDate?.toIso8601String(),
+        '2024-03-20T12:00:00.000Z',
+      );
       expect(item.createdAt.toIso8601String(), '2024-03-10T12:00:00.000Z');
       expect(item.updatedAt.toIso8601String(), '2024-03-11T12:00:00.000Z');
     });
@@ -109,24 +112,27 @@ void main() {
       expect(item.addedAt?.toIso8601String(), '2024-03-15T09:05:00.000Z');
     });
 
-    test('ParsedItem serializes expiry when converting to inventory update', () {
-      final parsed = ParsedItem(
-        name: 'Yoghurt',
-        quantity: 4,
-        unit: 'pot',
-        action: UpdateAction.add,
-        confidence: 0.95,
-        category: 'dairy',
-        location: 'fridge',
-        expiryDate: DateTime.parse('2024-05-01T00:00:00.000Z'),
-      );
+    test(
+      'ParsedItem serializes expiry when converting to inventory update',
+      () {
+        final parsed = ParsedItem(
+          name: 'Yoghurt',
+          quantity: 4,
+          unit: 'pot',
+          action: UpdateAction.add,
+          confidence: 0.95,
+          category: 'dairy',
+          location: 'fridge',
+          expiryDate: DateTime.parse('2024-05-01T00:00:00.000Z'),
+        );
 
-      final update = parsed.toInventoryUpdate();
-      final json = update.toJson();
+        final update = parsed.toInventoryUpdate();
+        final json = update.toJson();
 
-      expect(json['expirationDate'], '2024-05-01T00:00:00.000Z');
-      expect(json['name'], 'Yoghurt');
-      expect(json['location'], 'fridge');
-    });
+        expect(json['expirationDate'], '2024-05-01T00:00:00.000Z');
+        expect(json['name'], 'Yoghurt');
+        expect(json['location'], 'fridge');
+      },
+    );
   });
 }

@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum TemperatureType {
-  frozen,
-  refrigerated,
-  room,
-}
+enum TemperatureType { frozen, refrigerated, room }
 
 class LocationOption {
   final String id;
@@ -24,9 +20,11 @@ class LocationOption {
   });
 
   Map<String, dynamic> toJson() {
-    final rgbHex = [color.red, color.green, color.blue]
-        .map((component) => component.toRadixString(16).padLeft(2, '0'))
-        .join();
+    final rgbHex = [
+      color.red,
+      color.green,
+      color.blue,
+    ].map((component) => component.toRadixString(16).padLeft(2, '0')).join();
 
     return {
       'id': id,
@@ -57,33 +55,24 @@ class LocationOption {
     }
 
     IconData parseIcon(dynamic value) {
-      if (value is int) {
-        return IconData(value, fontFamily: 'MaterialIcons');
-      }
+      const iconMap = {
+        'kitchen': Icons.kitchen,
+        'ac_unit': Icons.ac_unit,
+        'inventory': Icons.inventory_2,
+        'restaurant': Icons.restaurant,
+        'countertops': Icons.countertops,
+        'garage': Icons.garage,
+        'food_bank': Icons.food_bank,
+        'severe_cold': Icons.severe_cold,
+        'shelves': Icons.shelves,
+      };
+
       if (value is String && value.isNotEmpty) {
-        switch (value) {
-          case 'kitchen':
-            return Icons.kitchen;
-          case 'ac_unit':
-            return Icons.ac_unit;
-          case 'inventory':
-            return Icons.inventory_2;
-          case 'restaurant':
-            return Icons.restaurant;
-          case 'countertops':
-            return Icons.countertops;
-          case 'garage':
-            return Icons.garage;
-          case 'food_bank':
-            return Icons.food_bank;
-          case 'severe_cold':
-            return Icons.severe_cold;
-          case 'shelves':
-            return Icons.shelves;
-          default:
-            return Icons.location_on;
-        }
+        final normalized = value.trim().toLowerCase();
+        final icon = iconMap[normalized];
+        if (icon != null) return icon;
       }
+
       return Icons.location_on;
     }
 
@@ -143,26 +132,26 @@ class DefaultLocations {
       sortOrder: 4,
     ),
     LocationOption(
-      id: 'pantry',
-      name: 'Pantry',
-      color: Colors.orange,
-      icon: Icons.food_bank,
-      temperature: TemperatureType.room,
-      sortOrder: 5,
-    ),
-    LocationOption(
       id: 'garage',
       name: 'Garage',
       color: Colors.grey,
       icon: Icons.garage,
       temperature: TemperatureType.room,
-      sortOrder: 6,
+      sortOrder: 5,
     ),
     LocationOption(
       id: 'counter',
       name: 'Counter',
       color: Colors.green,
       icon: Icons.countertops,
+      temperature: TemperatureType.room,
+      sortOrder: 6,
+    ),
+    LocationOption(
+      id: 'utility-room',
+      name: 'Utility room',
+      color: Colors.orange,
+      icon: Icons.local_laundry_service,
       temperature: TemperatureType.room,
       sortOrder: 7,
     ),

@@ -4,10 +4,10 @@ import '../../../core/services/storage_service.dart';
 
 class OnboardingProvider with ChangeNotifier {
   OnboardingProvider(this._storageService)
-      : _hasCompletedOnboarding = _storageService.getBool(
-          StorageService.keyOnboardingComplete,
-          defaultValue: false,
-        );
+    : _hasCompletedOnboarding = _storageService.getBool(
+        StorageService.keyOnboardingComplete,
+        defaultValue: false,
+      );
 
   final StorageService _storageService;
 

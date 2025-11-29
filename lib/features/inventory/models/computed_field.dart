@@ -28,8 +28,8 @@ class FormulaEngine {
       formula: 'quantity < lowStockThreshold && lowStockThreshold > 0',
       dependencies: ['quantity', 'lowStockThreshold'],
       compute: (item) {
-        return item.quantity < item.lowStockThreshold && 
-               item.lowStockThreshold > 0;
+        return item.quantity < item.lowStockThreshold &&
+            item.lowStockThreshold > 0;
       },
       returnType: bool,
     ),
@@ -114,10 +114,7 @@ class FormulaEngine {
     return _fields[fieldName]?.dependencies ?? [];
   }
 
-  static bool shouldRecompute(
-    String fieldName,
-    List<String> changedFields,
-  ) {
+  static bool shouldRecompute(String fieldName, List<String> changedFields) {
     final dependencies = getFieldDependencies(fieldName);
     return changedFields.any((field) => dependencies.contains(field));
   }
@@ -148,27 +145,36 @@ class InventoryItemWithComputed {
     if (computedFields.containsKey(fieldName)) {
       return computedFields[fieldName];
     }
-    
+
     switch (fieldName) {
-      case 'id': return item.id;
-      case 'name': return item.name;
-      case 'quantity': return item.quantity;
-      case 'unit': return item.unit;
-      case 'category': return item.category;
-      case 'location': return item.location;
-      case 'lowStockThreshold': return item.lowStockThreshold;
-      case 'expirationDate': return item.expirationDate;
-      case 'notes': return item.notes;
-      case 'createdAt': return item.createdAt;
-      case 'updatedAt': return item.updatedAt;
-      default: return null;
+      case 'id':
+        return item.id;
+      case 'name':
+        return item.name;
+      case 'quantity':
+        return item.quantity;
+      case 'unit':
+        return item.unit;
+      case 'category':
+        return item.category;
+      case 'location':
+        return item.location;
+      case 'lowStockThreshold':
+        return item.lowStockThreshold;
+      case 'expirationDate':
+        return item.expirationDate;
+      case 'notes':
+        return item.notes;
+      case 'createdAt':
+        return item.createdAt;
+      case 'updatedAt':
+        return item.updatedAt;
+      default:
+        return null;
     }
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      ...item.toJson(),
-      'computed': computedFields,
-    };
+    return {...item.toJson(), 'computed': computedFields};
   }
 }

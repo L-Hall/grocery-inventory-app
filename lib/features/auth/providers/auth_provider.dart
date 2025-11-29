@@ -5,7 +5,7 @@ import '../services/auth_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService;
-  
+
   UserModel? _user;
   bool _isLoading = false;
   String? _error;
@@ -144,14 +144,14 @@ class AuthProvider with ChangeNotifier {
       _setError(null);
 
       await _authService.updateProfile(name: name, photoUrl: photoUrl);
-      
+
       // Update local user model
       final updatedUser = _authService.getCurrentUserModel();
       if (updatedUser != null) {
         _user = updatedUser;
         notifyListeners();
       }
-      
+
       return true;
     } catch (e) {
       _setError(e.toString());
