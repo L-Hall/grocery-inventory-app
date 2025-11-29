@@ -55,33 +55,24 @@ class LocationOption {
     }
 
     IconData parseIcon(dynamic value) {
-      if (value is int) {
-        return IconData(value, fontFamily: 'MaterialIcons');
-      }
+      const iconMap = {
+        'kitchen': Icons.kitchen,
+        'ac_unit': Icons.ac_unit,
+        'inventory': Icons.inventory_2,
+        'restaurant': Icons.restaurant,
+        'countertops': Icons.countertops,
+        'garage': Icons.garage,
+        'food_bank': Icons.food_bank,
+        'severe_cold': Icons.severe_cold,
+        'shelves': Icons.shelves,
+      };
+
       if (value is String && value.isNotEmpty) {
-        switch (value) {
-          case 'kitchen':
-            return Icons.kitchen;
-          case 'ac_unit':
-            return Icons.ac_unit;
-          case 'inventory':
-            return Icons.inventory_2;
-          case 'restaurant':
-            return Icons.restaurant;
-          case 'countertops':
-            return Icons.countertops;
-          case 'garage':
-            return Icons.garage;
-          case 'food_bank':
-            return Icons.food_bank;
-          case 'severe_cold':
-            return Icons.severe_cold;
-          case 'shelves':
-            return Icons.shelves;
-          default:
-            return Icons.location_on;
-        }
+        final normalized = value.trim().toLowerCase();
+        final icon = iconMap[normalized];
+        if (icon != null) return icon;
       }
+
       return Icons.location_on;
     }
 

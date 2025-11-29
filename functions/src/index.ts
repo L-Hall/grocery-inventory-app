@@ -379,7 +379,20 @@ const isSpreadsheetLike = (contentType?: string, path?: string) => {
   return path.toLowerCase().endsWith(".xlsx");
 };
 
-const extractTextFromPdfBuffer = (buffer: Buffer) => {
+const extractTextFromPdfBuffer = async (buffer: Buffer) => {
+  // Try structured PDF parsing first (handles binary streams and mixed content).
+  try {
+    const pdfParse = (await import("pdf-parse")).default;
+    const {text} = await pdfParse(buffer);
+    const cleaned = text.replace(/\s+/g, " ").trim();
+    if (cleaned) return cleaned;
+  } catch (error) {
+    logger.warn("Structured PDF parse failed, falling back to regex extraction", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // Fallback: naive text pull from stringified PDF contents.
   const raw = buffer.toString("latin1");
   const matches = raw.match(/\(([^)]+)\)/g) ?? [];
   const cleaned = matches
@@ -494,7 +507,7 @@ const extractTextFromUpload = async ({
   }
 
   if (isPdfLike(contentType, storagePath)) {
-    const extracted = extractTextFromPdfBuffer(buffer);
+    const extracted = await extractTextFromPdfBuffer(buffer);
     if (!extracted) {
       throw new Error("Could not extract text from PDF.");
     }

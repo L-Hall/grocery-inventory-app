@@ -75,6 +75,28 @@ class IngestionJob {
     );
   }
 
+  IngestionJob copyWith({
+    IngestionJobStatus? status,
+    String? text,
+    String? resultSummary,
+    String? agentResponse,
+    String? lastError,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return IngestionJob(
+      id: id,
+      jobPath: jobPath,
+      status: status ?? this.status,
+      text: text ?? this.text,
+      resultSummary: resultSummary ?? this.resultSummary,
+      agentResponse: agentResponse ?? this.agentResponse,
+      lastError: lastError,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   static DateTime? _normalizeTimestamp(dynamic value) {
     if (value == null) return null;
     if (value is Timestamp) return value.toDate();

@@ -13,14 +13,17 @@ import '../services/ingestion_job_service.dart';
 import '../../inventory/models/inventory_item.dart';
 import '../../uploads/models/upload_models.dart';
 import '../../uploads/services/upload_service.dart';
+import '../../../core/services/storage_service.dart';
 
 class GroceryListProvider with ChangeNotifier {
   final GroceryListDataSource _repository;
   final IngestionJobService _ingestionJobService;
   final UploadService? _uploadService;
   final FirebaseAuth? _auth;
+  final StorageService? _storage;
   StreamSubscription<IngestionJob>? _ingestionJobSubscription;
   StreamSubscription<UploadMetadata>? _uploadSubscription;
+  bool _ingestionTrackingLimited = false;
 
   List<GroceryList> _groceryLists = [];
   ParseResult? _lastParseResult;
@@ -38,11 +41,13 @@ class GroceryListProvider with ChangeNotifier {
     IngestionJobService? ingestionJobService,
     UploadService? uploadService,
     FirebaseAuth? auth,
+    StorageService? storageService,
   }) : _ingestionJobService =
            ingestionJobService ?? const IngestionJobService(),
        _uploadService = uploadService,
        _auth =
-           auth ?? (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null);
+           auth ?? (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null),
+       _storage = storageService;
 
   // Getters
   List<GroceryList> get groceryLists => _groceryLists;
@@ -65,6 +70,7 @@ class GroceryListProvider with ChangeNotifier {
   bool get supportsAsyncIngestion => _ingestionJobService.isAvailable;
   bool get supportsUploadIngestion =>
       supportsAsyncIngestion && (_uploadService?.canWatchUploads ?? false);
+  bool get ingestionTrackingLimited => _ingestionTrackingLimited;
   UploadMetadata? get activeUpload => _activeUpload;
   bool get hasActiveUpload => _activeUpload != null;
   bool get isUploading => _isUploading;
@@ -95,6 +101,17 @@ class GroceryListProvider with ChangeNotifier {
   void _setError(String? error) {
     _error = error;
     notifyListeners();
+  }
+
+  Map<String, dynamic> _buildParsingMetadata({
+    Map<String, dynamic>? extra,
+  }) {
+    final unitSystem =
+        _storage?.getString(StorageService.keyUnitSystem) ?? 'metric';
+    return {
+      'unitSystem': unitSystem,
+      if (extra != null) ...extra,
+    };
   }
 
   void clearError() {
@@ -133,7 +150,10 @@ class GroceryListProvider with ChangeNotifier {
       _setError(null);
       _currentInputText = text;
 
-      final result = await _repository.parseGroceryText(text: text);
+      final result = await _repository.parseGroceryText(
+        text: text,
+        metadata: _buildParsingMetadata(),
+      );
 
       _lastParseResult = result;
       notifyListeners();
@@ -161,7 +181,7 @@ class GroceryListProvider with ChangeNotifier {
 
       final handle = await _repository.startIngestionJob(
         text: text,
-        metadata: metadata,
+        metadata: _buildParsingMetadata(extra: metadata),
       );
 
       _activeIngestionJob = IngestionJob.initial(
@@ -170,6 +190,7 @@ class GroceryListProvider with ChangeNotifier {
         status: handle.status,
         text: text,
       );
+      _ingestionTrackingLimited = false;
       notifyListeners();
 
       _listenToIngestionJob(handle.jobPath);
@@ -508,6 +529,7 @@ class GroceryListProvider with ChangeNotifier {
         .listen(
           (job) {
             _activeIngestionJob = job;
+            _ingestionTrackingLimited = false;
             if (job.isTerminal) {
               _ingestionJobSubscription?.cancel();
               _ingestionJobSubscription = null;
@@ -522,7 +544,24 @@ class GroceryListProvider with ChangeNotifier {
           },
           onError: (error) {
             _setParsing(false);
-            _setError('Unable to track ingestion job: $error');
+            final message = error.toString();
+            final permissionDenied = message.contains('permission-denied') ||
+                message.toLowerCase().contains('insufficient permissions');
+
+            if (permissionDenied) {
+              // Gracefully degrade: keep background processing running but
+              // inform the UI that tracking is limited.
+              _activeIngestionJob = _activeIngestionJob?.copyWith(
+                status: IngestionJobStatus.processing,
+                lastError:
+                    'Processing in the background. Updates may take a moment to appear.',
+              );
+              _ingestionTrackingLimited = true;
+              notifyListeners();
+              return;
+            }
+
+            _setError('Unable to track ingestion job: $message');
           },
         );
   }

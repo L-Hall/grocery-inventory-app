@@ -108,9 +108,15 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> parseGroceryText({required String text}) async {
+  Future<Map<String, dynamic>> parseGroceryText({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
     try {
-      final data = {'text': text};
+      final data = {
+        'text': text,
+        if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+      };
 
       final response = await _dio.post('/inventory/parse/text', data: data);
 

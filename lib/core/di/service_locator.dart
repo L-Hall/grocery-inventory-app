@@ -81,6 +81,7 @@ Future<void> setupServiceLocator() async {
       ingestionJobService: getIt<IngestionJobService>(),
       uploadService: getIt<UploadService>(),
       auth: getIt<FirebaseAuth>(),
+      storageService: getIt<StorageService>(),
     ),
   );
 

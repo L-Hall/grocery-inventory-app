@@ -66,6 +66,8 @@ dependencies:
   meta: ^1.16.0
   csv: ^5.0.2
   url_launcher: ^6.2.5
+  path_provider: ^2.1.4
+  share_plus: ^10.1.4
 
 dev_dependencies:
   flutter_test:

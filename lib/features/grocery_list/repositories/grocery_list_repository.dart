@@ -4,7 +4,10 @@ import '../models/ingestion_job.dart';
 import '../models/parsed_item.dart';
 
 abstract class GroceryListDataSource {
-  Future<ParseResult> parseGroceryText({required String text});
+  Future<ParseResult> parseGroceryText({
+    required String text,
+    Map<String, dynamic>? metadata,
+  });
   Future<ParseResult> parseGroceryImage({
     required String imageBase64,
     String imageType,
@@ -40,9 +43,15 @@ class GroceryListRepository implements GroceryListDataSource {
 
   // Parse natural language text into structured updates
   @override
-  Future<ParseResult> parseGroceryText({required String text}) async {
+  Future<ParseResult> parseGroceryText({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
     try {
-      final response = await _apiService.parseGroceryText(text: text);
+      final response = await _apiService.parseGroceryText(
+        text: text,
+        metadata: metadata,
+      );
 
       return ParseResult.fromJson(response);
     } catch (e) {

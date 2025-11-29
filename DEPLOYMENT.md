@@ -2,6 +2,29 @@
 
 This guide provides step-by-step instructions for deploying the Firebase backend for the Grocery Inventory App.
 
+## Firebase Hosting Deployment (Web App)
+
+Deploys the Flutter web build to Firebase Hosting and rewrites `/api/**` to the `api` Cloud Function.
+
+### Prerequisites
+- Firebase CLI installed and logged in (`firebase login`)
+- Flutter SDK installed
+- Default project already set to `helical-button-461921-v6` (see `.firebaserc`)
+
+### Build and Deploy
+```bash
+# 1) Build the Flutter web bundle
+flutter build web --release
+
+# 2) Deploy the static assets and rewrites to Hosting
+firebase deploy --only hosting
+```
+
+### Notes
+- Hosting serves files from `build/web` (see `firebase.json`).
+- Requests to `/api/**` are routed to the `api` HTTP function for same-origin calls.
+- The SPA fallback rewrites all other paths to `index.html`.
+
 ## Prerequisites
 
 - Node.js 16+ installed

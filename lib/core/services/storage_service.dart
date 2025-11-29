@@ -59,6 +59,8 @@ class StorageService {
   }
 
   // App-specific keys
+  static const String keyUnitSystem = 'unit_system';
+  static const String keyDefaultUnit = 'default_unit';
   static const String keyUserId = 'user_id';
   static const String keyUserEmail = 'user_email';
   static const String keyAuthToken = 'auth_token';

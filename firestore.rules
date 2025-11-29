@@ -197,6 +197,12 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if false;
       }
+
+      // Upload tracking (written by backend, readable by owner for status)
+      match /uploads/{uploadId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
       
       match /user_preferences/{prefDocId} {
         allow read: if isOwner(userId);

@@ -9,8 +9,10 @@ import '../../auth/providers/auth_provider.dart';
 import '../../inventory/models/view_config.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../../inventory/services/search_service.dart';
+import '../../inventory/services/csv_service.dart';
 import '../../grocery_list/providers/grocery_list_provider.dart';
 import 'user_management_screen.dart';
+import '../../../core/utils/file_downloader.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -27,7 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Preference states
   bool _notificationsEnabled = true;
   bool _lowStockAlerts = true;
-  String _defaultUnit = 'item';
+  String _unitSystem = 'metric';
   ThemeMode _themeMode = ThemeMode.system;
   List<SavedSearch> _savedSearches = const [];
   List<InventoryView> _customViews = const [];
@@ -70,14 +72,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'low_stock_alerts',
         defaultValue: true,
       );
-      final unit = _storageService.getString('default_unit');
+      final unitSystem =
+          _storageService.getString(StorageService.keyUnitSystem) ??
+          _legacyUnitSystemFallback();
       final theme = _storageService.getString('theme_mode');
 
       if (mounted) {
         setState(() {
           _notificationsEnabled = notifications;
           _lowStockAlerts = lowStock;
-          _defaultUnit = unit ?? 'item';
+          _unitSystem = unitSystem;
           _themeMode = _parseThemeMode(theme);
         });
       }
@@ -103,6 +107,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  String _legacyUnitSystemFallback() {
+    // Map any previously stored default units to a system preference.
+    final legacyUnit = _storageService.getString(StorageService.keyDefaultUnit);
+    if (legacyUnit == null) return 'metric';
+    final lower = legacyUnit.toLowerCase();
+    if (lower.contains('lb') || lower.contains('pound') || lower == 'oz') {
+      return 'imperial';
+    }
+    return 'metric';
+  }
+
   Future<void> _loadRemotePreferences() async {
     try {
       final response = await _apiService.getUserPreferences();
@@ -111,14 +126,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final customViews = response['customViews'];
 
       if (settings is Map<String, dynamic>) {
-        final remoteDefaultUnit = settings['defaultUnit'] as String?;
+        final remoteDefaultUnit = settings['unitSystem'] as String? ??
+            settings['defaultUnit'] as String?;
         final remoteNotifications = settings['notificationsEnabled'] as bool?;
         final remoteLowStock = settings['lowStockAlerts'] as bool?;
 
         if (mounted) {
           setState(() {
             if (remoteDefaultUnit != null && remoteDefaultUnit.isNotEmpty) {
-              _defaultUnit = remoteDefaultUnit;
+              _unitSystem = remoteDefaultUnit;
             }
             if (remoteNotifications != null) {
               _notificationsEnabled = remoteNotifications;
@@ -261,37 +277,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         ListTile(
           leading: const Icon(Icons.straighten),
-          title: const Text('Default Unit'),
-          subtitle: const Text('Used when no unit is specified'),
-          trailing: PopupMenuButton<String>(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _defaultUnit,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const Icon(Icons.arrow_drop_down),
-              ],
-            ),
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(value: 'item', child: Text('item')),
-              const PopupMenuItem<String>(value: 'piece', child: Text('piece')),
-              const PopupMenuItem<String>(
-                value: 'package',
-                child: Text('package'),
+          title: const Text('Preferred Units'),
+          subtitle: const Text('Tell the AI to use metric or imperial by default'),
+          trailing: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'metric',
+                label: Text('Metric'),
+                icon: Icon(Icons.speed),
               ),
-              const PopupMenuItem<String>(value: 'pound', child: Text('pound')),
-              const PopupMenuItem<String>(value: 'kg', child: Text('kilogram')),
+              ButtonSegment(
+                value: 'imperial',
+                label: Text('Imperial'),
+                icon: Icon(Icons.straighten),
+              ),
             ],
-            onSelected: (unit) async {
+            selected: {_unitSystem},
+            onSelectionChanged: (selection) async {
+              final value = selection.first;
               setState(() {
-                _defaultUnit = unit;
+                _unitSystem = value;
               });
-              await _storageService.setString('default_unit', unit);
-              _showSnackMessage('Default unit changed to $unit');
+              await _storageService.setString(
+                StorageService.keyUnitSystem,
+                value,
+              );
+              try {
+                await _apiService.updatePreferenceSettings(
+                  {'unitSystem': value},
+                );
+              } catch (_) {
+                // non-blocking: ignore failures to persist remotely
+              }
+              _showSnackMessage(
+                value == 'metric'
+                    ? 'Metric units will be used by default.'
+                    : 'Imperial units will be used by default.',
+              );
             },
           ),
         ),
@@ -711,8 +733,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _exportData() {
-    _showSnack(const SnackBar(content: Text('Export feature coming soon')));
+  Future<void> _exportData() async {
+    try {
+      final csvService = CsvService();
+      final csv = await csvService.exportInventoryToCsv();
+      await saveTextFile(
+        filename: 'grocery-inventory-export.csv',
+        content: csv,
+        mimeType: 'text/csv',
+      );
+      _showSnack(
+        const SnackBar(content: Text('CSV export ready to share/download')),
+      );
+    } catch (e) {
+      _showSnack(
+        SnackBar(
+          content: Text('Failed to export inventory: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showClearDataConfirmation() {

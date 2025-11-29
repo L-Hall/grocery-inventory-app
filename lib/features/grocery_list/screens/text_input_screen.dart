@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -9,13 +10,17 @@ import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:csv/csv.dart';
 
 import '../../../core/di/service_locator.dart';
+import '../../../core/utils/file_downloader.dart';
 import '../../analytics/models/agent_metrics.dart';
 import '../../analytics/services/agent_metrics_service.dart';
 import '../../uploads/models/upload_models.dart';
 import '../providers/grocery_list_provider.dart';
 import 'review_screen.dart';
+import '../../inventory/services/csv_service.dart';
+import '../../inventory/providers/inventory_provider.dart';
 
 class TextInputScreen extends StatefulWidget {
   const TextInputScreen({super.key});
@@ -32,6 +37,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
   bool _isSpeechAvailable = false;
   bool _isListening = false;
   String _interimTranscript = '';
+  String? _lastInventoryRefreshJobId;
+  Timer? _refreshTimer;
 
   // Input mode state
   InputMode _inputMode = InputMode.text;
@@ -66,6 +73,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     _speechToText.cancel();
     _textController.dispose();
     _focusNode.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -462,6 +470,14 @@ class _TextInputScreenState extends State<TextInputScreen> {
                 ),
               ),
             ),
+            if (_inputMode == InputMode.file) ...[
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: _downloadCsvTemplate,
+                icon: const Icon(Icons.download),
+                label: const Text('Download CSV template'),
+              ),
+            ],
           ],
         ),
       ),
@@ -615,6 +631,56 @@ class _TextInputScreenState extends State<TextInputScreen> {
     }
   }
 
+  Future<void> _downloadCsvTemplate() async {
+    final headers = CsvService.defaultHeaders;
+    final sampleRows = [
+      [
+        'semi-skimmed milk',
+        '2',
+        'litre',
+        'dairy',
+        'fridge',
+        '1',
+        '2025-12-31',
+        'organic'
+      ],
+      [
+        'brown rice',
+        '1',
+        'kg',
+        'dry goods',
+        'pantry',
+        '0',
+        '',
+        'wholegrain'
+      ],
+    ];
+    final csvContent =
+        const ListToCsvConverter().convert([headers, ...sampleRows]);
+
+    try {
+      await saveTextFile(
+        filename: 'grocery-template.csv',
+        content: csvContent,
+        mimeType: 'text/csv',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template CSV downloaded.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to download template: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   bool _isPreviewableImage(String fileName) {
     final lower = fileName.toLowerCase();
     return lower.endsWith('.jpg') ||
@@ -647,6 +713,32 @@ class _TextInputScreenState extends State<TextInputScreen> {
     }
   }
 
+  void _scheduleAutoRefresh(GroceryListProvider provider) {
+    // If there is no active ingestion job, cancel any pending refresh timer.
+    if (provider.activeIngestionJob == null) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+      return;
+    }
+
+    // If we already scheduled a refresh for this job, skip.
+    final currentJobId = provider.activeIngestionJob?.id;
+    if (_refreshTimer != null && _lastInventoryRefreshJobId == currentJobId) {
+      return;
+    }
+
+    // Schedule a single refresh to pull latest inventory in case tracking is
+    // limited or delayed.
+    _refreshTimer?.cancel();
+    _lastInventoryRefreshJobId = currentJobId;
+    _refreshTimer = Timer(const Duration(seconds: 12), () {
+      final inventoryProvider =
+          Provider.of<InventoryProvider>(context, listen: false);
+      inventoryProvider.loadInventory(refresh: true);
+      inventoryProvider.loadStats();
+    });
+  }
+
   String _getActionText() {
     switch (_inputMode) {
       case InputMode.camera:
@@ -663,6 +755,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildProcessSection(ThemeData theme) {
     return Consumer<GroceryListProvider>(
       builder: (context, groceryProvider, _) {
+        _scheduleAutoRefresh(groceryProvider);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -978,6 +1071,11 @@ class _TextInputScreenState extends State<TextInputScreen> {
     if (result == null) return;
 
     final file = result.files.single;
+    final resolvedFileName = _resolveFileName(
+      // On web, accessing path throws; rely on provided name instead.
+      path: kIsWeb ? null : file.path,
+      name: file.name,
+    );
     Uint8List? bytes = file.bytes;
 
     if (bytes == null) {
@@ -998,7 +1096,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
     await _processPickedFile(
       bytes: bytes,
-      fileName: _resolveFileName(path: file.path, name: file.name),
+      fileName: resolvedFileName,
     );
   }
 
@@ -1174,6 +1272,10 @@ class _TextInputScreenState extends State<TextInputScreen> {
       message = snippet != null
           ? 'Hang tight while we process $snippet'
           : 'Hang tight while we process your update.';
+      if (provider.ingestionTrackingLimited) {
+        message =
+            'Processing in the background. Updates may take a moment to appear.';
+      }
     } else if (isSuccess) {
       message =
           job.resultSummary ??
@@ -1188,6 +1290,18 @@ class _TextInputScreenState extends State<TextInputScreen> {
         : isSuccess
         ? Icons.check_circle
         : Icons.error_outline;
+
+    // Refresh inventory once per completed job so users see updates without
+    // manual reloads.
+    if (isSuccess &&
+        job.id.isNotEmpty &&
+        _lastInventoryRefreshJobId != job.id) {
+      _lastInventoryRefreshJobId = job.id;
+      final inventoryProvider =
+          Provider.of<InventoryProvider>(context, listen: false);
+      inventoryProvider.loadInventory(refresh: true);
+      inventoryProvider.loadStats();
+    }
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1216,6 +1330,17 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   onPressed: provider.dismissIngestionJobStatus,
                   style: TextButton.styleFrom(foregroundColor: onColor),
                   child: const Text('Dismiss'),
+                ),
+              if (provider.ingestionTrackingLimited && isProcessing)
+                TextButton(
+                  onPressed: () {
+                    final inventoryProvider =
+                        Provider.of<InventoryProvider>(context, listen: false);
+                    inventoryProvider.loadInventory(refresh: true);
+                    inventoryProvider.loadStats();
+                  },
+                  style: TextButton.styleFrom(foregroundColor: onColor),
+                  child: const Text('Refresh now'),
                 ),
             ],
           ),

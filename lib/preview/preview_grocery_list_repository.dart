@@ -47,7 +47,10 @@ class PreviewGroceryListRepository implements GroceryListDataSource {
   final _random = Random(42);
 
   @override
-  Future<ParseResult> parseGroceryText({required String text}) async {
+  Future<ParseResult> parseGroceryText({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
       return ParseResult(
