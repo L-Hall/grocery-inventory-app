@@ -15,6 +15,7 @@ import '../../features/grocery_list/services/ingestion_job_service.dart';
 import '../../features/onboarding/providers/onboarding_provider.dart';
 import '../../features/analytics/services/agent_metrics_service.dart';
 import '../../features/uploads/services/upload_service.dart';
+import '../theme/theme_provider.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -29,6 +30,9 @@ Future<void> setupServiceLocator() async {
   // Core services
   getIt.registerSingleton<StorageService>(
     StorageService(prefs: getIt<SharedPreferences>()),
+  );
+  getIt.registerSingleton<ThemeModeProvider>(
+    ThemeModeProvider(getIt<StorageService>()),
   );
 
   getIt.registerSingleton<ApiService>(

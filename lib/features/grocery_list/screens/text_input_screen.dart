@@ -12,6 +12,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:csv/csv.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/utils/file_downloader.dart';
 import '../../analytics/models/agent_metrics.dart';
@@ -83,34 +84,27 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Instructions card
-              _buildInstructionsCard(theme),
-
-              const SizedBox(height: 16),
-
-              // Input mode selector
-              _buildInputModeSelector(theme),
-
-              const SizedBox(height: 16),
-
-              // Input area (changes based on mode)
-              Expanded(child: _buildInputArea(theme)),
-
-              const SizedBox(height: 16),
-
-              // Process button and status
-              _buildProcessSection(theme),
-
-              const SizedBox(height: 16),
-
-              _buildAgentMetricsCard(theme),
-            ],
-          ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(AppTheme.screenPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildInstructionsCard(theme),
+                  const SizedBox(height: AppTheme.sectionSpacing),
+                  _buildInputModeSelector(theme),
+                  const SizedBox(height: AppTheme.sectionSpacing),
+                  _buildInputArea(theme),
+                  const SizedBox(height: AppTheme.sectionSpacing),
+                  _buildProcessSection(theme),
+                  const SizedBox(height: AppTheme.sectionSpacing),
+                  _buildAgentMetricsCard(theme),
+                  const SizedBox(height: AppTheme.sectionSpacing),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -183,66 +177,43 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildInputModeSelector(ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          _buildModeButton(InputMode.text, Icons.text_fields, 'Text', theme),
-          _buildModeButton(InputMode.camera, Icons.camera_alt, 'Camera', theme),
-          _buildModeButton(
-            InputMode.gallery,
-            Icons.photo_library,
-            'Gallery',
-            theme,
-          ),
-          _buildModeButton(InputMode.file, Icons.upload_file, 'File', theme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModeButton(
-    InputMode mode,
-    IconData icon,
-    String label,
-    ThemeData theme,
-  ) {
-    final isSelected = _inputMode == mode;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _selectInputMode(mode),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isSelected
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurfaceVariant,
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.contentPadding),
+        child: SegmentedButton<InputMode>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment<InputMode>(
+              value: InputMode.text,
+              label: Text('Text'),
+              icon: Icon(Icons.text_fields),
+            ),
+            ButtonSegment<InputMode>(
+              value: InputMode.camera,
+              label: Text('Camera'),
+              icon: Icon(Icons.camera_alt),
+            ),
+            ButtonSegment<InputMode>(
+              value: InputMode.gallery,
+              label: Text('Gallery'),
+              icon: Icon(Icons.photo_library),
+            ),
+            ButtonSegment<InputMode>(
+              value: InputMode.file,
+              label: Text('File'),
+              icon: Icon(Icons.upload_file),
+            ),
+          ],
+          selected: {_inputMode},
+          onSelectionChanged: (selection) =>
+              _selectInputMode(selection.first),
+          style: ButtonStyle(
+            shape: WidgetStateProperty.all(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radius12),
               ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: isSelected
-                      ? theme.colorScheme.onPrimary
-                      : theme.colorScheme.onSurfaceVariant,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -263,108 +234,110 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildTextInput(ThemeData theme) {
     return Consumer<GroceryListProvider>(
       builder: (context, groceryProvider, _) {
-        return Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.colorScheme.outline, width: 1),
-            borderRadius: BorderRadius.circular(12),
+        return Card(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radius12),
           ),
-          child: Column(
-            children: [
-              // Input field
-              Expanded(
-                child: TextField(
-                  controller: _textController,
-                  focusNode: _focusNode,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  style: theme.textTheme.bodyLarge,
-                  decoration: InputDecoration(
-                    hintText:
-                        'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
-                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.7,
+          color: theme.colorScheme.surface,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.contentPadding),
+            child: Column(
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 220, maxHeight: 480),
+                  child: TextField(
+                    controller: _textController,
+                    focusNode: _focusNode,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    style: theme.textTheme.bodyLarge,
+                    decoration: InputDecoration(
+                      hintText:
+                          'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
+                      hintStyle: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                        height: 1.5,
                       ),
-                      height: 1.5,
+                      border: InputBorder.none,
+                      contentPadding:
+                          const EdgeInsets.all(AppTheme.screenPadding),
                     ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(16),
+                    onChanged: (text) {
+                      groceryProvider.setCurrentInputText(text);
+                    },
                   ),
-                  onChanged: (text) {
-                    // Save text to provider to preserve state
-                    groceryProvider.setCurrentInputText(text);
-                  },
                 ),
-              ),
 
-              // Action bar
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.3,
+                // Action bar
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: AppTheme.contentPadding),
+                  padding: const EdgeInsets.all(AppTheme.contentPadding),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(AppTheme.radius12),
                   ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      '${_textController.text.length} characters',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                  child: Row(
+                    children: [
+                      Text(
+                        '${_textController.text.length} characters',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    Wrap(
-                      spacing: 8,
-                      runAlignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (_textController.text.isNotEmpty)
+                      const Spacer(),
+                      Wrap(
+                        spacing: 8,
+                        runAlignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (_textController.text.isNotEmpty)
+                            TextButton.icon(
+                              onPressed: () {
+                                _textController.clear();
+                                groceryProvider.setCurrentInputText('');
+                              },
+                              icon: const Icon(Icons.clear, size: 18),
+                              label: const Text('Clear'),
+                              style: TextButton.styleFrom(
+                                foregroundColor:
+                                    theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           TextButton.icon(
-                            onPressed: () {
-                              _textController.clear();
-                              groceryProvider.setCurrentInputText('');
-                            },
-                            icon: const Icon(Icons.clear, size: 18),
-                            label: const Text('Clear'),
+                            onPressed: _handlePaste,
+                            icon: const Icon(Icons.content_paste, size: 18),
+                            label: const Text('Paste'),
                             style: TextButton.styleFrom(
-                              foregroundColor:
-                                  theme.colorScheme.onSurfaceVariant,
+                              foregroundColor: theme.colorScheme.primary,
                             ),
                           ),
-                        TextButton.icon(
-                          onPressed: _handlePaste,
-                          icon: const Icon(Icons.content_paste, size: 18),
-                          label: const Text('Paste'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.primary,
+                          FilledButton.icon(
+                            onPressed: _toggleListening,
+                            icon: Icon(
+                              _isListening ? Icons.mic_off : Icons.mic_none,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _isListening ? 'Stop dictation' : 'Dictate',
+                            ),
                           ),
-                        ),
-                        FilledButton.icon(
-                          onPressed: _toggleListening,
-                          icon: Icon(
-                            _isListening ? Icons.mic_off : Icons.mic_none,
-                            size: 18,
-                          ),
-                          label: Text(
-                            _isListening ? 'Stop dictation' : 'Dictate',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (_isListening || _interimTranscript.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _buildDictationBanner(theme),
+                if (_isListening || _interimTranscript.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _buildDictationBanner(theme),
+                ],
               ],
-            ],
+            ),
           ),
         );
       },
@@ -422,63 +395,56 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(
-          color: theme.colorScheme.outline,
-          width: 1,
-          style: BorderStyle.solid,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppTheme.radius12),
+        color: theme.colorScheme.surface,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: InkWell(
         onTap: _handleImageSelection,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _getPlaceholderIcon(),
-              size: 64,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _getPlaceholderText(),
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+        borderRadius: BorderRadius.circular(AppTheme.radius12),
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.sectionSpacing),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _getPlaceholderIcon(),
+                size: 64,
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getPlaceholderSubtext(),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.7,
+              const SizedBox(height: 16),
+              Text(
+                _getPlaceholderText(),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _handleImageSelection,
-              icon: Icon(_getActionIcon()),
-              label: Text(_getActionText()),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+              const SizedBox(height: 8),
+              Text(
+                _getPlaceholderSubtext(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.7,
+                  ),
                 ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            if (_inputMode == InputMode.file) ...[
-              const SizedBox(height: 12),
-              TextButton.icon(
-                onPressed: _downloadCsvTemplate,
-                icon: const Icon(Icons.download),
-                label: const Text('Download CSV template'),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _handleImageSelection,
+                icon: Icon(_getActionIcon()),
+                label: Text(_getActionText()),
               ),
+              if (_inputMode == InputMode.file) ...[
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: _downloadCsvTemplate,
+                  icon: const Icon(Icons.download),
+                  label: const Text('Download CSV template'),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -487,18 +453,21 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildImagePreview(ThemeData theme) {
     final fileName = _selectedFileName ?? '';
     final isPreviewableImage = _isPreviewableImage(fileName);
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outline, width: 1),
-        borderRadius: BorderRadius.circular(12),
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radius12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.radius12),
+            ),
+            child: AspectRatio(
+              aspectRatio: 3 / 2,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -506,8 +475,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                     Image.memory(_selectedFileBytes!, fit: BoxFit.contain)
                   else
                     Container(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.25),
+                      color: theme.colorScheme.surfaceVariant.withValues(
+                        alpha: 0.4,
+                      ),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -546,13 +516,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(12),
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppTheme.contentPadding),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.3,
-              ),
+              color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.2),
               borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(12),
+                bottom: Radius.circular(AppTheme.radius12),
               ),
             ),
             child: Row(
@@ -807,12 +776,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
             ],
 
             // Process button
-            ElevatedButton(
+            FilledButton(
               onPressed: _canProcess(groceryProvider) ? _handleProcess : null,
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                textStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               child: groceryProvider.isProcessing
@@ -1304,10 +1273,10 @@ class _TextInputScreenState extends State<TextInputScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppTheme.contentPadding),
       decoration: BoxDecoration(
         color: baseColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radius12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1415,10 +1384,10 @@ class _TextInputScreenState extends State<TextInputScreen> {
             (isComplete && (provider.activeIngestionJob?.isTerminal ?? false)));
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppTheme.contentPadding),
       decoration: BoxDecoration(
         color: baseColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radius12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

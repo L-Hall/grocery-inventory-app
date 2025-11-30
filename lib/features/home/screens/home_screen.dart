@@ -115,7 +115,11 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: _buildBottomNavigationBar(context),
       floatingActionButton: _currentIndex == 1
           ? null
-          : _buildFloatingActionButton(context),
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 70),
+              child: _buildFloatingActionButton(context),
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -123,33 +127,35 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
 
     return NavigationBar(
+      height: 80,
       selectedIndex: _currentIndex,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       onDestinationSelected: (index) {
         setState(() {
           _currentIndex = index;
         });
         _pageController.animateToPage(
           index,
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
         );
       },
       backgroundColor: theme.colorScheme.surface,
       surfaceTintColor: Colors.transparent,
-      destinations: [
+      destinations: const [
         NavigationDestination(
-          icon: const Icon(Icons.inventory_outlined),
-          selectedIcon: const Icon(Icons.inventory),
+          icon: Icon(Icons.inventory_outlined, size: 24),
+          selectedIcon: Icon(Icons.inventory, size: 24),
           label: 'Inventory',
         ),
         NavigationDestination(
-          icon: const Icon(Icons.add_shopping_cart_outlined),
-          selectedIcon: const Icon(Icons.add_shopping_cart),
+          icon: Icon(Icons.add_shopping_cart_outlined, size: 24),
+          selectedIcon: Icon(Icons.add_shopping_cart, size: 24),
           label: 'Add Items',
         ),
         NavigationDestination(
-          icon: const Icon(Icons.settings_outlined),
-          selectedIcon: const Icon(Icons.settings),
+          icon: Icon(Icons.settings_outlined, size: 24),
+          selectedIcon: Icon(Icons.settings, size: 24),
           label: 'Settings',
         ),
       ],

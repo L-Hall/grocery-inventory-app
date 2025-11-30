@@ -11,6 +11,7 @@ import 'features/inventory/providers/inventory_provider.dart';
 import 'features/inventory/screens/inventory_screen.dart';
 import 'features/grocery_list/screens/text_input_screen.dart';
 import 'features/onboarding/providers/onboarding_provider.dart';
+import 'core/theme/theme_provider.dart';
 import 'firebase_options.dart';
 import 'preview/preview_inventory_repository.dart';
 import 'preview/preview_grocery_list_repository.dart';
@@ -58,14 +59,16 @@ class GroceryInventoryApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => getIt<auth.AuthProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<InventoryProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<GroceryListProvider>()),
+        ChangeNotifierProvider(create: (_) => getIt<ThemeModeProvider>()),
       ],
-      child: Consumer<auth.AuthProvider>(
-        builder: (context, authProvider, _) {
+      child: Consumer2<auth.AuthProvider, ThemeModeProvider>(
+        builder: (context, authProvider, themeProvider, _) {
           return MaterialApp(
             title: 'Grocery Inventory',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
-            themeMode: ThemeMode.light,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
             home: const AuthWrapper(),
           );
         },
@@ -94,7 +97,8 @@ class InventoryPreviewApp extends StatelessWidget {
         title: 'Inventory Preview',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        themeMode: ThemeMode.light,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
         home: const PreviewNavigationShell(),
       ),
     );
