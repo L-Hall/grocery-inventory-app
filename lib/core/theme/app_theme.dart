@@ -1,143 +1,115 @@
 import 'package:flutter/material.dart';
 
-/// Application-wide theming.
-/// Note: keep palette and copy aligned with UK English defaults.
+/// Application-wide theming and shared tokens.
 class AppTheme {
-  // Core palette
-  static const Color creamBackground = Color(0xFFFAF8F1);
-  static const Color roseSoft = Color(0xFFEF9696);
-  static const Color roseWarm = Color(0xFFF17F74);
-  static const Color rosePrimary = Color(0xFFDB5C5C);
-  static const Color roseDeep = Color(0xFFA85757);
-  static const Color roseWine = Color(0xFF6B3E3E);
-  static const Color peachBlush = Color(0xFFFFCDB2);
-  static const Color peachSoft = Color(0xFFFFB4A1);
+  // Palette
+  static const Color seedColor = Color(0xFFDB5C5C); // original rose primary
+  static const Color neutralBackground = Color(0xFFFAF8F1);
 
-  // Derived accents (alpha variations taken from palette foundations)
-  static const Color roseWineOutline = Color(0x336B3E3E);
-  static const Color roseWineOutlineStrong = Color(0x4D6B3E3E);
-  static const Color roseWineShadow = Color(0x206B3E3E);
-  static const Color roseWineScrim = Color(0xB36B3E3E);
+  // Spacing tokens
+  static const double screenPadding = 16;
+  static const double contentPadding = 12;
+  static const double sectionSpacing = 16;
+
+  // Shared radii
+  static const double radius12 = 12;
+  static const double radius16 = 16;
 
   static ThemeData get lightTheme {
-    final textTheme = ThemeData.light().textTheme;
-
-    final colourScheme = ColorScheme(
+    final colourScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
       brightness: Brightness.light,
-      primary: rosePrimary,
-      onPrimary: Colors.white,
-      primaryContainer: roseSoft,
-      onPrimaryContainer: roseWine,
-      secondary: peachSoft,
-      onSecondary: roseWine,
-      secondaryContainer: peachBlush,
-      onSecondaryContainer: roseWine,
-      tertiary: roseWarm,
-      onTertiary: roseWine,
-      tertiaryContainer: roseSoft,
-      onTertiaryContainer: roseWine,
-      error: roseDeep,
-      onError: Colors.white,
-      errorContainer: roseWarm,
-      onErrorContainer: roseWine,
-      surface: Colors.white,
-      onSurface: roseWine,
-      surfaceContainerHighest: peachBlush,
-      onSurfaceVariant: roseWine,
-      outline: roseWineOutline,
-      outlineVariant: roseWineOutlineStrong,
-      shadow: roseWineShadow,
-      scrim: roseWineScrim,
-      inverseSurface: roseWine,
-      onInverseSurface: creamBackground,
-      inversePrimary: roseSoft,
+    );
+    final base = ThemeData.light(useMaterial3: true);
+    final textTheme = base.textTheme.copyWith(
+      headlineSmall: base.textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: colourScheme.onSurface,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: colourScheme.onSurface,
+      ),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(
+        color: colourScheme.onSurface,
+      ),
+      bodySmall: base.textTheme.bodySmall?.copyWith(
+        color: colourScheme.onSurfaceVariant,
+      ),
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colourScheme,
-      textTheme: textTheme.copyWith(
-        headlineLarge: textTheme.headlineLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: roseWine,
-        ),
-        headlineMedium: textTheme.headlineMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: roseWine,
-        ),
-        headlineSmall: textTheme.headlineSmall?.copyWith(
-          fontWeight: FontWeight.w500,
-          color: roseWine,
-        ),
-        bodyLarge: textTheme.bodyLarge?.copyWith(color: roseWine),
-        bodyMedium: textTheme.bodyMedium?.copyWith(color: roseWine),
-      ),
+      scaffoldBackgroundColor: neutralBackground,
+      textTheme: textTheme,
       appBarTheme: AppBarTheme(
-        backgroundColor: creamBackground,
-        foregroundColor: roseWine,
+        backgroundColor: neutralBackground,
+        foregroundColor: colourScheme.onSurface,
         elevation: 0,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          color: roseWine,
-          fontWeight: FontWeight.w600,
-        ),
       ),
-      scaffoldBackgroundColor: creamBackground,
       cardTheme: CardThemeData(
         elevation: 1,
+        margin: EdgeInsets.zero,
         color: colourScheme.surface,
-        shadowColor: roseWineShadow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        surfaceTintColor: colourScheme.surfaceTint,
+        shadowColor: colourScheme.shadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius12),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius12),
+          ),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: rosePrimary,
-          foregroundColor: Colors.white,
-          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
+            borderRadius: BorderRadius.circular(radius12),
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: rosePrimary,
-          side: const BorderSide(color: rosePrimary),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(radius12),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: rosePrimary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(radius12),
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: creamBackground,
+        fillColor: colourScheme.surfaceVariant,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: roseWineOutline),
+          borderRadius: BorderRadius.circular(radius12),
+          borderSide: BorderSide(color: colourScheme.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: roseWineOutline),
+          borderRadius: BorderRadius.circular(radius12),
+          borderSide: BorderSide(color: colourScheme.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: rosePrimary, width: 2),
+          borderRadius: BorderRadius.circular(radius12),
+          borderSide: BorderSide(color: colourScheme.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: roseDeep, width: 1),
+          borderRadius: BorderRadius.circular(radius12),
+          borderSide: BorderSide(color: colourScheme.error, width: 1),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
@@ -145,10 +117,9 @@ class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: creamBackground,
-        surfaceTintColor: creamBackground,
-        indicatorColor: rosePrimary.withValues(alpha: 0.15),
-        height: 70,
+        backgroundColor: neutralBackground,
+        indicatorColor: colourScheme.primary.withValues(alpha: 0.12),
+        height: 76,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => textTheme.labelMedium?.copyWith(
             fontWeight: states.contains(WidgetState.selected)
@@ -157,120 +128,99 @@ class AppTheme {
           ),
         ),
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: creamBackground,
-        selectedItemColor: rosePrimary,
-        unselectedItemColor: roseWine.withValues(alpha: 0.6),
-        type: BottomNavigationBarType.fixed,
-        elevation: 8,
-      ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: rosePrimary,
-        foregroundColor: Colors.white,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colourScheme.primary,
+        foregroundColor: colourScheme.onPrimary,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: peachBlush,
-        selectedColor: rosePrimary.withValues(alpha: 0.18),
-        secondarySelectedColor: roseWarm.withValues(alpha: 0.18),
-        labelStyle: textTheme.labelMedium?.copyWith(color: roseWine),
-        secondaryLabelStyle: textTheme.labelMedium?.copyWith(
-          color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius16),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        labelStyle: textTheme.labelMedium,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: rosePrimary,
-        contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
+        backgroundColor: colourScheme.inverseSurface,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: colourScheme.onInverseSurface,
+        ),
       ),
-      dividerColor: roseWineOutline,
+      dividerColor: colourScheme.outlineVariant,
     );
   }
 
   static ThemeData get darkTheme {
-    final textTheme = ThemeData.dark().textTheme;
-
-    const darkBackground = Color(0xFF201A1A);
-    final colourScheme = ColorScheme(
+    const darkBackground = Color(0xFF191414);
+    final baseScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
       brightness: Brightness.dark,
-      primary: roseSoft,
-      onPrimary: roseWine,
-      secondary: peachSoft,
-      onSecondary: roseWine,
-      tertiary: roseWarm,
-      onTertiary: creamBackground,
-      error: roseDeep,
-      onError: creamBackground,
-      surface: Color(0xFF272020),
-      onSurface: Colors.white70,
-      surfaceContainerHighest: Color(0xFF3A2E2D),
-      onSurfaceVariant: Colors.white60,
-      outline: roseWineOutlineStrong,
-      outlineVariant: Color(0xFF3A2E2D),
-      shadow: roseWineShadow,
-      scrim: roseWineScrim,
-      inverseSurface: creamBackground,
-      onInverseSurface: roseWine,
-      inversePrimary: peachSoft,
+    );
+    final colourScheme = baseScheme.copyWith(
+      surface: const Color(0xFF201A1A),
+      surfaceVariant: const Color(0xFF2B2222),
+      background: darkBackground,
+    );
+    final base = ThemeData.dark(useMaterial3: true);
+    final textTheme = base.textTheme.copyWith(
+      headlineSmall: base.textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: colourScheme.onSurface,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: colourScheme.onSurface,
+      ),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(
+        color: colourScheme.onSurface,
+      ),
+      bodySmall: base.textTheme.bodySmall?.copyWith(
+        color: colourScheme.onSurfaceVariant,
+      ),
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colourScheme,
       scaffoldBackgroundColor: darkBackground,
-      textTheme: textTheme.copyWith(
-        headlineLarge: textTheme.headlineLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-        headlineMedium: textTheme.headlineMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-        bodyLarge: textTheme.bodyLarge?.copyWith(color: Colors.white70),
-        bodyMedium: textTheme.bodyMedium?.copyWith(color: Colors.white70),
-      ),
+      textTheme: textTheme,
       appBarTheme: AppBarTheme(
         backgroundColor: darkBackground,
-        foregroundColor: Colors.white,
+        foregroundColor: colourScheme.onSurface,
         elevation: 0,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
       ),
       cardTheme: CardThemeData(
         color: colourScheme.surface,
         elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius12),
+        ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: roseSoft,
-        foregroundColor: roseWine,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colourScheme.primary,
+        foregroundColor: colourScheme.onPrimary,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: Color(0xFF3A2E2D),
-        selectedColor: roseSoft.withValues(alpha: 0.25),
-        secondarySelectedColor: roseWarm.withValues(alpha: 0.25),
+        backgroundColor: colourScheme.surfaceVariant,
+        selectedColor: colourScheme.primary.withValues(alpha: 0.2),
         labelStyle: textTheme.labelMedium,
-        secondaryLabelStyle: textTheme.labelMedium?.copyWith(
-          color: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius16),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     );
   }
 
   // Category colours for visual organisation (UK English labels)
   static final Map<String, Color> categoryColors = {
-    'dairy': peachBlush,
-    'fruit & veg': roseSoft,
-    'meat & fish': rosePrimary,
-    'food cupboard': roseDeep,
-    'frozen': peachSoft,
-    'drinks': roseWarm,
-    'snacks': peachSoft.withValues(alpha: 0.8),
-    'bakery': peachBlush.withValues(alpha: 0.8),
-    'uncategorized': roseWine.withValues(alpha: 0.5),
+    'dairy': const Color(0xFFFFCDB2),
+    'fruit & veg': const Color(0xFFEF9696),
+    'meat & fish': const Color(0xFFDB5C5C),
+    'food cupboard': const Color(0xFFA85757),
+    'frozen': const Color(0xFFFFB4A1),
+    'drinks': const Color(0xFFF17F74),
+    'snacks': const Color(0xFFFFB4A1),
+    'bakery': const Color(0xFFFFCDB2),
+    'uncategorized': const Color(0xFF6B3E3E),
   };
 
   static Color getCategoryColor(String category) {
@@ -279,9 +229,9 @@ class AppTheme {
   }
 
   // Stock status helpers
-  static const Color stockGood = roseDeep;
-  static const Color stockLow = roseWarm;
-  static const Color stockOut = rosePrimary;
+  static const Color stockGood = Color(0xFF3D8361);
+  static const Color stockLow = Color(0xFFD4A017);
+  static const Color stockOut = Color(0xFFC44536);
 
   static Color getStockStatusColor(int quantity, int threshold) {
     if (quantity == 0) return stockOut;

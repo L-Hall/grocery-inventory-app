@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/di/service_locator.dart';
@@ -176,51 +178,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // User profile section
-                  _buildUserProfileSection(context),
-
-                  const SizedBox(height: 24),
-
-                  // App preferences section
-                  _buildAppPreferencesSection(context),
-
-                  const SizedBox(height: 24),
-
-                  // Inventory preferences section
-                  _buildInventoryPreferencesSection(context),
-
-                  const SizedBox(height: 24),
-                  if (_savedSearches.isNotEmpty) ...[
-                    _buildSavedSearchesSection(context),
-                    const SizedBox(height: 24),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(AppTheme.screenPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildUserProfileSection(context),
+                    const SizedBox(height: AppTheme.sectionSpacing),
+                    _buildAppPreferencesSection(context),
+                    const SizedBox(height: AppTheme.sectionSpacing),
+                    _buildInventoryPreferencesSection(context),
+                    const SizedBox(height: AppTheme.sectionSpacing),
+                    if (_savedSearches.isNotEmpty) ...[
+                      _buildSavedSearchesSection(context),
+                      const SizedBox(height: AppTheme.sectionSpacing),
+                    ],
+                    if (_customViews.isNotEmpty) ...[
+                      _buildCustomViewsSection(context),
+                      const SizedBox(height: AppTheme.sectionSpacing),
+                    ],
+                    _buildDataManagementSection(context),
+                    const SizedBox(height: AppTheme.sectionSpacing),
+                    _buildAboutSection(context),
+                    const SizedBox(height: AppTheme.sectionSpacing + 8),
+                    _buildSignOutSection(context),
                   ],
-                  if (_customViews.isNotEmpty) ...[
-                    _buildCustomViewsSection(context),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Data management section
-                  _buildDataManagementSection(context),
-
-                  const SizedBox(height: 24),
-
-                  // About section
-                  _buildAboutSection(context),
-
-                  const SizedBox(height: 32),
-
-                  // Sign out button
-                  _buildSignOutSection(context),
-                ],
+                ),
               ),
-            ),
+      ),
     );
   }
 
@@ -334,37 +322,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.auto_fix_high),
-          title: const Text('Smart Parsing'),
-          subtitle: const Text('AI-powered grocery text understanding'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.check_circle,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Enabled',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            'Smart parsing is handled securely on our servers. No API keys needed!',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -422,82 +379,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildAppPreferencesSection(BuildContext context) {
-    return _buildSection(
-      context,
-      title: 'App Preferences',
-      icon: Icons.tune,
-      children: [
-        ListTile(
-          leading: const Icon(Icons.palette),
-          title: const Text('Theme'),
-          subtitle: const Text('Light, Dark, or System'),
-          trailing: PopupMenuButton<ThemeMode>(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _getThemeModeName(_themeMode),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).primaryColor,
-                  ),
+    return Consumer<ThemeModeProvider>(
+      builder: (context, themeProvider, _) {
+        final currentTheme = themeProvider.themeMode;
+        return _buildSection(
+          context,
+          title: 'App Preferences',
+          icon: Icons.tune,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.palette),
+              title: const Text('Theme'),
+              subtitle: const Text('Light, Dark, or System'),
+              trailing: PopupMenuButton<ThemeMode>(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _getThemeModeName(currentTheme),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                    ),
+                    const Icon(Icons.arrow_drop_down),
+                  ],
                 ),
-                const Icon(Icons.arrow_drop_down),
-              ],
+                itemBuilder: (context) => const [
+                  PopupMenuItem<ThemeMode>(
+                    value: ThemeMode.light,
+                    child: Text('Light'),
+                  ),
+                  PopupMenuItem<ThemeMode>(
+                    value: ThemeMode.dark,
+                    child: Text('Dark'),
+                  ),
+                  PopupMenuItem<ThemeMode>(
+                    value: ThemeMode.system,
+                    child: Text('System'),
+                  ),
+                ],
+                onSelected: (themeMode) async {
+                  setState(() {
+                    _themeMode = themeMode;
+                  });
+                  await themeProvider.setThemeMode(themeMode);
+                  _showSnackMessage(
+                    'Theme changed to ${_getThemeModeName(themeMode)}',
+                  );
+                },
+              ),
             ),
-            itemBuilder: (context) => [
-              const PopupMenuItem<ThemeMode>(
-                value: ThemeMode.light,
-                child: Text('Light'),
+            ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Notifications'),
+              subtitle: const Text('Push notifications for app updates'),
+              trailing: Switch(
+                value: _notificationsEnabled,
+                onChanged: (value) async {
+                  setState(() {
+                    _notificationsEnabled = value;
+                  });
+                  await _storageService.setBool('notifications_enabled', value);
+                  _showSnackMessage(
+                    'Notifications ${value ? 'enabled' : 'disabled'}',
+                  );
+                },
               ),
-              const PopupMenuItem<ThemeMode>(
-                value: ThemeMode.dark,
-                child: Text('Dark'),
-              ),
-              const PopupMenuItem<ThemeMode>(
-                value: ThemeMode.system,
-                child: Text('System'),
-              ),
-            ],
-            onSelected: (themeMode) async {
-              setState(() {
-                _themeMode = themeMode;
-              });
-              await _storageService.setString('theme_mode', themeMode.name);
-              _showSnackMessage(
-                'Theme changed to ${_getThemeModeName(themeMode)}',
-              );
-            },
-          ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.notifications),
-          title: const Text('Notifications'),
-          subtitle: const Text('Push notifications for app updates'),
-          trailing: Switch(
-            value: _notificationsEnabled,
-            onChanged: (value) async {
-              setState(() {
-                _notificationsEnabled = value;
-              });
-              await _storageService.setBool('notifications_enabled', value);
-              _showSnackMessage(
-                'Notifications ${value ? 'enabled' : 'disabled'}',
-              );
-            },
-          ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.language),
-          title: const Text('Language'),
-          subtitle: const Text('English'),
-          trailing: const Icon(Icons.arrow_forward_ios),
-          onTap: () {
-            _showSnack(
-              const SnackBar(content: Text('Language settings coming soon')),
-            );
-          },
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -600,21 +551,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
 
     return Card(
+      margin: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.screenPadding,
+              vertical: AppTheme.contentPadding,
+            ),
             child: Row(
               children: [
-                Icon(icon, color: theme.primaryColor),
-                const SizedBox(width: 8),
+                Icon(icon, color: theme.colorScheme.primary),
+                const SizedBox(width: AppTheme.contentPadding),
                 Text(
                   title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.primaryColor,
-                  ),
+                  style: theme.textTheme.titleMedium,
                 ),
               ],
             ),
