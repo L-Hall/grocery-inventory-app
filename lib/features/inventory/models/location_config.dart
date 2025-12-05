@@ -20,9 +20,8 @@ class LocationOption {
   });
 
   Map<String, dynamic> toJson() {
-    // ignore: deprecated_member_use
-    final rgbHex =
-        color.value.toRadixString(16).padLeft(8, '0').substring(2);
+    final argb = color.toARGB32();
+    final rgbHex = argb.toRadixString(16).padLeft(8, '0').substring(2);
 
     return {
       'id': id,

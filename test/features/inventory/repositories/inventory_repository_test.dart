@@ -8,10 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeApiService extends ApiService {
   _FakeApiService({
-    required StorageService storageService,
+    required super.storageService,
     required this.locationsResponse,
     this.throwError = false,
-  }) : super(storageService: storageService);
+  });
 
   List<dynamic> locationsResponse;
   bool throwError;
