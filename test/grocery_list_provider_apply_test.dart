@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:grocery_app/features/grocery_list/models/grocery_list.dart';
-import 'package:grocery_app/features/grocery_list/models/parsed_item.dart';
-import 'package:grocery_app/features/grocery_list/models/ingestion_job.dart';
-import 'package:grocery_app/features/grocery_list/providers/grocery_list_provider.dart';
-import 'package:grocery_app/features/grocery_list/repositories/grocery_list_repository.dart';
-import 'package:grocery_app/features/inventory/models/inventory_item.dart';
+import 'package:provisioner/features/grocery_list/models/grocery_list.dart';
+import 'package:provisioner/features/grocery_list/models/parsed_item.dart';
+import 'package:provisioner/features/grocery_list/models/ingestion_job.dart';
+import 'package:provisioner/features/grocery_list/providers/grocery_list_provider.dart';
+import 'package:provisioner/features/grocery_list/repositories/grocery_list_repository.dart';
+import 'package:provisioner/features/inventory/models/inventory_item.dart';
 
 class FakeGroceryRepository implements GroceryListDataSource {
   FakeGroceryRepository({required ParseResult parseResult})
@@ -17,7 +17,10 @@ class FakeGroceryRepository implements GroceryListDataSource {
   String failureMessage = 'Failed to apply inventory updates: validation error';
 
   @override
-  Future<ParseResult> parseGroceryText({required String text}) async {
+  Future<ParseResult> parseGroceryText({
+    required String text,
+    Map<String, dynamic>? metadata,
+  }) async {
     _parseResult = _parseResult.copyWith(originalText: text);
     return _parseResult;
   }

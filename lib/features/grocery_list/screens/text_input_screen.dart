@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -968,7 +967,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
       await _speechToText.listen(
         localeId: 'en_GB',
         onResult: _onSpeechResult,
-        listenMode: stt.ListenMode.dictation,
+        listenOptions: stt.SpeechListenOptions(
+          listenMode: stt.ListenMode.dictation,
+        ),
       );
       setState(() {
         _isListening = true;
@@ -1546,7 +1547,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceVariant,
+          color: theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(

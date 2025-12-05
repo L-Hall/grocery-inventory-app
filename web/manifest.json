@@ -1,6 +1,6 @@
 {
-    "name": "grocery_app",
-    "short_name": "grocery_app",
+    "name": "Provisioner",
+    "short_name": "Provisioner",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

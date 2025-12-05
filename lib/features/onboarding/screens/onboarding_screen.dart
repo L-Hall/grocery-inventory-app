@@ -169,7 +169,7 @@ class _OnboardingSlideView extends StatelessWidget {
           height: 140,
           width: 140,
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(32),
           ),
           child: Icon(slide.icon, size: 72, color: theme.colorScheme.primary),
@@ -217,7 +217,7 @@ class _DotsIndicator extends StatelessWidget {
           decoration: BoxDecoration(
             color: isActive
                 ? theme.colorScheme.primary
-                : theme.colorScheme.primary.withOpacity(0.2),
+                : theme.colorScheme.primary.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(4),
           ),
         );

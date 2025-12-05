@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../models/category.dart' as inventory;
 import '../models/inventory_item.dart';
 import '../providers/inventory_provider.dart';
@@ -459,65 +460,65 @@ class _InventoryTableState extends State<InventoryTable> {
     }
 
     Widget actionsCell() {
-      final buttons = [
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Adjust quantity',
-          icon: const Icon(Icons.edit),
-          onPressed: widget.onEdit != null ? () => widget.onEdit!(item) : null,
-        ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Details',
-          icon: const Icon(Icons.info_outline),
-          onPressed: widget.onDetails != null
-              ? () => widget.onDetails!(item)
-              : null,
-        ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Remove',
-          icon: const Icon(Icons.delete_outline),
-          color: theme.colorScheme.error,
-          onPressed: widget.onDelete != null
-              ? () => widget.onDelete!(item)
-              : null,
-        ),
-      ];
-
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 160) {
-            return PopupMenuButton<String>(
-              tooltip: 'Actions',
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    if (widget.onEdit != null) widget.onEdit!(item);
-                    break;
-                  case 'details':
-                    if (widget.onDetails != null) widget.onDetails!(item);
-                    break;
-                  case 'remove':
-                    if (widget.onDelete != null) widget.onDelete!(item);
-                    break;
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('Adjust quantity')),
-                PopupMenuItem(value: 'details', child: Text('Details')),
-                PopupMenuItem(value: 'remove', child: Text('Remove')),
-              ],
-              icon: const Icon(Icons.more_vert),
-            );
+      return PopupMenuButton<_ActionOption>(
+        tooltip: 'Actions',
+        position: PopupMenuPosition.over,
+        onSelected: (value) async {
+          switch (value) {
+            case _ActionOption.edit:
+              if (widget.onEdit != null) widget.onEdit!(item);
+              break;
+            case _ActionOption.details:
+              if (widget.onDetails != null) widget.onDetails!(item);
+              break;
+            case _ActionOption.outOfStock:
+              await widget.provider.updateItem(
+                item,
+                newQuantity: 0,
+                action: UpdateAction.set,
+              );
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${item.name} marked out of stock')),
+              );
+              break;
+            case _ActionOption.remove:
+              if (widget.onDelete != null) widget.onDelete!(item);
+              break;
           }
-
-          return Wrap(
-            spacing: 4,
-            alignment: WrapAlignment.center,
-            children: buttons,
-          );
         },
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: _ActionOption.edit,
+            child: Text('Adjust quantity'),
+          ),
+          const PopupMenuItem(
+            value: _ActionOption.details,
+            child: Text('Details'),
+          ),
+          const PopupMenuItem(
+            value: _ActionOption.outOfStock,
+            child: Text('Mark out of stock'),
+          ),
+          PopupMenuItem(
+            value: _ActionOption.remove,
+            child: Text(
+              'Remove',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ),
+        ],
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppTheme.contentPadding,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radius12),
+            color: theme.colorScheme.surfaceContainerHighest,
+          ),
+          child: const Icon(Icons.more_vert, size: 22),
+        ),
       );
     }
 
@@ -632,6 +633,8 @@ class _StatusIndicator extends StatelessWidget {
     );
   }
 }
+
+enum _ActionOption { edit, details, outOfStock, remove }
 
 class _TagChip extends StatelessWidget {
   const _TagChip({required this.label});

@@ -195,6 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleSignOut(BuildContext context) async {
     // Show confirmation dialog
+    final messenger = ScaffoldMessenger.of(context);
+    final authProvider = context.read<AuthProvider>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -216,12 +218,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     if (confirmed == true) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.signOut();
 
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Signed out successfully'),
           backgroundColor: Colors.green,

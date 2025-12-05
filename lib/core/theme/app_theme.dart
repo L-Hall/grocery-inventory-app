@@ -3,6 +3,15 @@ import 'package:flutter/material.dart';
 /// Application-wide theming.
 /// Note: keep palette and copy aligned with UK English defaults.
 class AppTheme {
+  // Spacing tokens
+  static const double screenPadding = 16;
+  static const double contentPadding = 12;
+  static const double sectionSpacing = 16;
+
+  // Shared radii
+  static const double radius12 = 12;
+  static const double radius16 = 16;
+
   // Core palette
   static const Color creamBackground = Color(0xFFFAF8F1);
   static const Color roseSoft = Color(0xFFEF9696);

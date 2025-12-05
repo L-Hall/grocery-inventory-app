@@ -68,11 +68,18 @@ class ApiService {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      if (category != null) queryParams['category'] = category;
-      if (location != null) queryParams['location'] = location;
-      if (lowStockOnly != null)
+      if (category != null) {
+        queryParams['category'] = category;
+      }
+      if (location != null) {
+        queryParams['location'] = location;
+      }
+      if (lowStockOnly != null) {
         queryParams['lowStockOnly'] = lowStockOnly.toString();
-      if (search != null) queryParams['search'] = search;
+      }
+      if (search != null) {
+        queryParams['search'] = search;
+      }
 
       final response = await _dio.get(
         '/inventory',

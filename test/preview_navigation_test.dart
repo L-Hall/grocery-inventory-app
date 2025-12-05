@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:grocery_app/core/theme/app_theme.dart';
-import 'package:grocery_app/features/grocery_list/providers/grocery_list_provider.dart';
-import 'package:grocery_app/features/inventory/providers/inventory_provider.dart';
-import 'package:grocery_app/main.dart';
-import 'package:grocery_app/preview/preview_grocery_list_repository.dart';
-import 'package:grocery_app/preview/preview_inventory_repository.dart';
+import 'package:provisioner/core/theme/app_theme.dart';
+import 'package:provisioner/features/grocery_list/providers/grocery_list_provider.dart';
+import 'package:provisioner/features/inventory/providers/inventory_provider.dart';
+import 'package:provisioner/main.dart';
+import 'package:provisioner/preview/preview_grocery_list_repository.dart';
+import 'package:provisioner/preview/preview_inventory_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

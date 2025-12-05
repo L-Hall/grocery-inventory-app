@@ -49,7 +49,7 @@ class InventoryItem {
       daysUntilExpiration! >= 0;
 
   factory InventoryItem.fromJson(Map<String, dynamic> json) {
-    DateTime? _parseDate(dynamic value) {
+    DateTime? parseDate(dynamic value) {
       if (value == null) return null;
       if (value is DateTime) return value;
       if (value is Timestamp) return value.toDate();
@@ -66,10 +66,10 @@ class InventoryItem {
       location: json['location'] as String?,
       size: json['size'] as String?,
       lowStockThreshold: (json['lowStockThreshold'] as num).toDouble(),
-      expirationDate: _parseDate(json['expirationDate']),
+      expirationDate: parseDate(json['expirationDate']),
       notes: json['notes'] as String?,
-      createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
-      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now(),
+      createdAt: parseDate(json['createdAt']) ?? DateTime.now(),
+      updatedAt: parseDate(json['updatedAt']) ?? DateTime.now(),
     );
   }
 

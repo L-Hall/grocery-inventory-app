@@ -158,8 +158,8 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
                       ),
                       validator: (value) {
                         final quantity = double.tryParse(value ?? '');
-                        if (quantity == null || quantity <= 0) {
-                          return 'Enter a valid quantity';
+                        if (quantity == null || quantity < 0) {
+                          return 'Enter 0 or a positive quantity';
                         }
                         return null;
                       },
@@ -168,7 +168,8 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _units.contains(_unit) ? _unit : _units.first,
+                      initialValue:
+                          _units.contains(_unit) ? _unit : _units.first,
                       items: _units
                           .map(
                             (unit) => DropdownMenuItem(
@@ -194,7 +195,7 @@ class _InventoryItemEditorSheetState extends State<_InventoryItemEditorSheet> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _category,
+                initialValue: _category,
                 items: categories
                     .map(
                       (category) => DropdownMenuItem(

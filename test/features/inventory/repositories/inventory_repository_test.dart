@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:grocery_app/core/services/api_service.dart';
-import 'package:grocery_app/core/services/storage_service.dart';
-import 'package:grocery_app/features/inventory/models/location_config.dart';
-import 'package:grocery_app/features/inventory/repositories/inventory_repository.dart';
+import 'package:provisioner/core/services/api_service.dart';
+import 'package:provisioner/core/services/storage_service.dart';
+import 'package:provisioner/features/inventory/models/location_config.dart';
+import 'package:provisioner/features/inventory/repositories/inventory_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeApiService extends ApiService {
