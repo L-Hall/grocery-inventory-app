@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/di/service_locator.dart';
 import '../../auth/services/auth_service.dart';
+import '../../household/services/household_service.dart';
 
 enum AuditAction {
   create,
@@ -97,17 +98,28 @@ class AuditLog {
 class AuditService {
   final FirebaseFirestore _firestore;
   final AuthService _authService;
+  final HouseholdService _householdService;
 
-  AuditService({FirebaseFirestore? firestore, AuthService? authService})
-    : _firestore = firestore ?? getIt<FirebaseFirestore>(),
-      _authService = authService ?? getIt<AuthService>();
+  AuditService({
+    FirebaseFirestore? firestore,
+    AuthService? authService,
+    HouseholdService? householdService,
+  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+        _authService = authService ?? getIt<AuthService>(),
+        _householdService = householdService ?? getIt<HouseholdService>();
 
-  CollectionReference<Map<String, dynamic>> get _auditCollection {
+  Future<CollectionReference<Map<String, dynamic>>> _auditCollection() async {
     final userId = _authService.currentUser?.uid;
     if (userId == null) {
       throw Exception('User not authenticated');
     }
-    return _firestore.collection('users').doc(userId).collection('audit_logs');
+    final householdId =
+        await _householdService.getOrCreateHouseholdForCurrentUser();
+    debugPrint('[audit] using household $householdId for audit_logs');
+    return _firestore
+        .collection('households')
+        .doc(householdId)
+        .collection('audit_logs');
   }
 
   Future<void> logChange({
@@ -135,7 +147,8 @@ class AuditService {
         metadata: metadata,
       );
 
-      await _auditCollection.add(log.toJson());
+      final collection = await _auditCollection();
+      await collection.add(log.toJson());
 
       await _cleanupOldLogs();
     } catch (e) {
@@ -177,7 +190,8 @@ class AuditService {
         metadata: metadata,
       );
 
-      await _auditCollection.add(log.toJson());
+      final collection = await _auditCollection();
+      await collection.add(log.toJson());
 
       await _cleanupOldLogs();
     } catch (e) {
@@ -245,11 +259,8 @@ class AuditService {
 
   Future<List<AuditLog>> getLogsForItem(String itemId, {int limit = 50}) async {
     try {
-      final snapshot = await _auditCollection
-          .where('itemId', isEqualTo: itemId)
-          .orderBy('timestamp', descending: true)
-          .limit(limit)
-          .get();
+      final collection = await _auditCollection();
+      final snapshot = await collection.where('itemId', isEqualTo: itemId).orderBy('timestamp', descending: true).limit(limit).get();
 
       return snapshot.docs.map((doc) {
         final data = doc.data();
@@ -263,10 +274,8 @@ class AuditService {
 
   Future<List<AuditLog>> getRecentLogs({int limit = 100}) async {
     try {
-      final snapshot = await _auditCollection
-          .orderBy('timestamp', descending: true)
-          .limit(limit)
-          .get();
+      final collection = await _auditCollection();
+      final snapshot = await collection.orderBy('timestamp', descending: true).limit(limit).get();
 
       return snapshot.docs.map((doc) {
         final data = doc.data();
@@ -283,11 +292,8 @@ class AuditService {
     int limit = 100,
   }) async {
     try {
-      final snapshot = await _auditCollection
-          .where('action', isEqualTo: action.name)
-          .orderBy('timestamp', descending: true)
-          .limit(limit)
-          .get();
+      final collection = await _auditCollection();
+      final snapshot = await collection.where('action', isEqualTo: action.name).orderBy('timestamp', descending: true).limit(limit).get();
 
       return snapshot.docs.map((doc) {
         final data = doc.data();
@@ -305,7 +311,8 @@ class AuditService {
     int limit = 100,
   }) async {
     try {
-      final snapshot = await _auditCollection
+      final collection = await _auditCollection();
+      final snapshot = await collection
           .where(
             'timestamp',
             isGreaterThanOrEqualTo: startDate.toIso8601String(),
@@ -364,7 +371,8 @@ class AuditService {
     try {
       final cutoffDate = DateTime.now().subtract(const Duration(days: 90));
 
-      final snapshot = await _auditCollection
+      final collection = await _auditCollection();
+      final snapshot = await collection
           .where('timestamp', isLessThan: cutoffDate.toIso8601String())
           .limit(100)
           .get();
@@ -382,16 +390,18 @@ class AuditService {
   }
 
   Stream<List<AuditLog>> streamRecentLogs({int limit = 50}) {
-    return _auditCollection
-        .orderBy('timestamp', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            return AuditLog.fromJson(data);
-          }).toList();
-        });
+    return Stream.fromFuture(_auditCollection()).asyncExpand(
+      (collection) => collection
+          .orderBy('timestamp', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((snapshot) {
+            return snapshot.docs.map((doc) {
+              final data = doc.data();
+              data['id'] = doc.id;
+              return AuditLog.fromJson(data);
+            }).toList();
+          }),
+    );
   }
 }

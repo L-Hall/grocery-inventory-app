@@ -14,6 +14,7 @@ import '../../inventory/services/search_service.dart';
 import '../../inventory/services/csv_service.dart';
 import '../../grocery_list/providers/grocery_list_provider.dart';
 import 'user_management_screen.dart';
+import '../../household/screens/household_screen.dart';
 import '../../../core/utils/file_downloader.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -250,6 +251,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: _openUserManagement,
+            ),
+            ListTile(
+              leading: const Icon(Icons.home_work_outlined),
+              title: const Text('Household & sharing'),
+              subtitle: const Text(
+                'Invite family or join a shared pantry',
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _openHouseholdSharing,
             ),
           ],
         );
@@ -788,6 +798,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openUserManagement() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const UserManagementScreen()),
+    );
+  }
+
+  void _openHouseholdSharing() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const HouseholdScreen()),
     );
   }
 

@@ -68,4 +68,5 @@ class StorageService {
   static const String keyNotificationsEnabled = 'notifications_enabled';
   static const String keyFirstLaunch = 'first_launch';
   static const String keyOnboardingComplete = 'onboarding_complete';
+  static const String keyHouseholdId = 'household_id';
 }

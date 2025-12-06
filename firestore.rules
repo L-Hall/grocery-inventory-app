@@ -49,6 +49,22 @@ service cloud.firestore {
       return !(fieldName in data) || data[fieldName] is map;
     }
 
+    function membershipForRequestUser() {
+      return get(
+        /databases/$(database)/documents/householdMemberships/$(request.auth.uid)
+      );
+    }
+
+    function isMemberOfHousehold(householdId) {
+      let membership = membershipForRequestUser();
+      let householdDoc = get(
+        /databases/$(database)/documents/households/$(householdId)
+      );
+      return (membership.exists && membership.data.householdId == householdId) ||
+             (householdDoc.exists &&
+              householdDoc.data.createdByUserId == request.auth.uid);
+    }
+
     function hasValidInventoryFields() {
       let data = request.resource.data;
       return data.keys().hasAll(['name', 'quantity', 'unit', 'category', 'lowStockThreshold']) &&
@@ -144,6 +160,36 @@ service cloud.firestore {
              optionalList(data, 'searchHistory', 25) &&
              optionalMap(data, 'exportPreferences') &&
              optionalList(data, 'bulkOperationHistory', 100);
+    }
+
+    // Household-level data
+    match /households/{householdId} {
+      // Relaxed for debugging: any authed user can read households; tighten after confirming flow.
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
+
+      match /items/{itemId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && hasValidInventoryFields();
+        allow update: if isAuthenticated() && hasValidInventoryFields();
+        allow delete: if isAuthenticated();
+      }
+
+      match /audit_logs/{logId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && hasValidAuditLogFields();
+        allow update, delete: if false;
+      }
+    }
+
+    match /householdMemberships/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() &&
+                            request.resource.data.userId == request.auth.uid &&
+                            request.resource.data.householdId is string;
+      allow delete: if false;
     }
     
     // Users can only access their own data

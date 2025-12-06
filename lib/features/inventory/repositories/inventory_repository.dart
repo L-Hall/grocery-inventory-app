@@ -1,20 +1,39 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:meta/meta.dart';
 
+import '../../../core/di/service_locator.dart';
 import '../../../core/services/api_service.dart';
+import '../../household/services/household_service.dart';
+import '../models/category.dart' as inventory;
 import '../models/inventory_item.dart';
 import '../models/location_config.dart';
-import '../models/category.dart' as inventory;
+import '../services/inventory_service.dart';
 
 class InventoryRepository {
   final ApiService? _apiService;
+  final InventoryService? _inventoryService;
+  final HouseholdService? _householdService;
 
-  InventoryRepository(ApiService apiService) : _apiService = apiService;
+  InventoryRepository(
+    ApiService apiService, {
+    InventoryService? inventoryService,
+    HouseholdService? householdService,
+  })  : _apiService = apiService,
+        _inventoryService =
+            inventoryService ?? InventoryService(householdService: householdService),
+        _householdService = householdService ?? getIt<HouseholdService>();
 
   @protected
-  InventoryRepository.preview() : _apiService = null;
+  InventoryRepository.preview()
+      : _apiService = null,
+        _inventoryService = null,
+        _householdService = null;
 
   @protected
   ApiService get api => _apiService!;
+
+  bool get _useFirestore =>
+      _inventoryService != null && _householdService != null;
 
   // Get inventory items with optional filters
   Future<List<InventoryItem>> getInventory({
@@ -23,6 +42,21 @@ class InventoryRepository {
     bool? lowStockOnly,
     String? search,
   }) async {
+    if (_useFirestore) {
+      try {
+        final items = await _inventoryService!.getAllItems();
+        return _filterItems(
+          items,
+          category: category,
+          location: location,
+          lowStockOnly: lowStockOnly,
+          search: search,
+        );
+      } catch (e) {
+        throw InventoryRepositoryException('Failed to fetch inventory: $e');
+      }
+    }
+
     try {
       final response = await api.getInventory(
         category: category,
@@ -41,6 +75,11 @@ class InventoryRepository {
 
   // Update inventory items
   Future<void> updateInventory(List<InventoryUpdate> updates) async {
+    if (_useFirestore) {
+      await _applyUpdatesToFirestore(updates);
+      return;
+    }
+
     try {
       final updateData = updates.map((update) => update.toJson()).toList();
       final response = await api.updateInventory(updates: updateData);
@@ -81,6 +120,23 @@ class InventoryRepository {
   Future<List<InventoryItem>> getLowStockItems({
     bool includeOutOfStock = true,
   }) async {
+    if (_useFirestore) {
+      try {
+        final items = await getInventory();
+        return items.where((item) {
+          if (includeOutOfStock) {
+            return item.stockStatus == StockStatus.low ||
+                item.stockStatus == StockStatus.out;
+          }
+          return item.stockStatus == StockStatus.low;
+        }).toList();
+      } catch (e) {
+        throw InventoryRepositoryException(
+          'Failed to fetch low stock items: $e',
+        );
+      }
+    }
+
     try {
       final response = await api.getLowStockItems(
         includeOutOfStock: includeOutOfStock,
@@ -144,6 +200,14 @@ class InventoryRepository {
 
   // Get single item by ID (search by name as ID fallback)
   Future<InventoryItem?> getItemById(String id) async {
+    if (_useFirestore) {
+      try {
+        return await _inventoryService!.getItemById(id);
+      } catch (_) {
+        // Fall through to name search
+      }
+    }
+
     try {
       final items = await getInventory(search: id);
       return items.isNotEmpty ? items.first : null;
@@ -244,6 +308,101 @@ class InventoryRepository {
     }
     return counts;
   }
+
+  List<InventoryItem> _filterItems(
+    List<InventoryItem> items, {
+    String? category,
+    String? location,
+    bool? lowStockOnly,
+    String? search,
+  }) {
+    var filtered = List<InventoryItem>.from(items);
+
+    if (category != null && category.isNotEmpty) {
+      filtered =
+          filtered.where((item) => item.category.toLowerCase() == category.toLowerCase()).toList();
+    }
+
+    if (location != null && location.isNotEmpty) {
+      filtered = filtered
+          .where((item) => (item.location ?? '').toLowerCase() == location.toLowerCase())
+          .toList();
+    }
+
+    if (lowStockOnly == true) {
+      filtered = filtered
+          .where(
+            (item) =>
+                item.stockStatus == StockStatus.low ||
+                item.stockStatus == StockStatus.out,
+          )
+          .toList();
+    }
+
+    if (search != null && search.trim().isNotEmpty) {
+      final query = search.toLowerCase();
+      filtered = filtered.where((item) {
+        return item.name.toLowerCase().contains(query) ||
+            item.category.toLowerCase().contains(query) ||
+            (item.location?.toLowerCase().contains(query) ?? false) ||
+            (item.notes?.toLowerCase().contains(query) ?? false);
+      }).toList();
+    }
+
+    filtered.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return filtered;
+  }
+
+  Future<void> _applyUpdatesToFirestore(List<InventoryUpdate> updates) async {
+    if (_inventoryService == null) return;
+
+    final existingItems = await _inventoryService!.getAllItems();
+    final lookup = {
+      for (final item in existingItems) item.name.toLowerCase(): item,
+    };
+
+    for (final update in updates) {
+      final key = update.name.toLowerCase();
+      final existing = lookup[key];
+      if (existing != null) {
+        final updatedQuantity = switch (update.action) {
+          UpdateAction.add => existing.quantity + update.quantity,
+          UpdateAction.subtract =>
+            (existing.quantity - update.quantity).clamp(0.0, double.infinity),
+          UpdateAction.set => update.quantity,
+        };
+
+        await _inventoryService!.updateItem(existing.id, {
+          'name': update.name,
+          'quantity': updatedQuantity,
+          'unit': update.unit ?? existing.unit,
+          'category': update.category ?? existing.category,
+          'location': update.location ?? existing.location,
+          'size': existing.size,
+          'lowStockThreshold':
+              update.lowStockThreshold ?? existing.lowStockThreshold,
+          'expirationDate': update.expirationDate ?? existing.expirationDate,
+          'notes': update.notes ?? existing.notes,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        await _inventoryService!.createItem({
+          'name': update.name,
+          'quantity': update.action == UpdateAction.subtract
+              ? 0
+              : update.quantity,
+          'unit': update.unit ?? 'unit',
+          'category': update.category ?? 'other',
+          'location': update.location,
+          'size': null,
+          'lowStockThreshold': update.lowStockThreshold ?? 1,
+          'expirationDate': update.expirationDate,
+          'notes': update.notes,
+        });
+      }
+    }
+  }
+
 }
 
 class InventoryStats {

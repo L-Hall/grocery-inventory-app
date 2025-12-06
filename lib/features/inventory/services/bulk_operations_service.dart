@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/di/service_locator.dart';
 import '../models/inventory_item.dart';
 import '../models/field_validation.dart';
 import '../../auth/services/auth_service.dart';
+import '../../household/services/household_service.dart';
 
 enum BulkOperationType { update, delete, move, categoryChange, export }
 
@@ -62,11 +64,14 @@ class BulkOperationResult {
 class BulkOperationsService {
   final FirebaseFirestore _firestore;
   final AuthService _authService;
+  final HouseholdService _householdService;
   BulkOperationsService({
     FirebaseFirestore? firestore,
     AuthService? authService,
-  }) : _firestore = firestore ?? getIt<FirebaseFirestore>(),
-       _authService = authService ?? getIt<AuthService>();
+    HouseholdService? householdService,
+  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+        _authService = authService ?? getIt<AuthService>(),
+        _householdService = householdService ?? getIt<HouseholdService>();
 
   static const int _batchSize = 500;
   final List<BulkOperation> _operationHistory = [];
@@ -93,6 +98,9 @@ class BulkOperationsService {
       if (userId == null) {
         throw Exception('User not authenticated');
       }
+      final householdId =
+          await _householdService.getOrCreateHouseholdForCurrentUser();
+      debugPrint('[bulk] household for updates: $householdId');
 
       if (validate) {
         final validationErrors = InventoryValidationRules.validateItem(changes);
@@ -117,9 +125,9 @@ class BulkOperationsService {
 
         for (final itemId in batch) {
           final docRef = _firestore
-              .collection('users')
-              .doc(userId)
-              .collection('inventory')
+              .collection('households')
+              .doc(householdId)
+              .collection('items')
               .doc(itemId);
 
           final updateData = {
@@ -188,6 +196,9 @@ class BulkOperationsService {
       if (userId == null) {
         throw Exception('User not authenticated');
       }
+      final householdId =
+          await _householdService.getOrCreateHouseholdForCurrentUser();
+      debugPrint('[bulk] household for deletes: $householdId');
 
       final batches = _createBatches(itemIds);
       int processedCount = 0;
@@ -197,9 +208,9 @@ class BulkOperationsService {
 
         for (final itemId in batch) {
           final docRef = _firestore
-              .collection('users')
-              .doc(userId)
-              .collection('inventory')
+              .collection('households')
+              .doc(householdId)
+              .collection('items')
               .doc(itemId);
 
           writeBatch.delete(docRef);
@@ -287,15 +298,18 @@ class BulkOperationsService {
       if (userId == null) {
         throw Exception('User not authenticated');
       }
+      final householdId =
+          await _householdService.getOrCreateHouseholdForCurrentUser();
+      debugPrint('[bulk] household for quantities: $householdId');
 
       int processedCount = 0;
 
       for (final itemId in itemIds) {
         try {
           final docRef = _firestore
-              .collection('users')
-              .doc(userId)
-              .collection('inventory')
+              .collection('households')
+              .doc(householdId)
+              .collection('items')
               .doc(itemId);
 
           await _firestore.runTransaction((transaction) async {

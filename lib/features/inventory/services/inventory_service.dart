@@ -1,28 +1,42 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/di/service_locator.dart';
 import '../models/inventory_item.dart';
 import '../../auth/services/auth_service.dart';
+import '../../household/services/household_service.dart';
 
 class InventoryService {
   final FirebaseFirestore _firestore;
   final AuthService _authService;
+  final HouseholdService _householdService;
 
-  InventoryService({FirebaseFirestore? firestore, AuthService? authService})
-    : _firestore = firestore ?? getIt<FirebaseFirestore>(),
-      _authService = authService ?? getIt<AuthService>();
+  InventoryService({
+    FirebaseFirestore? firestore,
+    AuthService? authService,
+    HouseholdService? householdService,
+  })  : _firestore = firestore ?? getIt<FirebaseFirestore>(),
+        _authService = authService ?? getIt<AuthService>(),
+        _householdService = householdService ?? getIt<HouseholdService>();
 
-  CollectionReference<Map<String, dynamic>> get _inventoryCollection {
+  Future<CollectionReference<Map<String, dynamic>>> _inventoryCollection() async {
     final userId = _authService.currentUser?.uid;
     if (userId == null) {
       throw Exception('User not authenticated');
     }
-    return _firestore.collection('users').doc(userId).collection('inventory');
+    final householdId =
+        await _householdService.getOrCreateHouseholdForCurrentUser();
+    debugPrint('[inventory] using household $householdId for items');
+    return _firestore
+        .collection('households')
+        .doc(householdId)
+        .collection('items');
   }
 
   Future<List<InventoryItem>> getAllItems() async {
     try {
-      final snapshot = await _inventoryCollection
+      final collection = await _inventoryCollection();
+      final snapshot = await collection
           .orderBy('updatedAt', descending: true)
           .get();
 
@@ -41,7 +55,8 @@ class InventoryService {
       data['createdAt'] = FieldValue.serverTimestamp();
       data['updatedAt'] = FieldValue.serverTimestamp();
 
-      final docRef = await _inventoryCollection.add(data);
+      final collection = await _inventoryCollection();
+      final docRef = await collection.add(data);
       final snapshot = await docRef.get();
       final itemData = snapshot.data()!;
       itemData['id'] = docRef.id;
@@ -55,7 +70,8 @@ class InventoryService {
   Future<void> updateItem(String id, Map<String, dynamic> data) async {
     try {
       data['updatedAt'] = FieldValue.serverTimestamp();
-      await _inventoryCollection.doc(id).update(data);
+      final collection = await _inventoryCollection();
+      await collection.doc(id).update(data);
     } catch (e) {
       throw Exception('Failed to update item: $e');
     }
@@ -63,28 +79,32 @@ class InventoryService {
 
   Future<void> deleteItem(String id) async {
     try {
-      await _inventoryCollection.doc(id).delete();
+      final collection = await _inventoryCollection();
+      await collection.doc(id).delete();
     } catch (e) {
       throw Exception('Failed to delete item: $e');
     }
   }
 
   Stream<List<InventoryItem>> streamInventory() {
-    return _inventoryCollection
-        .orderBy('updatedAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            return InventoryItem.fromJson(data);
-          }).toList();
-        });
+    return Stream.fromFuture(_inventoryCollection()).asyncExpand(
+      (collection) => collection
+          .orderBy('updatedAt', descending: true)
+          .snapshots()
+          .map((snapshot) {
+            return snapshot.docs.map((doc) {
+              final data = doc.data();
+              data['id'] = doc.id;
+              return InventoryItem.fromJson(data);
+            }).toList();
+          }),
+    );
   }
 
   Future<InventoryItem?> getItemById(String id) async {
     try {
-      final doc = await _inventoryCollection.doc(id).get();
+      final collection = await _inventoryCollection();
+      final doc = await collection.doc(id).get();
       if (!doc.exists) return null;
 
       final data = doc.data()!;
@@ -97,7 +117,8 @@ class InventoryService {
 
   Future<List<InventoryItem>> getItemsByCategory(String category) async {
     try {
-      final snapshot = await _inventoryCollection
+      final collection = await _inventoryCollection();
+      final snapshot = await collection
           .where('category', isEqualTo: category)
           .orderBy('name')
           .get();
@@ -114,7 +135,8 @@ class InventoryService {
 
   Future<List<InventoryItem>> getItemsByLocation(String location) async {
     try {
-      final snapshot = await _inventoryCollection
+      final collection = await _inventoryCollection();
+      final snapshot = await collection
           .where('location', isEqualTo: location)
           .orderBy('name')
           .get();

@@ -9,6 +9,8 @@ import '../../features/auth/providers/auth_provider.dart' as auth;
 import '../../features/auth/services/auth_service.dart';
 import '../../features/inventory/providers/inventory_provider.dart';
 import '../../features/inventory/repositories/inventory_repository.dart';
+import '../../features/household/providers/household_provider.dart';
+import '../../features/household/services/household_service.dart';
 import '../../features/grocery_list/providers/grocery_list_provider.dart';
 import '../../features/grocery_list/repositories/grocery_list_repository.dart';
 import '../../features/grocery_list/services/ingestion_job_service.dart';
@@ -59,10 +61,20 @@ Future<void> setupServiceLocator() async {
       apiService: getIt<ApiService>(),
     ),
   );
+  getIt.registerSingleton<HouseholdService>(
+    HouseholdService(
+      firestore: getIt<FirebaseFirestore>(),
+      authService: getIt<AuthService>(),
+      storageService: getIt<StorageService>(),
+    ),
+  );
 
   // Repositories
   getIt.registerSingleton<InventoryRepository>(
-    InventoryRepository(getIt<ApiService>()),
+    InventoryRepository(
+      getIt<ApiService>(),
+      householdService: getIt<HouseholdService>(),
+    ),
   );
 
   final groceryRepo = GroceryListRepository(getIt<ApiService>());
@@ -73,6 +85,12 @@ Future<void> setupServiceLocator() async {
   // Providers
   getIt.registerFactory<auth.AuthProvider>(
     () => auth.AuthProvider(getIt<AuthService>()),
+  );
+  getIt.registerFactory<HouseholdProvider>(
+    () => HouseholdProvider(
+      getIt<HouseholdService>(),
+      authService: getIt<AuthService>(),
+    ),
   );
 
   getIt.registerFactory<InventoryProvider>(

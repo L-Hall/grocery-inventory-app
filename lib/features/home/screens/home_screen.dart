@@ -6,6 +6,7 @@ import '../../inventory/screens/inventory_screen.dart';
 import '../../grocery_list/screens/text_input_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../inventory/widgets/inventory_item_editor.dart';
+import '../../household/providers/household_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +23,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final householdProvider = context.read<HouseholdProvider>();
+      if (!householdProvider.isReady && !householdProvider.isLoading) {
+        householdProvider.ensureLoaded();
+      }
+    });
   }
 
   @override
@@ -34,7 +41,54 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authProvider = Provider.of<AuthProvider>(context);
+    final householdProvider = Provider.of<HouseholdProvider>(context);
     final user = authProvider.user;
+
+    if (householdProvider.error != null) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline,
+                      color: theme.colorScheme.error, size: 64),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Household error',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    householdProvider.error ?? 'Unknown error',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: householdProvider.ensureLoaded,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (householdProvider.isLoading || !householdProvider.isReady) {
+      return const Scaffold(
+        body: SafeArea(
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

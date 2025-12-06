@@ -6,6 +6,7 @@ import 'core/di/service_locator.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart' as auth;
 import 'features/auth/screens/auth_wrapper.dart';
+import 'features/household/providers/household_provider.dart';
 import 'features/grocery_list/providers/grocery_list_provider.dart';
 import 'features/inventory/providers/inventory_provider.dart';
 import 'features/inventory/screens/inventory_screen.dart';
@@ -57,6 +58,7 @@ class GroceryInventoryApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => getIt<OnboardingProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<auth.AuthProvider>()),
+        ChangeNotifierProvider(create: (_) => getIt<HouseholdProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<InventoryProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<GroceryListProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<ThemeModeProvider>()),
