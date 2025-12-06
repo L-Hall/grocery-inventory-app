@@ -82,14 +82,17 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 110,
-          width: 110,
+          height: 120,
+          width: 120,
           child: SoftTileCard(
             child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Image.asset(
-                'assets/provisioner_app_icon.png',
-                fit: BoxFit.contain,
+              padding: const EdgeInsets.all(16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'assets/provisioner_app_icon.png',
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
           ),
