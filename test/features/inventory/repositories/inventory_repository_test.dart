@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provisioner/core/services/api_service.dart';
-import 'package:provisioner/core/services/storage_service.dart';
-import 'package:provisioner/features/inventory/models/location_config.dart';
-import 'package:provisioner/features/inventory/repositories/inventory_repository.dart';
+import 'package:sustain/core/services/api_service.dart';
+import 'package:sustain/core/services/storage_service.dart';
+import 'package:sustain/features/inventory/models/location_config.dart';
+import 'package:sustain/features/inventory/repositories/inventory_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeApiService extends ApiService {

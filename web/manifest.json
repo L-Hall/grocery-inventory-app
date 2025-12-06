@@ -1,6 +1,6 @@
 {
-    "name": "Provisioner",
-    "short_name": "Provisioner",
+    "name": "Sustain",
+    "short_name": "Sustain",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

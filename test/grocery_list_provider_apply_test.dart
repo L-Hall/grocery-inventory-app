@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:provisioner/features/grocery_list/models/grocery_list.dart';
-import 'package:provisioner/features/grocery_list/models/parsed_item.dart';
-import 'package:provisioner/features/grocery_list/models/ingestion_job.dart';
-import 'package:provisioner/features/grocery_list/providers/grocery_list_provider.dart';
-import 'package:provisioner/features/grocery_list/repositories/grocery_list_repository.dart';
-import 'package:provisioner/features/inventory/models/inventory_item.dart';
+import 'package:sustain/features/grocery_list/models/grocery_list.dart';
+import 'package:sustain/features/grocery_list/models/parsed_item.dart';
+import 'package:sustain/features/grocery_list/models/ingestion_job.dart';
+import 'package:sustain/features/grocery_list/providers/grocery_list_provider.dart';
+import 'package:sustain/features/grocery_list/repositories/grocery_list_repository.dart';
+import 'package:sustain/features/inventory/models/inventory_item.dart';
 
 class FakeGroceryRepository implements GroceryListDataSource {
   FakeGroceryRepository({required ParseResult parseResult})

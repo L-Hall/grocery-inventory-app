@@ -62,7 +62,7 @@ class GroceryInventoryApp extends StatelessWidget {
       child: Consumer<auth.AuthProvider>(
         builder: (context, authProvider, _) {
           return MaterialApp(
-            title: 'Provisioner',
+            title: 'Sustain',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             themeMode: ThemeMode.light,
@@ -91,7 +91,7 @@ class InventoryPreviewApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Provisioner Preview',
+        title: 'Sustain Preview',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         themeMode: ThemeMode.light,

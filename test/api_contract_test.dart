@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:provisioner/features/inventory/models/inventory_item.dart';
-import 'package:provisioner/features/grocery_list/models/parsed_item.dart';
-import 'package:provisioner/features/grocery_list/models/grocery_list.dart';
+import 'package:sustain/features/inventory/models/inventory_item.dart';
+import 'package:sustain/features/grocery_list/models/parsed_item.dart';
+import 'package:sustain/features/grocery_list/models/grocery_list.dart';
 
 void main() {
   group('API contract parsing', () {

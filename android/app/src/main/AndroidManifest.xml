@@ -7,7 +7,7 @@
         android:maxSdkVersion="32" />
 
     <application
-        android:label="Provisioner"
+        android:label="Sustain"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="true">
