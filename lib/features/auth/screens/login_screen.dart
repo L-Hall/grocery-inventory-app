@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../../onboarding/providers/onboarding_provider.dart';
 import 'register_screen.dart';
+import '../../../core/widgets/soft_tile_icon.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -80,25 +81,16 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildBrandHeader(ThemeData theme) {
     return Column(
       children: [
-        Container(
-          height: 96,
-          width: 96,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.shadow.withValues(alpha: 0.12),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
+        SizedBox(
+          height: 110,
+          width: 110,
+          child: SoftTileCard(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Image.asset(
+                'assets/provisioner_app_icon.png',
+                fit: BoxFit.contain,
               ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Image.asset(
-              'assets/provisioner_app_icon.png',
-              fit: BoxFit.contain,
             ),
           ),
         ),

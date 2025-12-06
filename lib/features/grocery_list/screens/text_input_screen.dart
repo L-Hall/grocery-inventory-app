@@ -12,6 +12,8 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:csv/csv.dart';
 
 import '../../../core/di/service_locator.dart';
+import '../../../core/widgets/soft_tile_icon.dart'
+    show SoftTileButton, SoftTileCard;
 import '../../../core/utils/file_downloader.dart';
 import '../../analytics/models/agent_metrics.dart';
 import '../../analytics/services/agent_metrics_service.dart';
@@ -182,11 +184,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildInputModeSelector(ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return SoftTileCard(
       padding: const EdgeInsets.all(4),
       child: Row(
         children: [
@@ -213,38 +211,37 @@ class _TextInputScreenState extends State<TextInputScreen> {
     final isSelected = _inputMode == mode;
 
     return Expanded(
-      child: GestureDetector(
-        onTap: () => _selectInputMode(mode),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isSelected
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurfaceVariant,
+      child: isSelected
+          ? SoftTileButton(
+              icon: icon,
+              label: label,
+              height: 52,
+              width: double.infinity,
+              onPressed: () => _selectInputMode(mode),
+            )
+          : OutlinedButton(
+              onPressed: () => _selectInputMode(mode),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: isSelected
-                      ? theme.colorScheme.onPrimary
-                      : theme.colorScheme.onSurfaceVariant,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 

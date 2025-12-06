@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/soft_tile_icon.dart'
+    show SoftTileIcon, SoftTileButton, SoftTileActionIcon;
 import '../providers/inventory_provider.dart';
 import '../models/inventory_item.dart';
 import '../widgets/inventory_item_editor.dart';
@@ -91,8 +93,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _FilterHeaderDelegate(
-                    minExtentHeight: 140,
-                    maxExtentHeight: 164,
+                    minExtentHeight: 210,
+                    maxExtentHeight: 230,
                     child: _buildSearchAndFilters(context, inventoryProvider),
                   ),
                 ),
@@ -180,11 +182,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inventory_outlined,
-              size: 80,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            SoftTileIcon(icon: Icons.inventory_outlined),
             const SizedBox(height: 16),
             Text(
               'No Items Yet',
@@ -271,18 +269,11 @@ class _InventoryScreenState extends State<InventoryScreen>
               spacing: 12,
               runSpacing: 8,
               children: [
-                FilledButton.icon(
-                  icon: const Icon(Icons.warning_amber_rounded),
-                  label: Text('Low stock ($lowStockCount)'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
+                SoftTileButton(
+                  icon: Icons.warning_amber_rounded,
+                  label: 'Low stock ($lowStockCount)',
+                  height: 60,
+                  tint: theme.colorScheme.error,
                   onPressed: () {
                     inventoryProvider.setLowStockFilter(true);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -294,68 +285,76 @@ class _InventoryScreenState extends State<InventoryScreen>
                   },
                 ),
                 if (inventoryProvider.categories.isNotEmpty)
-                  _FilterChipButton(
+                  SoftTileActionIcon(
+                    icon: Icons.category,
                     label: inventoryProvider.selectedCategoryFilter != null
                         ? inventoryProvider
-                                  .getCategoryById(
-                                    inventoryProvider.selectedCategoryFilter!,
-                                  )
-                                  ?.name ??
-                              'Category'
+                                .getCategoryById(
+                                  inventoryProvider.selectedCategoryFilter!,
+                                )
+                                ?.name ??
+                            'Category'
                         : 'Category',
-                    icon: Icons.category,
-                    isActive: inventoryProvider.selectedCategoryFilter != null,
-                    onSelected: (value) {
-                      inventoryProvider.setCategoryFilter(
-                        value.isEmpty ? null : value,
-                      );
-                    },
-                    items: [
-                      const PopupMenuItem(
-                        value: '',
-                        child: Text('All Categories'),
-                      ),
-                      ...inventoryProvider.categories.map(
-                        (category) => PopupMenuItem(
-                          value: category.id,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: category.colorValue,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(category.name),
-                            ],
+                    onPressed: () async {
+                      final selection = await showMenu<String>(
+                        context: context,
+                        position: const RelativeRect.fromLTRB(80, 160, 16, 0),
+                        items: [
+                          const PopupMenuItem(
+                            value: '',
+                            child: Text('All Categories'),
                           ),
-                        ),
-                      ),
-                    ],
+                          ...inventoryProvider.categories.map(
+                            (category) => PopupMenuItem(
+                              value: category.id,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: category.colorValue,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(category.name),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                      if (selection != null) {
+                        inventoryProvider
+                            .setCategoryFilter(selection.isEmpty ? null : selection);
+                      }
+                    },
                   ),
                 if (inventoryProvider.availableLocations.isNotEmpty)
-                  _FilterChipButton(
+                  SoftTileActionIcon(
+                    icon: Icons.location_on,
                     label:
                         inventoryProvider.selectedLocationFilter ?? 'Location',
-                    icon: Icons.location_on,
-                    isActive: inventoryProvider.selectedLocationFilter != null,
-                    onSelected: (value) {
-                      inventoryProvider.setLocationFilter(
-                        value.isEmpty ? null : value,
+                    onPressed: () async {
+                      final selection = await showMenu<String>(
+                        context: context,
+                        position: const RelativeRect.fromLTRB(80, 200, 16, 0),
+                        items: [
+                          const PopupMenuItem(
+                            value: '',
+                            child: Text('All Locations'),
+                          ),
+                          ...inventoryProvider.availableLocations.map(
+                            (loc) => PopupMenuItem(value: loc, child: Text(loc)),
+                          ),
+                        ],
                       );
+                      if (selection != null) {
+                        inventoryProvider
+                            .setLocationFilter(selection.isEmpty ? null : selection);
+                      }
                     },
-                    items: [
-                      const PopupMenuItem(
-                        value: '',
-                        child: Text('All Locations'),
-                      ),
-                      ...inventoryProvider.availableLocations.map(
-                        (loc) => PopupMenuItem(value: loc, child: Text(loc)),
-                      ),
-                    ],
                   ),
                 if (inventoryProvider.searchQuery.isNotEmpty ||
                     inventoryProvider.selectedCategoryFilter != null ||
@@ -383,11 +382,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.search_off,
-              size: 64,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            SoftTileIcon(icon: Icons.search_off),
             const SizedBox(height: 16),
             Text(
               'No Items Found',
@@ -467,67 +462,6 @@ class _InventoryScreenState extends State<InventoryScreen>
             child: const Text('Remove'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FilterChipButton extends StatelessWidget {
-  const _FilterChipButton({
-    required this.label,
-    required this.icon,
-    required this.onSelected,
-    required this.items,
-    this.isActive = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final void Function(String value) onSelected;
-  final List<PopupMenuEntry<String>> items;
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return PopupMenuButton<String>(
-      onSelected: onSelected,
-      itemBuilder: (context) => items,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isActive
-                ? theme.colorScheme.primary
-                : theme.colorScheme.outlineVariant,
-          ),
-          borderRadius: BorderRadius.circular(22),
-          color: isActive
-              ? theme.colorScheme.primary.withValues(alpha: 0.08)
-              : theme.colorScheme.surface,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isActive
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down, size: 16),
-          ],
-        ),
       ),
     );
   }

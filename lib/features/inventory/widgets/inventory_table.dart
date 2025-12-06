@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/widgets/soft_tile_icon.dart'
+    show SoftTileCard, SoftTileActionIcon;
 import '../../../core/theme/app_theme.dart';
 import '../models/category.dart' as inventory;
 import '../models/inventory_item.dart';
@@ -149,35 +151,33 @@ class _InventoryTableState extends State<InventoryTable> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.5,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Inventory (${_rows.length})',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: SoftTileCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Inventory (${_rows.length})',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    TextButton.icon(
-                      onPressed: _openColumnPicker,
-                      icon: const Icon(Icons.view_column),
-                      label: const Text('Columns'),
-                    ),
-                  ],
+                      TextButton.icon(
+                        onPressed: _openColumnPicker,
+                        icon: const Icon(Icons.view_column),
+                        label: const Text('Columns'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const Divider(height: 1),
-              Scrollbar(
+            Scrollbar(
                 controller: _horizontalController,
                 thumbVisibility: true,
                 child: SingleChildScrollView(
@@ -620,30 +620,11 @@ class _StatusIndicator extends StatelessWidget {
       label = 'In';
     }
 
-    final textStyle = Theme.of(
-      context,
-    ).textTheme.bodySmall?.copyWith(color: color);
-
-    return Tooltip(
-      message: label,
-      child: SizedBox(
-        width: 72,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: textStyle,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return SoftTileActionIcon(
+      icon: icon,
+      label: label,
+      tint: color,
+      onPressed: null,
     );
   }
 }

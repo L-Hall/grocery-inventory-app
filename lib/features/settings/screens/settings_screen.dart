@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/di/service_locator.dart';
+import '../../../core/widgets/soft_tile_icon.dart'
+    show SoftTileCard, SoftTileActionIcon;
 import '../../auth/providers/auth_provider.dart';
 import '../../inventory/models/view_config.dart';
 import '../../inventory/providers/inventory_provider.dart';
@@ -235,17 +237,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.person,
           children: [
             ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Theme.of(
-                  context,
-                ).primaryColor.withValues(alpha: 0.1),
-                child: Text(
-                  _getUserInitials(user?.displayName ?? user?.email ?? ''),
-                  style: TextStyle(
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              leading: SoftTileActionIcon(
+                icon: Icons.person,
+                tint: Theme.of(context).primaryColor,
+                label: _getUserInitials(user?.displayName ?? user?.email ?? ''),
               ),
               title: Text(user?.displayName ?? 'User'),
               subtitle: Text(user?.email ?? 'No email'),
@@ -599,7 +594,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     final theme = Theme.of(context);
 
-    return Card(
+    return SoftTileCard(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -607,8 +603,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(icon, color: theme.primaryColor),
-                const SizedBox(width: 8),
+                SoftTileActionIcon(
+                  icon: icon,
+                  tint: theme.primaryColor,
+                ),
+                const SizedBox(width: 12),
                 Text(
                   title,
                   style: theme.textTheme.titleMedium?.copyWith(

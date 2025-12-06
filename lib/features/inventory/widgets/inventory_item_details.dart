@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/inventory_item.dart';
 import '../providers/inventory_provider.dart';
 import 'inventory_item_editor.dart';
+import '../../../core/widgets/soft_tile_icon.dart';
 
 Future<void> showInventoryItemDetailsSheet(
   BuildContext context, {
@@ -78,104 +79,105 @@ class _InventoryItemDetailsSheetState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  item.name,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                  IconButton(
+                    onPressed: _isProcessing
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
               ),
-              IconButton(
-                onPressed: _isProcessing
-                    ? null
-                    : () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close),
-            ),
-          ],
-        ),
-          const SizedBox(height: 16),
-          _buildSections(context),
-          if (item.notes != null && item.notes!.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text(
-              'Notes',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(item.notes!),
-          ],
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color:
-                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              const SizedBox(height: 16),
+              _buildSections(context),
+              if (item.notes != null && item.notes!.isNotEmpty) ...[
+                const SizedBox(height: 16),
                 Text(
-                  'Quick Actions',
+                  'Notes',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                const SizedBox(height: 4),
+                Text(item.notes!),
+              ],
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ActionChipButton(
-                      icon: Icons.remove,
-                      label: 'Use 1',
-                      onPressed: () => _applyQuantityChange(-1),
+                    Text(
+                      'Quick Actions',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    _ActionChipButton(
-                      icon: Icons.add,
-                      label: 'Add 1',
-                      onPressed: () => _applyQuantityChange(1),
-                    ),
-                    _ActionChipButton(
-                      icon: Icons.auto_fix_high,
-                      label: 'Set quantity',
-                      onPressed: _showSetQuantityDialog,
-                    ),
-                    _ActionChipButton(
-                      icon: Icons.edit_note,
-                      label: 'Edit item',
-                      onPressed: () => _openEditor(context),
-                    ),
-                    _ActionChipButton(
-                      icon: Icons.delete_outline,
-                      label: 'Remove',
-                      destructive: true,
-                      onPressed: () => _confirmDelete(context),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        SoftTileActionIcon(
+                          icon: Icons.remove,
+                          label: 'Use 1',
+                          onPressed: () => _applyQuantityChange(-1),
+                        ),
+                        SoftTileActionIcon(
+                          icon: Icons.add,
+                          label: 'Add 1',
+                          onPressed: () => _applyQuantityChange(1),
+                        ),
+                        SoftTileActionIcon(
+                          icon: Icons.auto_fix_high,
+                          label: 'Set qty',
+                          onPressed: _showSetQuantityDialog,
+                        ),
+                        SoftTileActionIcon(
+                          icon: Icons.edit_note,
+                          label: 'Edit item',
+                          onPressed: () => _openEditor(context),
+                        ),
+                        SoftTileActionIcon(
+                          icon: Icons.delete_outline,
+                          label: 'Remove',
+                          tint: theme.colorScheme.error,
+                          onPressed: () => _confirmDelete(context),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 24),
+            ],
           ),
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
     );
   }
@@ -480,37 +482,4 @@ class _SectionRow {
 
   final String title;
   final List<_InfoTileData> items;
-}
-
-class _ActionChipButton extends StatelessWidget {
-  const _ActionChipButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.destructive = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-  final bool destructive;
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      avatar: Icon(
-        icon,
-        color: destructive
-            ? Theme.of(context).colorScheme.error
-            : Theme.of(context).colorScheme.primary,
-      ),
-      label: Text(label),
-      onPressed: onPressed,
-      backgroundColor: destructive
-          ? Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.2)
-          : Theme.of(
-              context,
-            ).colorScheme.primaryContainer.withValues(alpha: 0.3),
-    );
-  }
 }
