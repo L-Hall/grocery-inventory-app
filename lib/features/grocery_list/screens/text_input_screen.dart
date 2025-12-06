@@ -118,54 +118,51 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildInstructionsCard(ThemeData theme) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.lightbulb_outline,
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _inputMode == InputMode.text
-                      ? 'Natural language input'
-                      : 'Receipt scanner',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const Spacer(),
-                if (_inputMode == InputMode.text)
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _showTips = !_showTips;
-                      });
-                    },
-                    child: Text(_showTips ? 'Hide Tips' : 'Show Tips'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getInstructionText(),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+    return SoftTileCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline,
+                color: theme.colorScheme.primary,
+                size: 20,
               ),
-            ),
-            if (_showTips && _inputMode == InputMode.text) ...[
-              const SizedBox(height: 12),
-              _buildTipsSection(context),
+              const SizedBox(width: 8),
+              Text(
+                _inputMode == InputMode.text
+                    ? 'Natural language input'
+                    : 'Receipt scanner',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const Spacer(),
+              if (_inputMode == InputMode.text)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _showTips = !_showTips;
+                    });
+                  },
+                  child: Text(_showTips ? 'Hide Tips' : 'Show Tips'),
+                ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getInstructionText(),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (_showTips && _inputMode == InputMode.text) ...[
+            const SizedBox(height: 12),
+            _buildTipsSection(context),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -259,20 +256,16 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildTextInput(ThemeData theme) {
     return Consumer<GroceryListProvider>(
       builder: (context, groceryProvider, _) {
-        return Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.colorScheme.outline, width: 1),
-            borderRadius: BorderRadius.circular(12),
-          ),
+        return SoftTileCard(
           child: Column(
             children: [
               // Input field
-              Expanded(
+              SizedBox(
+                height: 260,
                 child: TextField(
                   controller: _textController,
                   focusNode: _focusNode,
                   maxLines: null,
-                  expands: true,
                   textAlignVertical: TextAlignVertical.top,
                   style: theme.textTheme.bodyLarge,
                   decoration: InputDecoration(
@@ -299,12 +292,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.3,
+                    alpha: 0.15,
                   ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
@@ -317,11 +307,11 @@ class _TextInputScreenState extends State<TextInputScreen> {
                     const Spacer(),
                     Wrap(
                       spacing: 8,
-                      runAlignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (_textController.text.isNotEmpty)
-                          TextButton.icon(
+                  runAlignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (_textController.text.isNotEmpty)
+                      TextButton.icon(
                             onPressed: () {
                               _textController.clear();
                               groceryProvider.setCurrentInputText('');
@@ -341,15 +331,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
                             foregroundColor: theme.colorScheme.primary,
                           ),
                         ),
-                        FilledButton.icon(
+                        SoftTileButton(
                           onPressed: _toggleListening,
-                          icon: Icon(
-                            _isListening ? Icons.mic_off : Icons.mic_none,
-                            size: 18,
-                          ),
-                          label: Text(
-                            _isListening ? 'Stop dictation' : 'Dictate',
-                          ),
+                          height: 44,
+                          width: 140,
+                          icon: _isListening ? Icons.mic_off : Icons.mic_none,
+                          label: _isListening ? 'Stop dictation' : 'Dictate',
                         ),
                       ],
                     ),
@@ -416,66 +403,50 @@ class _TextInputScreenState extends State<TextInputScreen> {
       return _buildImagePreview(theme);
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: theme.colorScheme.outline,
-          width: 1,
-          style: BorderStyle.solid,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
-      ),
-      child: InkWell(
-        onTap: _handleImageSelection,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _getPlaceholderIcon(),
-              size: 64,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+    return SoftTileCard(
+      onTap: _handleImageSelection,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _getPlaceholderIcon(),
+            size: 64,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _getPlaceholderText(),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 16),
-            Text(
-              _getPlaceholderText(),
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getPlaceholderSubtext(),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withValues(
+                alpha: 0.7,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              _getPlaceholderSubtext(),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.7,
-                ),
-              ),
-              textAlign: TextAlign.center,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          SoftTileButton(
+            icon: _getActionIcon(),
+            label: _getActionText(),
+            width: 220,
+            height: 48,
+            onPressed: _handleImageSelection,
+          ),
+          if (_inputMode == InputMode.file) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _downloadCsvTemplate,
+              icon: const Icon(Icons.download),
+              label: const Text('Download CSV template'),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _handleImageSelection,
-              icon: Icon(_getActionIcon()),
-              label: Text(_getActionText()),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
-            ),
-            if (_inputMode == InputMode.file) ...[
-              const SizedBox(height: 12),
-              TextButton.icon(
-                onPressed: _downloadCsvTemplate,
-                icon: const Icon(Icons.download),
-                label: const Text('Download CSV template'),
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
