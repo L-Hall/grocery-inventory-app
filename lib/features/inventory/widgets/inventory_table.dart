@@ -156,23 +156,24 @@ class _InventoryTableState extends State<InventoryTable> {
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: SoftTileCard(
+                  tint: theme.colorScheme.primary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
                   ),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Text(
-                          'Inventory (${_rows.length})',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      Text(
+                        'Inventory (${_rows.length})',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       TextButton.icon(
                         onPressed: _openColumnPicker,
-                        icon: const Icon(Icons.view_column),
+                        icon: const Icon(Icons.view_column_outlined, size: 18),
                         label: const Text('Columns'),
                       ),
                     ],
@@ -650,25 +651,26 @@ class _StatusIndicator extends StatelessWidget {
     late final Color color;
     late final String label;
 
+    final scheme = Theme.of(context).colorScheme;
     if (item.isExpired) {
       icon = Icons.error;
-      color = Colors.red;
+      color = scheme.error;
       label = 'Expired';
     } else if (item.stockStatus == StockStatus.out) {
       icon = Icons.cancel_presentation;
-      color = Colors.red;
+      color = scheme.error;
       label = 'Out';
     } else if (item.stockStatus == StockStatus.low) {
       icon = Icons.warning;
-      color = Colors.orange;
+      color = scheme.tertiary;
       label = 'Low';
     } else if (item.isExpiringSoon) {
       icon = Icons.schedule;
-      color = Colors.orange;
+      color = scheme.tertiary;
       label = 'Soon';
     } else {
       icon = Icons.check_circle;
-      color = Colors.green;
+      color = scheme.secondary;
       label = 'In';
     }
 

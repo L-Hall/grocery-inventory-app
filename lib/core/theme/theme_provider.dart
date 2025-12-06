@@ -8,7 +8,7 @@ class ThemeModeProvider extends ChangeNotifier {
   }
 
   final StorageService _storageService;
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light;
 
   ThemeMode get themeMode => _themeMode;
 
@@ -30,7 +30,7 @@ class ThemeModeProvider extends ChangeNotifier {
       case 'dark':
         return ThemeMode.dark;
       default:
-        return ThemeMode.system;
+        return ThemeMode.light;
     }
   }
 }

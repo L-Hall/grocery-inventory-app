@@ -39,8 +39,13 @@ class InventoryProvider with ChangeNotifier {
   bool get showLowStockOnly => _showLowStockOnly;
 
   // Computed properties
-  List<InventoryItem> get lowStockItems =>
-      _items.where((item) => item.stockStatus == StockStatus.low).toList();
+  List<InventoryItem> get lowStockItems => _items
+      .where(
+        (item) =>
+            item.stockStatus == StockStatus.low ||
+            item.stockStatus == StockStatus.out,
+      )
+      .toList();
 
   List<InventoryItem> get outOfStockItems =>
       _items.where((item) => item.stockStatus == StockStatus.out).toList();

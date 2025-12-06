@@ -267,115 +267,119 @@ class _InventoryScreenState extends State<InventoryScreen>
               ),
             ),
             const SizedBox(height: 16),
-            Center(
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  SoftTileButton(
-                    icon: Icons.warning_amber_rounded,
-                    label: 'Low stock ($lowStockCount)',
-                    height: 60,
-                    tint: theme.colorScheme.error,
-                    onPressed: () {
-                      inventoryProvider.setLowStockFilter(true);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Showing low stock items'),
-                          duration: Duration(seconds: 1),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SoftTileButton(
+                  icon: Icons.warning_amber_rounded,
+                  label: 'Low stock ($lowStockCount)',
+                  height: 52,
+                  width: 170,
+                  tint: theme.colorScheme.error,
+                  onPressed: () {
+                    inventoryProvider.setLowStockFilter(true);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Showing low stock items'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 12),
+                SoftTileButton(
+                  icon: Icons.category_outlined,
+                  label: inventoryProvider.selectedCategoryFilter != null
+                      ? inventoryProvider
+                              .getCategoryById(
+                                inventoryProvider.selectedCategoryFilter!,
+                              )
+                              ?.name ??
+                          'Category'
+                      : 'Category',
+                  height: 52,
+                  width: 130,
+                  onPressed: () async {
+                    final selection = await showMenu<String>(
+                      context: context,
+                      position: const RelativeRect.fromLTRB(0, 120, 0, 0),
+                      items: [
+                        const PopupMenuItem(
+                          value: '',
+                          child: Text('All Categories'),
                         ),
-                      );
-                    },
-                  ),
-                  if (inventoryProvider.categories.isNotEmpty)
-                    SoftTileActionIcon(
-                      icon: Icons.category,
-                      label: inventoryProvider.selectedCategoryFilter != null
-                          ? inventoryProvider
-                                  .getCategoryById(
-                                    inventoryProvider.selectedCategoryFilter!,
-                                  )
-                                  ?.name ??
-                              'Category'
-                          : 'Category',
-                      onPressed: () async {
-                        final selection = await showMenu<String>(
-                          context: context,
-                          position:
-                              const RelativeRect.fromLTRB(0, 120, 0, 0),
-                          items: [
-                            const PopupMenuItem(
-                              value: '',
-                              child: Text('All Categories'),
-                            ),
-                            ...inventoryProvider.categories.map(
-                              (category) => PopupMenuItem(
-                                value: category.id,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        color: category.colorValue,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(category.name),
-                                  ],
+                        ...inventoryProvider.categories.map(
+                          (category) => PopupMenuItem(
+                            value: category.id,
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: category.colorValue,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                Text(category.name),
+                              ],
                             ),
-                          ],
-                        );
-                        if (selection != null) {
-                          inventoryProvider.setCategoryFilter(
-                            selection.isEmpty ? null : selection,
-                          );
-                        }
-                      },
-                    ),
-                  if (inventoryProvider.availableLocations.isNotEmpty)
-                    SoftTileActionIcon(
-                      icon: Icons.location_on,
-                      label:
-                          inventoryProvider.selectedLocationFilter ?? 'Location',
-                      onPressed: () async {
-                        final selection = await showMenu<String>(
-                          context: context,
-                          position:
-                              const RelativeRect.fromLTRB(0, 120, 0, 0),
-                          items: [
-                            const PopupMenuItem(
-                              value: '',
-                              child: Text('All Locations'),
-                            ),
-                            ...inventoryProvider.availableLocations.map(
-                              (loc) => PopupMenuItem(value: loc, child: Text(loc)),
-                            ),
-                          ],
-                        );
-                        if (selection != null) {
-                          inventoryProvider.setLocationFilter(
-                            selection.isEmpty ? null : selection,
-                          );
-                        }
-                      },
-                    ),
-                  if (inventoryProvider.searchQuery.isNotEmpty ||
-                      inventoryProvider.selectedCategoryFilter != null ||
-                      inventoryProvider.selectedLocationFilter != null ||
-                      inventoryProvider.showLowStockOnly)
-                    ActionChip(
-                      avatar: const Icon(Icons.clear_all, size: 16),
-                      label: const Text('Clear'),
-                      onPressed: inventoryProvider.clearAllFilters,
-                    ),
-                ],
-              ),
+                          ),
+                        ),
+                      ],
+                    );
+                    if (selection != null) {
+                      inventoryProvider.setCategoryFilter(
+                        selection.isEmpty ? null : selection,
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: 12),
+                SoftTileButton(
+                  icon: Icons.place_outlined,
+                  label:
+                      inventoryProvider.selectedLocationFilter ?? 'Location',
+                  height: 52,
+                  width: 130,
+                  onPressed: () async {
+                    final selection = await showMenu<String>(
+                      context: context,
+                      position: const RelativeRect.fromLTRB(0, 120, 0, 0),
+                      items: [
+                        const PopupMenuItem(
+                          value: '',
+                          child: Text('All Locations'),
+                        ),
+                        ...inventoryProvider.availableLocations.map(
+                          (loc) => PopupMenuItem(value: loc, child: Text(loc)),
+                        ),
+                      ],
+                    );
+                    if (selection != null) {
+                      inventoryProvider.setLocationFilter(
+                        selection.isEmpty ? null : selection,
+                      );
+                    }
+                  },
+                ),
+              ],
             ),
+            if (inventoryProvider.searchQuery.isNotEmpty ||
+                inventoryProvider.selectedCategoryFilter != null ||
+                inventoryProvider.selectedLocationFilter != null ||
+                inventoryProvider.showLowStockOnly)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Center(
+                  child: ActionChip(
+                    avatar: const Icon(Icons.clear_all, size: 16),
+                    label: const Text('Clear filters'),
+                    onPressed: inventoryProvider.clearAllFilters,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

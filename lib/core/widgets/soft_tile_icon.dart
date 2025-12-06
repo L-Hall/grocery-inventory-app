@@ -200,6 +200,17 @@ class _SoftTileSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final gradientStart = isDark ? 0.22 : 0.12;
+    final gradientEnd = isDark ? 0.10 : 0.08;
+    final shadow1Alpha = isDark ? 0.45 : 0.06;
+    final shadow2Alpha = isDark ? 0.26 : 0.12;
+    final shadow1Blur = isDark ? 24.0 : 18.0;
+    final shadow1Offset = isDark ? const Offset(0, 16) : const Offset(0, 10);
+    final shadow2Blur = isDark ? 10.0 : 8.0;
+    final shadow2Offset = const Offset(0, 4);
+
     return Container(
       height: height,
       width: width,
@@ -210,20 +221,20 @@ class _SoftTileSurface extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            baseColor.withValues(alpha: 0.12),
-            baseColor.withValues(alpha: 0.08),
+            baseColor.withValues(alpha: gradientStart),
+            baseColor.withValues(alpha: gradientEnd),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: shadow1Alpha),
+            blurRadius: shadow1Blur,
+            offset: shadow1Offset,
           ),
           BoxShadow(
-            color: baseColor.withValues(alpha: 0.10),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: baseColor.withValues(alpha: shadow2Alpha),
+            blurRadius: shadow2Blur,
+            offset: shadow2Offset,
           ),
         ],
       ),

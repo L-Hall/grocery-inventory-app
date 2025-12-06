@@ -17,6 +17,9 @@ class AppTheme {
   // Palette
   static const Color seedColor = Color(0xFFD86A6A);
   static const Color background = Color(0xFFF8EDE7);
+  static const Color darkSurface = Color(0xFF151016);
+  static const Color darkSurfaceVariant = Color(0xFF211823);
+  static const Color darkBackground = Color(0xFF100B12);
 
   static ThemeData get lightTheme {
     final base = ThemeData.light(useMaterial3: true);
@@ -137,16 +140,24 @@ class AppTheme {
     final colourScheme = ColorScheme.fromSeed(
       seedColor: seedColor,
       brightness: Brightness.dark,
+    ).copyWith(
+      surface: darkSurface,
+      surfaceVariant: darkSurfaceVariant,
+      background: darkBackground,
+      primaryContainer: const Color(0xFF3B2329),
+      secondaryContainer: const Color(0xFF332029),
     );
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme);
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
+      bodyMedium: GoogleFonts.inter(fontSize: 16),
+    );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colourScheme,
-      scaffoldBackgroundColor: colourScheme.surface,
+      scaffoldBackgroundColor: colourScheme.background,
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
-        backgroundColor: colourScheme.surface,
+        backgroundColor: colourScheme.background,
         foregroundColor: colourScheme.onSurface,
         elevation: 0,
       ),
@@ -162,7 +173,7 @@ class AppTheme {
         foregroundColor: colourScheme.onPrimary,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: colourScheme.surfaceContainerHighest,
+        backgroundColor: colourScheme.surfaceVariant,
         selectedColor: colourScheme.primary.withValues(alpha: 0.2),
         labelStyle: textTheme.labelMedium,
         shape: RoundedRectangleBorder(

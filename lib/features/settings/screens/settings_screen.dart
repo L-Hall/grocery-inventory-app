@@ -16,6 +16,7 @@ import '../../grocery_list/providers/grocery_list_provider.dart';
 import 'user_management_screen.dart';
 import '../../household/screens/household_screen.dart';
 import '../../../core/utils/file_downloader.dart';
+import '../../../core/theme/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -100,13 +101,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   ThemeMode _parseThemeMode(String? mode) {
+    final providerMode = context.read<ThemeModeProvider>().themeMode;
+    if (mode == null) return providerMode;
     switch (mode) {
       case 'light':
         return ThemeMode.light;
       case 'dark':
         return ThemeMode.dark;
       default:
-        return ThemeMode.system;
+        return providerMode;
     }
   }
 
@@ -179,49 +182,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        centerTitle: true,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // User profile section
-                  _buildUserProfileSection(context),
-
-                  const SizedBox(height: 24),
-
-                  // App preferences section
-                  _buildAppPreferencesSection(context),
-
-                  const SizedBox(height: 24),
-
-                  // Inventory preferences section
-                  _buildInventoryPreferencesSection(context),
-
-                  const SizedBox(height: 24),
-                  if (_savedSearches.isNotEmpty) ...[
-                    _buildSavedSearchesSection(context),
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildUserProfileSection(context),
+                    const SizedBox(height: 16),
+                    _buildAppPreferencesSection(context),
+                    const SizedBox(height: 16),
+                    _buildInventoryPreferencesSection(context),
+                    if (_savedSearches.isNotEmpty ||
+                        _customViews.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      if (_savedSearches.isNotEmpty)
+                        _buildSavedSearchesSection(context),
+                      if (_savedSearches.isNotEmpty &&
+                          _customViews.isNotEmpty)
+                        const SizedBox(height: 12),
+                      if (_customViews.isNotEmpty)
+                        _buildCustomViewsSection(context),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildDataManagementSection(context),
+                    const SizedBox(height: 16),
+                    _buildAboutSection(context),
                     const SizedBox(height: 24),
+                    _buildSignOutSection(context),
                   ],
-                  if (_customViews.isNotEmpty) ...[
-                    _buildCustomViewsSection(context),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Data management section
-                  _buildDataManagementSection(context),
-
-                  const SizedBox(height: 24),
-
-                  // About section
-                  _buildAboutSection(context),
-
-                  const SizedBox(height: 32),
-
-                  // Sign out button
-                  _buildSignOutSection(context),
-                ],
+                ),
               ),
             ),
     );
@@ -239,36 +235,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SoftTileActionIcon(
-                    icon: Icons.person,
-                    tint: Theme.of(context).primaryColor,
-                    label: _getUserInitials(
-                      user?.displayName ?? user?.email ?? '',
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SoftTileActionIcon(
+                      icon: Icons.person,
+                      tint: Theme.of(context).primaryColor,
+                      label: _getUserInitials(
+                        user?.displayName ?? user?.email ?? '',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    user?.displayName ?? 'User',
-                    style: Theme.of(context).textTheme.titleMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  Text(
-                    user?.email ?? 'No email',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: _showEditProfileDialog,
-                    child: const Text('Edit profile'),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      user?.displayName ?? 'User',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    Text(
+                      user?.email ?? 'No email',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _showEditProfileDialog,
+                      child: const Text('Edit profile'),
+                    ),
+                  ],
+                ),
               ),
             ),
             ListTile(
@@ -364,37 +362,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Low stock alerts ${value ? 'enabled' : 'disabled'}',
               );
             },
-          ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.auto_fix_high),
-          title: const Text('Smart Parsing'),
-          subtitle: const Text('AI-powered grocery text understanding'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.check_circle,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Enabled',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            'Smart parsing is handled securely on our servers. No API keys needed!',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
           ),
         ),
       ],
@@ -494,7 +461,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() {
                 _themeMode = themeMode;
               });
-              await _storageService.setString('theme_mode', themeMode.name);
+              final themeProvider = context.read<ThemeModeProvider>();
+              await themeProvider.setThemeMode(themeMode);
               _showSnackMessage(
                 'Theme changed to ${_getThemeModeName(themeMode)}',
               );
@@ -627,21 +595,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                SoftTileActionIcon(
-                  icon: icon,
-                  tint: theme.primaryColor,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.primaryColor,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SoftTileActionIcon(
+                    icon: icon,
+                    tint: theme.primaryColor,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           ...children,
