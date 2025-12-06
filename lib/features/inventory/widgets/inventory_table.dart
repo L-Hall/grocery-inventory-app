@@ -198,7 +198,6 @@ class _InventoryTableState extends State<InventoryTable> {
                             vertical: 12,
                           ),
                           child: IntrinsicWidth(
-                            stepWidth: 120,
                             child: Builder(
                               builder: (context) {
                                 final columns = _activeColumns;
@@ -213,9 +212,13 @@ class _InventoryTableState extends State<InventoryTable> {
                                       TableCellVerticalAlignment.middle,
                                   children: [
                                     _buildHeaderRow(theme, columns),
-                                    ..._rows.map(
-                                      (item) =>
-                                          _buildDataRow(item, theme, columns),
+                                    ..._rows.asMap().entries.map(
+                                      (entry) => _buildDataRow(
+                                        entry.value,
+                                        theme,
+                                        columns,
+                                        entry.key,
+                                      ),
                                     ),
                                   ],
                                 );
@@ -432,15 +435,17 @@ class _InventoryTableState extends State<InventoryTable> {
     InventoryItem item,
     ThemeData theme,
     List<InventoryColumn> columns,
+    int rowIndex,
   ) {
     final category = widget.provider.getCategoryById(item.category);
+    final rowColor = rowIndex.isEven
+        ? theme.colorScheme.surface
+        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25);
 
     Widget cell(
       Widget child, {
-      EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-        vertical: 12,
-        horizontal: 4,
-      ),
+      EdgeInsetsGeometry padding =
+          const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
     }) {
       return Padding(
         padding: padding,
@@ -455,6 +460,7 @@ class _InventoryTableState extends State<InventoryTable> {
           style: theme.textTheme.bodyMedium,
           textAlign: TextAlign.center,
           overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
       );
     }
@@ -569,6 +575,7 @@ class _InventoryTableState extends State<InventoryTable> {
 
     return TableRow(
       decoration: BoxDecoration(
+        color: rowColor,
         border: Border(
           bottom: BorderSide(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
@@ -598,19 +605,19 @@ class _StatusIndicator extends StatelessWidget {
     } else if (item.stockStatus == StockStatus.out) {
       icon = Icons.cancel_presentation;
       color = Colors.red;
-      label = 'Out of stock';
+      label = 'Out';
     } else if (item.stockStatus == StockStatus.low) {
       icon = Icons.warning;
       color = Colors.orange;
-      label = 'Low stock';
+      label = 'Low';
     } else if (item.isExpiringSoon) {
       icon = Icons.schedule;
       color = Colors.orange;
-      label = 'Expiring soon';
+      label = 'Soon';
     } else {
       icon = Icons.check_circle;
       color = Colors.green;
-      label = 'In stock';
+      label = 'In';
     }
 
     final textStyle = Theme.of(
@@ -619,14 +626,21 @@ class _StatusIndicator extends StatelessWidget {
 
     return Tooltip(
       message: label,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 140),
-        child: Wrap(
-          spacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
+      child: SizedBox(
+        width: 72,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: color, size: 18),
-            Text(label, style: textStyle, softWrap: true),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: textStyle,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
           ],
         ),
       ),

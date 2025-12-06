@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../providers/inventory_provider.dart';
 import '../models/inventory_item.dart';
 import '../widgets/inventory_item_editor.dart';
@@ -103,7 +104,10 @@ class _InventoryScreenState extends State<InventoryScreen>
                 else
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.screenPadding,
+                        vertical: 12,
+                      ),
                       child: InventoryTable(
                         items: items,
                         provider: inventoryProvider,
@@ -214,140 +218,158 @@ class _InventoryScreenState extends State<InventoryScreen>
     InventoryProvider inventoryProvider,
   ) {
     final theme = Theme.of(context);
+    final lowStockCount = inventoryProvider.lowStockItems.length;
 
     return Material(
       color: theme.colorScheme.surface,
       elevation: 1,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search items...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: inventoryProvider.searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          inventoryProvider.setSearchQuery('');
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.3,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.screenPadding,
+          vertical: 12,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Inventory',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
-              onChanged: inventoryProvider.setSearchQuery,
             ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  FilterChip(
-                    label: const Text('Low Stock'),
-                    selected: inventoryProvider.showLowStockOnly,
-                    onSelected: inventoryProvider.setLowStockFilter,
-                    avatar: inventoryProvider.showLowStockOnly
-                        ? const Icon(Icons.warning, size: 16)
-                        : null,
+            const SizedBox(height: 8),
+            Material(
+              elevation: 1,
+              shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppTheme.radius12),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search items...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: inventoryProvider.searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            inventoryProvider.setSearchQuery('');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
                   ),
-                  if (inventoryProvider.categories.isNotEmpty)
-                    _FilterChipButton(
-                      label: inventoryProvider.selectedCategoryFilter != null
-                          ? inventoryProvider
-                                    .getCategoryById(
-                                      inventoryProvider.selectedCategoryFilter!,
-                                    )
-                                    ?.name ??
-                                'Category'
-                          : 'Category',
-                      icon: Icons.category,
-                      isActive:
-                          inventoryProvider.selectedCategoryFilter != null,
-                      onSelected: (value) {
-                        inventoryProvider.setCategoryFilter(
-                          value.isEmpty ? null : value,
-                        );
-                      },
-                      items: [
-                        const PopupMenuItem(
-                          value: '',
-                          child: Text('All Categories'),
-                        ),
-                        ...inventoryProvider.categories.map(
-                          (category) => PopupMenuItem(
-                            value: category.id,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: category.colorValue,
-                                    shape: BoxShape.circle,
-                                  ),
+                ),
+                onChanged: inventoryProvider.setSearchQuery,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  icon: const Icon(Icons.warning_amber_rounded),
+                  label: Text('Low stock ($lowStockCount)'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () {
+                    inventoryProvider.setLowStockFilter(true);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Showing low stock items'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+                if (inventoryProvider.categories.isNotEmpty)
+                  _FilterChipButton(
+                    label: inventoryProvider.selectedCategoryFilter != null
+                        ? inventoryProvider
+                                  .getCategoryById(
+                                    inventoryProvider.selectedCategoryFilter!,
+                                  )
+                                  ?.name ??
+                              'Category'
+                        : 'Category',
+                    icon: Icons.category,
+                    isActive: inventoryProvider.selectedCategoryFilter != null,
+                    onSelected: (value) {
+                      inventoryProvider.setCategoryFilter(
+                        value.isEmpty ? null : value,
+                      );
+                    },
+                    items: [
+                      const PopupMenuItem(
+                        value: '',
+                        child: Text('All Categories'),
+                      ),
+                      ...inventoryProvider.categories.map(
+                        (category) => PopupMenuItem(
+                          value: category.id,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: category.colorValue,
+                                  shape: BoxShape.circle,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(category.name),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(category.name),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  if (inventoryProvider.availableLocations.isNotEmpty)
-                    _FilterChipButton(
-                      label:
-                          inventoryProvider.selectedLocationFilter ??
-                          'Location',
-                      icon: Icons.location_on,
-                      isActive:
-                          inventoryProvider.selectedLocationFilter != null,
-                      onSelected: (value) {
-                        inventoryProvider.setLocationFilter(
-                          value.isEmpty ? null : value,
-                        );
-                      },
-                      items: [
-                        const PopupMenuItem(
-                          value: '',
-                          child: Text('All Locations'),
-                        ),
-                        ...inventoryProvider.availableLocations.map(
-                          (loc) => PopupMenuItem(value: loc, child: Text(loc)),
-                        ),
-                      ],
-                    ),
-                  if (inventoryProvider.searchQuery.isNotEmpty ||
-                      inventoryProvider.selectedCategoryFilter != null ||
-                      inventoryProvider.selectedLocationFilter != null ||
-                      inventoryProvider.showLowStockOnly)
-                    ActionChip(
-                      avatar: const Icon(Icons.clear_all, size: 16),
-                      label: const Text('Clear'),
-                      onPressed: inventoryProvider.clearAllFilters,
-                    ),
-                ],
-              ),
+                      ),
+                    ],
+                  ),
+                if (inventoryProvider.availableLocations.isNotEmpty)
+                  _FilterChipButton(
+                    label:
+                        inventoryProvider.selectedLocationFilter ?? 'Location',
+                    icon: Icons.location_on,
+                    isActive: inventoryProvider.selectedLocationFilter != null,
+                    onSelected: (value) {
+                      inventoryProvider.setLocationFilter(
+                        value.isEmpty ? null : value,
+                      );
+                    },
+                    items: [
+                      const PopupMenuItem(
+                        value: '',
+                        child: Text('All Locations'),
+                      ),
+                      ...inventoryProvider.availableLocations.map(
+                        (loc) => PopupMenuItem(value: loc, child: Text(loc)),
+                      ),
+                    ],
+                  ),
+                if (inventoryProvider.searchQuery.isNotEmpty ||
+                    inventoryProvider.selectedCategoryFilter != null ||
+                    inventoryProvider.selectedLocationFilter != null ||
+                    inventoryProvider.showLowStockOnly)
+                  ActionChip(
+                    avatar: const Icon(Icons.clear_all, size: 16),
+                    label: const Text('Clear'),
+                    onPressed: inventoryProvider.clearAllFilters,
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -473,15 +495,17 @@ class _FilterChipButton extends StatelessWidget {
       onSelected: onSelected,
       itemBuilder: (context) => items,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           border: Border.all(
-            color: theme.colorScheme.outline.withValues(alpha: 0.4),
+            color: isActive
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           color: isActive
-              ? theme.colorScheme.primary.withValues(alpha: 0.1)
-              : null,
+              ? theme.colorScheme.primary.withValues(alpha: 0.08)
+              : theme.colorScheme.surface,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -490,11 +514,16 @@ class _FilterChipButton extends StatelessWidget {
               icon,
               size: 16,
               color: isActive
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurfaceVariant,
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 6),
-            Text(label),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(width: 4),
             const Icon(Icons.arrow_drop_down, size: 16),
           ],

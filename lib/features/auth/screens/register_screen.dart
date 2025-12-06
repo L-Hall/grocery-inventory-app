@@ -47,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 // Welcome message
                 Text(
-                  'Join Grocery Inventory',
+                  'Join Sustain',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.primaryColor,

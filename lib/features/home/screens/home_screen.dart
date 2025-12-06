@@ -123,6 +123,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
 
     return NavigationBar(
+      height: 72,
+      indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.12),
       selectedIndex: _currentIndex,
       onDestinationSelected: (index) {
         setState(() {
@@ -178,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 2:
         return 'Settings';
       default:
-        return 'Grocery Inventory';
+        return 'Sustain';
     }
   }
 
@@ -194,6 +196,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleSignOut(BuildContext context) async {
+    final authProvider = context.read<AuthProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
@@ -216,10 +221,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     if (confirmed == true) {
-      final authProvider = context.read<AuthProvider>();
       await authProvider.signOut();
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Signed out successfully'),
           backgroundColor: Colors.green,

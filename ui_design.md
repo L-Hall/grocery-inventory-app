@@ -131,3 +131,5 @@ Codex, ensure every screen follows the spacing system:
 • Vertical rhythm: multiples of 8 px
 • Between section titles + content: 16 px
 • Between unrelated sections: 32 px
+
+9. impement assets/provisioner_app_logo.png as the app logo throughout 

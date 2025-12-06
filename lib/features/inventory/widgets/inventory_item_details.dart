@@ -81,10 +81,10 @@ class _InventoryItemDetailsSheetState
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
+        left: 24,
+        right: 24,
         top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -105,11 +105,11 @@ class _InventoryItemDetailsSheetState
                     ? null
                     : () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close),
-              ),
-            ],
-          ),
+            ),
+          ],
+        ),
           const SizedBox(height: 16),
-          _buildInfoGrid(context),
+          _buildSections(context),
           if (item.notes != null && item.notes!.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
@@ -121,45 +121,58 @@ class _InventoryItemDetailsSheetState
             const SizedBox(height: 4),
             Text(item.notes!),
           ],
-          const SizedBox(height: 16),
-          Text(
-            'Quick Actions',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color:
+                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(16),
             ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _ActionChipButton(
-                icon: Icons.remove,
-                label: 'Use 1',
-                onPressed: () => _applyQuantityChange(-1),
-              ),
-              _ActionChipButton(
-                icon: Icons.add,
-                label: 'Add 1',
-                onPressed: () => _applyQuantityChange(1),
-              ),
-              _ActionChipButton(
-                icon: Icons.auto_fix_high,
-                label: 'Set quantity',
-                onPressed: _showSetQuantityDialog,
-              ),
-              _ActionChipButton(
-                icon: Icons.edit_note,
-                label: 'Edit item',
-                onPressed: () => _openEditor(context),
-              ),
-              _ActionChipButton(
-                icon: Icons.delete_outline,
-                label: 'Remove',
-                destructive: true,
-                onPressed: () => _confirmDelete(context),
-              ),
-            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Quick Actions',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _ActionChipButton(
+                      icon: Icons.remove,
+                      label: 'Use 1',
+                      onPressed: () => _applyQuantityChange(-1),
+                    ),
+                    _ActionChipButton(
+                      icon: Icons.add,
+                      label: 'Add 1',
+                      onPressed: () => _applyQuantityChange(1),
+                    ),
+                    _ActionChipButton(
+                      icon: Icons.auto_fix_high,
+                      label: 'Set quantity',
+                      onPressed: _showSetQuantityDialog,
+                    ),
+                    _ActionChipButton(
+                      icon: Icons.edit_note,
+                      label: 'Edit item',
+                      onPressed: () => _openEditor(context),
+                    ),
+                    _ActionChipButton(
+                      icon: Icons.delete_outline,
+                      label: 'Remove',
+                      destructive: true,
+                      onPressed: () => _confirmDelete(context),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
         ],
@@ -167,110 +180,133 @@ class _InventoryItemDetailsSheetState
     );
   }
 
-  Widget _buildInfoGrid(BuildContext context) {
-    final stats = <_InfoTileData>[
-      _InfoTileData(
-        label: 'Quantity',
-        value: '${item.quantity} ${item.unit}',
-        icon: Icons.stacked_bar_chart,
+  Widget _buildSections(BuildContext context) {
+    final theme = Theme.of(context);
+    final rows = <_SectionRow>[
+      _SectionRow(
+        title: 'Stock',
+        items: [
+          _InfoTileData(
+            label: 'Quantity',
+            value: '${item.quantity} ${item.unit}',
+            icon: Icons.stacked_bar_chart,
+          ),
+          _InfoTileData(
+            label: 'Low stock threshold',
+            value: '${item.lowStockThreshold} ${item.unit}',
+            icon: Icons.warning_amber_outlined,
+          ),
+          _InfoTileData(
+            label: 'Status',
+            value: item.stockStatus.displayName,
+            icon: _statusIcon(item.stockStatus),
+          ),
+        ],
       ),
-      _InfoTileData(
-        label: 'Stock Status',
-        value: item.stockStatus.displayName,
-        icon: _statusIcon(item.stockStatus),
-      ),
-      _InfoTileData(
-        label: 'Category',
-        value: item.category,
-        icon: Icons.category_outlined,
-      ),
-      _InfoTileData(
-        label: 'Location',
-        value: item.location ?? 'Not specified',
-        icon: Icons.location_on_outlined,
-      ),
-      _InfoTileData(
-        label: 'Low Stock',
-        value: '${item.lowStockThreshold} ${item.unit}',
-        icon: Icons.warning_amber_outlined,
-      ),
-      _InfoTileData(
-        label: 'Created',
-        value: item.createdAt.toLocal().toString().split(' ').first,
-        icon: Icons.calendar_today_outlined,
-      ),
-      _InfoTileData(
-        label: 'Updated',
-        value: item.updatedAt.toLocal().toString().split(' ').first,
-        icon: Icons.update,
-      ),
-      _InfoTileData(
-        label: item.expirationDate == null
-            ? 'Expiry date'
-            : item.isExpired
-            ? 'Expired'
-            : 'Expires',
-        value: item.expirationDate != null
-            ? item.expirationDate!.toLocal().toString().split(' ').first
-            : 'Not set',
-        icon: item.expirationDate == null
-            ? Icons.schedule
-            : item.isExpired
-            ? Icons.error
-            : Icons.schedule,
+      _SectionRow(
+        title: 'Metadata',
+        items: [
+          _InfoTileData(
+            label: 'Category',
+            value: item.category,
+            icon: Icons.category_outlined,
+          ),
+          _InfoTileData(
+            label: 'Location',
+            value: item.location ?? 'Not specified',
+            icon: Icons.location_on_outlined,
+          ),
+          _InfoTileData(
+            label: 'Created',
+            value: item.createdAt.toLocal().toString().split(' ').first,
+            icon: Icons.calendar_today_outlined,
+          ),
+          _InfoTileData(
+            label: 'Updated',
+            value: item.updatedAt.toLocal().toString().split(' ').first,
+            icon: Icons.update,
+          ),
+          _InfoTileData(
+            label: item.expirationDate == null
+                ? 'Expiry date'
+                : item.isExpired
+                    ? 'Expired'
+                    : 'Expires',
+            value: item.expirationDate != null
+                ? item.expirationDate!.toLocal().toString().split(' ').first
+                : 'Not set',
+            icon: item.expirationDate == null
+                ? Icons.schedule
+                : item.isExpired
+                    ? Icons.error
+                    : Icons.schedule,
+          ),
+        ],
       ),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: stats.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 3.2,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-      ),
-      itemBuilder: (context, index) {
-        final data = stats[index];
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          Text(
+            rows[i].title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(data.icon, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 12),
+          ...rows[i].items.map(
+            (data) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      data.label,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      data.value,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
+                    Icon(data.icon, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            data.label,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            data.value,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
-        );
-      },
+          if (i < rows.length - 1) ...[
+            const SizedBox(height: 8),
+            Divider(
+              color: theme.colorScheme.outlineVariant,
+              thickness: 1,
+            ),
+            const SizedBox(height: 12),
+          ],
+        ],
+      ],
     );
   }
 
@@ -437,6 +473,13 @@ class _InfoTileData {
   final String label;
   final String value;
   final IconData icon;
+}
+
+class _SectionRow {
+  _SectionRow({required this.title, required this.items});
+
+  final String title;
+  final List<_InfoTileData> items;
 }
 
 class _ActionChipButton extends StatelessWidget {
