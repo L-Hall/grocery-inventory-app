@@ -53,8 +53,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline,
-                      color: theme.colorScheme.error, size: 64),
+                  Icon(
+                    Icons.error_outline,
+                    color: theme.colorScheme.error,
+                    size: 64,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'Household error',
@@ -91,68 +94,68 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_getAppBarTitle()),
-        centerTitle: true,
-        backgroundColor: theme.colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          // User avatar or menu
-          PopupMenuButton(
-            icon: CircleAvatar(
-              radius: 16,
-              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-              child: Text(
-                _getUserInitials(user?.displayName ?? user?.email ?? ''),
-                style: TextStyle(
-                  color: theme.primaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                child: Row(
-                  children: [
-                    Icon(Icons.person, color: theme.colorScheme.onSurface),
-                    const SizedBox(width: 12),
-                    Text(user?.displayName ?? 'Profile'),
-                  ],
-                ),
-                onTap: () {
-                  // Navigate to profile settings
-                  Future.delayed(Duration.zero, () {
-                    setState(() {
-                      _currentIndex = 2; // Settings tab
-                    });
-                    _pageController.animateToPage(
-                      2,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  });
-                },
-              ),
-              PopupMenuItem(
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: theme.colorScheme.error),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Sign Out',
-                      style: TextStyle(color: theme.colorScheme.error),
+      appBar: _currentIndex == 0
+          ? null
+          : AppBar(
+              title: Text(_getAppBarTitle()),
+              centerTitle: true,
+              backgroundColor: theme.colorScheme.surface,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              actions: [
+                PopupMenuButton(
+                  icon: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                    child: Text(
+                      _getUserInitials(user?.displayName ?? user?.email ?? ''),
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(Icons.person, color: theme.colorScheme.onSurface),
+                          const SizedBox(width: 12),
+                          Text(user?.displayName ?? 'Profile'),
+                        ],
+                      ),
+                      onTap: () {
+                        Future.delayed(Duration.zero, () {
+                          setState(() {
+                            _currentIndex = 2;
+                          });
+                          _pageController.animateToPage(
+                            2,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        });
+                      },
+                    ),
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(Icons.logout, color: theme.colorScheme.error),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Sign Out',
+                            style: TextStyle(color: theme.colorScheme.error),
+                          ),
+                        ],
+                      ),
+                      onTap: () => _handleSignOut(context),
                     ),
                   ],
                 ),
-                onTap: () => _handleSignOut(context),
-              ),
-            ],
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+                const SizedBox(width: 8),
+              ],
+            ),
       body: PageView(
         controller: _pageController,
         onPageChanged: (index) {
@@ -169,11 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: _buildBottomNavigationBar(context),
       floatingActionButton: _currentIndex == 1
           ? null
-          : Padding(
-              padding: const EdgeInsets.only(bottom: 70),
-              child: _buildFloatingActionButton(context),
-            ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          : _buildFloatingActionButton(context),
     );
   }
 
@@ -181,35 +180,35 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
 
     return NavigationBar(
-      height: 80,
+      height: 72,
+      indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.12),
       selectedIndex: _currentIndex,
-      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       onDestinationSelected: (index) {
         setState(() {
           _currentIndex = index;
         });
         _pageController.animateToPage(
           index,
-          duration: const Duration(milliseconds: 250),
+          duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
       },
       backgroundColor: theme.colorScheme.surface,
       surfaceTintColor: Colors.transparent,
-      destinations: const [
+      destinations: [
         NavigationDestination(
-          icon: Icon(Icons.inventory_outlined, size: 24),
-          selectedIcon: Icon(Icons.inventory, size: 24),
+          icon: const Icon(Icons.inventory_outlined),
+          selectedIcon: const Icon(Icons.inventory),
           label: 'Inventory',
         ),
         NavigationDestination(
-          icon: Icon(Icons.add_shopping_cart_outlined, size: 24),
-          selectedIcon: Icon(Icons.add_shopping_cart, size: 24),
+          icon: const Icon(Icons.add_shopping_cart_outlined),
+          selectedIcon: const Icon(Icons.add_shopping_cart),
           label: 'Add Items',
         ),
         NavigationDestination(
-          icon: Icon(Icons.settings_outlined, size: 24),
-          selectedIcon: Icon(Icons.settings, size: 24),
+          icon: const Icon(Icons.settings_outlined),
+          selectedIcon: const Icon(Icons.settings),
           label: 'Settings',
         ),
       ],
@@ -238,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 2:
         return 'Settings';
       default:
-        return 'Grocery Inventory';
+        return 'Sustain';
     }
   }
 
@@ -254,6 +253,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleSignOut(BuildContext context) async {
+    final authProvider = context.read<AuthProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
@@ -276,12 +278,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     if (confirmed == true) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.signOut();
 
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Signed out successfully'),
           backgroundColor: Colors.green,

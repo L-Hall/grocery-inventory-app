@@ -7,9 +7,10 @@
         android:maxSdkVersion="32" />
 
     <application
-        android:label="grocery_app"
+        android:label="Sustain"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

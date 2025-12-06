@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:grocery_app/features/inventory/models/inventory_item.dart';
-import 'package:grocery_app/features/inventory/models/view_config.dart';
-import 'package:grocery_app/features/inventory/services/view_manager.dart';
+import 'package:sustain/features/inventory/models/inventory_item.dart';
+import 'package:sustain/features/inventory/models/view_config.dart';
+import 'package:sustain/features/inventory/services/view_manager.dart';
 
 void main() {
   group('ViewManager Tests', () {

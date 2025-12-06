@@ -169,6 +169,7 @@ class InventoryProvider with ChangeNotifier {
   Future<bool> updateItem(
     InventoryItem item, {
     double? newQuantity,
+    double? newLowStockThreshold,
     UpdateAction action = UpdateAction.set,
   }) async {
     try {
@@ -178,6 +179,7 @@ class InventoryProvider with ChangeNotifier {
       await _repository.updateItem(
         item,
         newQuantity: newQuantity,
+        newLowStockThreshold: newLowStockThreshold,
         action: action,
       );
 

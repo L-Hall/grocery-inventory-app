@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:grocery_app/core/services/api_service.dart';
-import 'package:grocery_app/core/services/storage_service.dart';
-import 'package:grocery_app/features/inventory/models/location_config.dart';
-import 'package:grocery_app/features/inventory/repositories/inventory_repository.dart';
+import 'package:sustain/core/services/api_service.dart';
+import 'package:sustain/core/services/storage_service.dart';
+import 'package:sustain/features/inventory/models/location_config.dart';
+import 'package:sustain/features/inventory/repositories/inventory_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeApiService extends ApiService {
   _FakeApiService({
-    required StorageService storageService,
+    required super.storageService,
     required this.locationsResponse,
     this.throwError = false,
-  }) : super(storageService: storageService);
+  });
 
   List<dynamic> locationsResponse;
   bool throwError;

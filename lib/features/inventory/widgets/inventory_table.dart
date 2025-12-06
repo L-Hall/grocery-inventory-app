@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/widgets/soft_tile_icon.dart'
+    show SoftTileCard, SoftTileActionIcon;
 import '../../../core/theme/app_theme.dart';
 import '../models/category.dart' as inventory;
 import '../models/inventory_item.dart';
@@ -44,8 +46,10 @@ class _InventoryTableState extends State<InventoryTable> {
   bool _sortAscending = true;
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
-  final NumberFormat _numberFormat = NumberFormat('#,##0.##', 'en_GB');
   final DateFormat _dateFormat = DateFormat('d MMM yyyy');
+  final Map<String, bool> _updatingQty = {};
+  final Map<String, bool> _updatingMinQty = {};
+  double _itemColumnFlex = 4.5;
 
   static const List<InventoryColumn> _columnOrder = [
     InventoryColumn.item,
@@ -149,70 +153,81 @@ class _InventoryTableState extends State<InventoryTable> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.6),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.screenPadding,
-                  vertical: AppTheme.contentPadding,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Inventory (${_rows.length})',
-                        style: theme.textTheme.titleMedium,
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: SoftTileCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Inventory (${_rows.length})',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                    FilledButton.tonal(
-                      onPressed: _openColumnPicker,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.view_column),
-                          SizedBox(width: 8),
-                          Text('Columns'),
-                        ],
+                      TextButton.icon(
+                        onPressed: _openColumnPicker,
+                        icon: const Icon(Icons.view_column),
+                        label: const Text('Columns'),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              const Divider(height: 1),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: MediaQuery.of(context).size.width -
-                        AppTheme.screenPadding * 2,
-                  ),
-                  child: SingleChildScrollView(
+            Scrollbar(
+                controller: _horizontalController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: _horizontalController,
+                  child: Scrollbar(
                     controller: _verticalController,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.screenPadding,
-                        vertical: AppTheme.contentPadding,
-                      ),
-                      child: Builder(
-                        builder: (context) {
-                          final columns = _activeColumns;
-                          return Table(
-                            defaultVerticalAlignment:
-                                TableCellVerticalAlignment.middle,
-                            children: [
-                              _buildHeaderRow(theme, columns),
-                              ...List.generate(
-                                _rows.length,
-                                (index) => _buildDataRow(
-                                  _rows[index],
-                                  theme,
-                                  columns,
-                                  index: index,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _verticalController,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: constraints.maxWidth - 16,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: IntrinsicWidth(
+                            child: Builder(
+                              builder: (context) {
+                                final columns = _activeColumns;
+                                final columnWidths = <int, TableColumnWidth>{};
+                                for (var i = 0; i < columns.length; i++) {
+                                  columnWidths[i] = _columnWidth(columns[i]);
+                                }
+
+                                return Table(
+                                  columnWidths: columnWidths,
+                                  defaultVerticalAlignment:
+                                      TableCellVerticalAlignment.middle,
+                                  children: [
+                                    _buildHeaderRow(theme, columns),
+                                    ..._rows.asMap().entries.map(
+                                      (entry) => _buildDataRow(
+                                        entry.value,
+                                        theme,
+                                        columns,
+                                        entry.key,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -302,6 +317,29 @@ class _InventoryTableState extends State<InventoryTable> {
     );
   }
 
+  TableColumnWidth _columnWidth(InventoryColumn column) {
+    switch (column) {
+      case InventoryColumn.item:
+        return FlexColumnWidth(_itemColumnFlex);
+      case InventoryColumn.category:
+        return const FlexColumnWidth(2.4);
+      case InventoryColumn.quantity:
+        return const FixedColumnWidth(88);
+      case InventoryColumn.unit:
+        return const FixedColumnWidth(76);
+      case InventoryColumn.location:
+        return const FlexColumnWidth(2.2);
+      case InventoryColumn.expiry:
+        return const FlexColumnWidth(2.2);
+      case InventoryColumn.minQty:
+        return const FixedColumnWidth(96);
+      case InventoryColumn.status:
+        return const FlexColumnWidth(2.2);
+      case InventoryColumn.actions:
+        return const FixedColumnWidth(160);
+    }
+  }
+
   String _columnLabel(InventoryColumn column) {
     switch (column) {
       case InventoryColumn.item:
@@ -335,33 +373,46 @@ class _InventoryTableState extends State<InventoryTable> {
       final label = _columnLabel(column);
 
       if (!sortable) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Align(
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurfaceVariant,
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Align(
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
-          ),
-        );
+          );
       }
+
+      final trailing = column == InventoryColumn.item
+          ? IconButton(
+              tooltip: 'Toggle item column width',
+              icon: const Icon(Icons.unfold_more),
+              onPressed: () {
+                setState(() {
+                  _itemColumnFlex = _itemColumnFlex >= 6 ? 4.0 : 6.0;
+                });
+              },
+            )
+          : null;
 
       return InkWell(
         onTap: () => _applySort(column, isSorted ? !_sortAscending : true),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (trailing != null) trailing,
               Flexible(
                 child: Text(
                   label,
-                  style: theme.textTheme.titleSmall?.copyWith(
+                  style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -398,17 +449,18 @@ class _InventoryTableState extends State<InventoryTable> {
   TableRow _buildDataRow(
     InventoryItem item,
     ThemeData theme,
-    List<InventoryColumn> columns, {
-    required int index,
-  }) {
+    List<InventoryColumn> columns,
+    int rowIndex,
+  ) {
     final category = widget.provider.getCategoryById(item.category);
+    final rowColor = rowIndex.isEven
+        ? theme.colorScheme.surface
+        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25);
 
     Widget cell(
       Widget child, {
-      EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-        vertical: 12,
-        horizontal: AppTheme.contentPadding,
-      ),
+      EdgeInsetsGeometry padding =
+          const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
     }) {
       return Padding(
         padding: padding,
@@ -423,6 +475,7 @@ class _InventoryTableState extends State<InventoryTable> {
           style: theme.textTheme.bodyMedium,
           textAlign: TextAlign.center,
           overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
       );
     }
@@ -431,13 +484,24 @@ class _InventoryTableState extends State<InventoryTable> {
       return PopupMenuButton<_ActionOption>(
         tooltip: 'Actions',
         position: PopupMenuPosition.over,
-        onSelected: (value) {
+        onSelected: (value) async {
           switch (value) {
             case _ActionOption.edit:
               if (widget.onEdit != null) widget.onEdit!(item);
               break;
             case _ActionOption.details:
               if (widget.onDetails != null) widget.onDetails!(item);
+              break;
+            case _ActionOption.outOfStock:
+              await widget.provider.updateItem(
+                item,
+                newQuantity: 0,
+                action: UpdateAction.set,
+              );
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${item.name} marked out of stock')),
+              );
               break;
             case _ActionOption.remove:
               if (widget.onDelete != null) widget.onDelete!(item);
@@ -453,6 +517,10 @@ class _InventoryTableState extends State<InventoryTable> {
             value: _ActionOption.details,
             child: Text('Details'),
           ),
+          const PopupMenuItem(
+            value: _ActionOption.outOfStock,
+            child: Text('Mark out of stock'),
+          ),
           PopupMenuItem(
             value: _ActionOption.remove,
             child: Text(
@@ -462,13 +530,13 @@ class _InventoryTableState extends State<InventoryTable> {
           ),
         ],
         child: Container(
-          padding: const EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: AppTheme.contentPadding,
             vertical: 10,
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTheme.radius12),
-            color: theme.colorScheme.surfaceVariant,
+            color: theme.colorScheme.surfaceContainerHighest,
           ),
           child: const Icon(Icons.more_vert, size: 22),
         ),
@@ -496,7 +564,26 @@ class _InventoryTableState extends State<InventoryTable> {
                   ),
           );
         case InventoryColumn.quantity:
-          return textCell(_numberFormat.format(item.quantity));
+          return cell(
+            SizedBox(
+              height: 32,
+              child: _InlineStepper(
+                value: item.quantity,
+                isLoading: _updatingQty[item.id] ?? false,
+                onChanged: (newValue) async {
+                  final key = item.id;
+                  setState(() => _updatingQty[key] = true);
+                  await widget.provider.updateItem(
+                    item,
+                    newQuantity: newValue,
+                    action: UpdateAction.set,
+                  );
+                  if (mounted) setState(() => _updatingQty[key] = false);
+                },
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+          );
         case InventoryColumn.unit:
           return textCell(item.unit);
         case InventoryColumn.location:
@@ -512,15 +599,27 @@ class _InventoryTableState extends State<InventoryTable> {
               : '—';
           return textCell(label);
         case InventoryColumn.minQty:
-          return textCell(_numberFormat.format(item.lowStockThreshold));
-        case InventoryColumn.status:
           return cell(
-            _StatusIndicator(item: item),
-            padding: const EdgeInsets.symmetric(
-              vertical: 12,
-              horizontal: AppTheme.contentPadding / 2,
+            SizedBox(
+              height: 32,
+              child: _InlineStepper(
+                value: item.lowStockThreshold,
+                isLoading: _updatingMinQty[item.id] ?? false,
+                onChanged: (newValue) async {
+                  final key = item.id;
+                  setState(() => _updatingMinQty[key] = true);
+                  await widget.provider.updateItem(
+                    item,
+                    newLowStockThreshold: newValue,
+                  );
+                  if (mounted) setState(() => _updatingMinQty[key] = false);
+                },
+              ),
             ),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
           );
+        case InventoryColumn.status:
+          return cell(_StatusIndicator(item: item));
         case InventoryColumn.actions:
           return cell(actionsCell());
       }
@@ -528,9 +627,7 @@ class _InventoryTableState extends State<InventoryTable> {
 
     return TableRow(
       decoration: BoxDecoration(
-        color: index.isEven
-            ? theme.colorScheme.surface
-            : theme.colorScheme.surfaceVariant.withValues(alpha: 0.18),
+        color: rowColor,
         border: Border(
           bottom: BorderSide(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
@@ -549,62 +646,42 @@ class _StatusIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colourScheme = Theme.of(context).colorScheme;
     late final IconData icon;
     late final Color color;
     late final String label;
 
     if (item.isExpired) {
       icon = Icons.error;
-      color = colourScheme.error;
+      color = Colors.red;
       label = 'Expired';
     } else if (item.stockStatus == StockStatus.out) {
       icon = Icons.cancel_presentation;
-      color = colourScheme.error;
-      label = 'Out of stock';
+      color = Colors.red;
+      label = 'Out';
     } else if (item.stockStatus == StockStatus.low) {
       icon = Icons.warning;
-      color = AppTheme.stockLow;
-      label = 'Low stock';
+      color = Colors.orange;
+      label = 'Low';
     } else if (item.isExpiringSoon) {
       icon = Icons.schedule;
-      color = AppTheme.stockLow;
-      label = 'Expiring soon';
+      color = Colors.orange;
+      label = 'Soon';
     } else {
       icon = Icons.check_circle;
-      color = AppTheme.stockGood;
-      label = 'In stock';
+      color = Colors.green;
+      label = 'In';
     }
 
-    final textStyle = Theme.of(
-      context,
-    ).textTheme.bodySmall?.copyWith(color: color);
-
-    return Tooltip(
-      message: label,
-      child: SizedBox(
-        width: 80,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                label,
-                style: textStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return SoftTileActionIcon(
+      icon: icon,
+      label: label,
+      tint: color,
+      onPressed: null,
     );
   }
 }
 
-enum _ActionOption { edit, details, remove }
+enum _ActionOption { edit, details, outOfStock, remove }
 
 class _TagChip extends StatelessWidget {
   const _TagChip({required this.label});
@@ -643,26 +720,124 @@ class _CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseColor = category.colorValue;
-    final background = baseColor.withValues(alpha: 0.16);
-    final border = baseColor.withValues(alpha: 0.32);
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            baseColor.withValues(alpha: 0.16),
+            baseColor.withValues(alpha: 0.1),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+        border: Border.all(color: baseColor.withValues(alpha: 0.24)),
       ),
-      constraints: const BoxConstraints(maxWidth: 160),
+      constraints: const BoxConstraints(maxWidth: 180),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: Text(
           category.name,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: baseColor),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: baseColor,
+                fontWeight: FontWeight.w600,
+              ),
         ),
+      ),
+    );
+  }
+}
+
+class _InlineStepper extends StatefulWidget {
+  const _InlineStepper({
+    required this.value,
+    required this.onChanged,
+    this.isLoading = false,
+  });
+
+  final double value;
+  final Future<void> Function(double) onChanged;
+  final bool isLoading;
+
+  @override
+  State<_InlineStepper> createState() => _InlineStepperState();
+}
+
+class _InlineStepperState extends State<_InlineStepper> {
+  bool _working = false;
+
+  Future<void> _update(double delta) async {
+    if (_working || widget.isLoading) return;
+    setState(() => _working = true);
+    final next = (widget.value + delta).clamp(0, 9999).toDouble();
+    await widget.onChanged(next);
+    if (mounted) setState(() => _working = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final display = widget.value % 1 == 0
+        ? widget.value.toInt().toString()
+        : widget.value.toStringAsFixed(1);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.4,
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            iconSize: 16,
+            onPressed: () => _update(-1),
+            icon: const Icon(Icons.remove_circle_outline),
+          ),
+          SizedBox(
+            width: 34,
+            child: Center(
+              child: widget.isLoading || _working
+                  ? SizedBox(
+                      height: 12,
+                      width: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.primary,
+                      ),
+                    )
+                  : Text(
+                      display,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            iconSize: 16,
+            onPressed: () => _update(1),
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+        ],
       ),
     );
   }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:grocery_app/features/inventory/models/location_config.dart';
-import 'package:grocery_app/features/inventory/providers/inventory_provider.dart';
-import 'package:grocery_app/features/inventory/repositories/inventory_repository.dart';
+import 'package:sustain/features/inventory/models/location_config.dart';
+import 'package:sustain/features/inventory/providers/inventory_provider.dart';
+import 'package:sustain/features/inventory/repositories/inventory_repository.dart';
 
 class _FakeInventoryRepository extends InventoryRepository {
   _FakeInventoryRepository({required List<LocationOption> initialLocations})

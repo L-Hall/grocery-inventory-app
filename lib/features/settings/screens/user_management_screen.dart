@@ -121,7 +121,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: theme.colorScheme.surfaceVariant,
+                color: theme.colorScheme.surfaceContainerHighest,
               ),
               child: Row(
                 children: [
@@ -344,7 +344,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withOpacity(0.1),
+        color: theme.colorScheme.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -432,6 +432,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   Future<void> _confirmDeleteAccount() async {
+    final authProvider = context.read<AuthProvider>();
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -458,7 +459,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     if (shouldDelete != true) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     setState(() => _isPerformingAction = true);
 
     try {
@@ -566,7 +566,9 @@ class _PlanSelectionSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.3,
+                  ),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -643,7 +645,7 @@ class _PlanCard extends StatelessWidget {
           width: option.highlighted ? 2 : 1,
         ),
         color: option.highlighted
-            ? theme.colorScheme.primary.withOpacity(0.05)
+            ? theme.colorScheme.primary.withValues(alpha: 0.05)
             : theme.colorScheme.surface,
       ),
       child: Column(

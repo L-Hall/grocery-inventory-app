@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
 import '../models/inventory_item.dart';
 import '../providers/inventory_provider.dart';
 import 'inventory_item_editor.dart';
+import '../../../core/widgets/soft_tile_icon.dart';
 
 Future<void> showInventoryItemDetailsSheet(
   BuildContext context, {
@@ -13,11 +13,6 @@ Future<void> showInventoryItemDetailsSheet(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    clipBehavior: Clip.antiAlias,
     builder: (sheetContext) =>
         _InventoryItemDetailsSheet(item: item, provider: provider),
   );
@@ -87,203 +82,233 @@ class _InventoryItemDetailsSheetState
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return SafeArea(
-      top: false,
       child: SingleChildScrollView(
-        padding: EdgeInsets.only(
-          left: AppTheme.screenPadding,
-          right: AppTheme.screenPadding,
-          top: 24,
-          bottom: bottomInset + AppTheme.screenPadding,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    item.name,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                IconButton(
-                  onPressed: _isProcessing
-                      ? null
-                      : () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppTheme.sectionSpacing),
-            _buildInfoGrid(context),
-            if (item.notes != null && item.notes!.isNotEmpty) ...[
-              const SizedBox(height: AppTheme.sectionSpacing),
-              Text(
-                'Notes',
-                style: theme.textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppTheme.contentPadding / 2),
-              Text(
-                item.notes!,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
-            const SizedBox(height: AppTheme.sectionSpacing),
-            Text(
-              'Quick Actions',
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: AppTheme.contentPadding),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Wrap(
-                spacing: AppTheme.contentPadding,
-                runSpacing: AppTheme.contentPadding,
-                children: [
-                  _QuickActionButton(
-                    icon: Icons.remove,
-                    label: 'Use 1',
-                    onPressed: () => _applyQuantityChange(-1),
-                  ),
-                  _QuickActionButton(
-                    icon: Icons.add,
-                    label: 'Add 1',
-                    onPressed: () => _applyQuantityChange(1),
-                  ),
-                  _QuickActionButton(
-                    icon: Icons.auto_fix_high,
-                    label: 'Set quantity',
-                    onPressed: _showSetQuantityDialog,
-                  ),
-                  _QuickActionButton(
-                    icon: Icons.edit_note,
-                    label: 'Edit item',
-                    onPressed: () => _openEditor(context),
-                  ),
-                  _QuickActionButton(
-                    icon: Icons.delete_outline,
-                    label: 'Remove',
-                    destructive: true,
-                    onPressed: () => _confirmDelete(context),
+                  IconButton(
+                    onPressed: _isProcessing
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: AppTheme.sectionSpacing),
-          ],
+              const SizedBox(height: 16),
+              _buildSections(context),
+              if (item.notes != null && item.notes!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Notes',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(item.notes!),
+              ],
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quick Actions',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        SoftTileActionIcon(
+                          icon: Icons.remove,
+                          label: 'Use 1',
+                          onPressed: () => _applyQuantityChange(-1),
+                        ),
+                        SoftTileActionIcon(
+                          icon: Icons.add,
+                          label: 'Add 1',
+                          onPressed: () => _applyQuantityChange(1),
+                        ),
+                        SoftTileActionIcon(
+                          icon: Icons.auto_fix_high,
+                          label: 'Set qty',
+                          onPressed: _showSetQuantityDialog,
+                        ),
+                        SoftTileActionIcon(
+                          icon: Icons.edit_note,
+                          label: 'Edit item',
+                          onPressed: () => _openEditor(context),
+                        ),
+                        SoftTileActionIcon(
+                          icon: Icons.delete_outline,
+                          label: 'Remove',
+                          tint: theme.colorScheme.error,
+                          onPressed: () => _confirmDelete(context),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoGrid(BuildContext context) {
+  Widget _buildSections(BuildContext context) {
     final theme = Theme.of(context);
-    final stats = <_InfoTileData>[
-      _InfoTileData(
-        label: 'Quantity',
-        value: '${item.quantity} ${item.unit}',
-        icon: Icons.stacked_bar_chart,
+    final rows = <_SectionRow>[
+      _SectionRow(
+        title: 'Stock',
+        items: [
+          _InfoTileData(
+            label: 'Quantity',
+            value: '${item.quantity} ${item.unit}',
+            icon: Icons.stacked_bar_chart,
+          ),
+          _InfoTileData(
+            label: 'Low stock threshold',
+            value: '${item.lowStockThreshold} ${item.unit}',
+            icon: Icons.warning_amber_outlined,
+          ),
+          _InfoTileData(
+            label: 'Status',
+            value: item.stockStatus.displayName,
+            icon: _statusIcon(item.stockStatus),
+          ),
+        ],
       ),
-      _InfoTileData(
-        label: 'Stock Status',
-        value: item.stockStatus.displayName,
-        icon: _statusIcon(item.stockStatus),
-      ),
-      _InfoTileData(
-        label: 'Category',
-        value: item.category,
-        icon: Icons.category_outlined,
-      ),
-      _InfoTileData(
-        label: 'Location',
-        value: item.location ?? 'Not specified',
-        icon: Icons.location_on_outlined,
-      ),
-      _InfoTileData(
-        label: 'Low Stock',
-        value: '${item.lowStockThreshold} ${item.unit}',
-        icon: Icons.warning_amber_outlined,
-      ),
-      _InfoTileData(
-        label: 'Created',
-        value: item.createdAt.toLocal().toString().split(' ').first,
-        icon: Icons.calendar_today_outlined,
-      ),
-      _InfoTileData(
-        label: 'Updated',
-        value: item.updatedAt.toLocal().toString().split(' ').first,
-        icon: Icons.update,
-      ),
-      _InfoTileData(
-        label: item.expirationDate == null
-            ? 'Expiry date'
-            : item.isExpired
-            ? 'Expired'
-            : 'Expires',
-        value: item.expirationDate != null
-            ? item.expirationDate!.toLocal().toString().split(' ').first
-            : 'Not set',
-        icon: item.expirationDate == null
-            ? Icons.schedule
-            : item.isExpired
-            ? Icons.error
-            : Icons.schedule,
+      _SectionRow(
+        title: 'Metadata',
+        items: [
+          _InfoTileData(
+            label: 'Category',
+            value: item.category,
+            icon: Icons.category_outlined,
+          ),
+          _InfoTileData(
+            label: 'Location',
+            value: item.location ?? 'Not specified',
+            icon: Icons.location_on_outlined,
+          ),
+          _InfoTileData(
+            label: 'Created',
+            value: item.createdAt.toLocal().toString().split(' ').first,
+            icon: Icons.calendar_today_outlined,
+          ),
+          _InfoTileData(
+            label: 'Updated',
+            value: item.updatedAt.toLocal().toString().split(' ').first,
+            icon: Icons.update,
+          ),
+          _InfoTileData(
+            label: item.expirationDate == null
+                ? 'Expiry date'
+                : item.isExpired
+                    ? 'Expired'
+                    : 'Expires',
+            value: item.expirationDate != null
+                ? item.expirationDate!.toLocal().toString().split(' ').first
+                : 'Not set',
+            icon: item.expirationDate == null
+                ? Icons.schedule
+                : item.isExpired
+                    ? Icons.error
+                    : Icons.schedule,
+          ),
+        ],
       ),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: stats.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 2.8,
-        mainAxisSpacing: AppTheme.contentPadding,
-        crossAxisSpacing: AppTheme.contentPadding,
-      ),
-      itemBuilder: (context, index) {
-        final data = stats[index];
-        return Card(
-          elevation: 0,
-          color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radius12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(AppTheme.contentPadding),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(data.icon, size: 20),
-                const SizedBox(width: AppTheme.contentPadding / 2),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        data.label,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        data.value,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          Text(
+            rows[i].title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          ...rows[i].items.map(
+            (data) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(data.icon, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            data.label,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            data.value,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (i < rows.length - 1) ...[
+            const SizedBox(height: 8),
+            Divider(
+              color: theme.colorScheme.outlineVariant,
+              thickness: 1,
+            ),
+            const SizedBox(height: 12),
+          ],
+        ],
+      ],
     );
   }
 
@@ -452,75 +477,9 @@ class _InfoTileData {
   final IconData icon;
 }
 
-class _ActionChipButton extends StatelessWidget {
-  const _ActionChipButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.destructive = false,
-  });
+class _SectionRow {
+  _SectionRow({required this.title, required this.items});
 
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-  final bool destructive;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton.tonalIcon(
-      icon: Icon(
-        icon,
-        color: destructive
-            ? Theme.of(context).colorScheme.error
-            : Theme.of(context).colorScheme.primary,
-      ),
-      label: Text(label),
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        foregroundColor: destructive
-            ? Theme.of(context).colorScheme.error
-            : Theme.of(context).colorScheme.onSurface,
-        backgroundColor: destructive
-            ? Theme.of(context)
-                .colorScheme
-                .errorContainer
-                .withValues(alpha: 0.2)
-            : Theme.of(context)
-                .colorScheme
-                .surfaceVariant
-                .withValues(alpha: 0.8),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.screenPadding,
-          vertical: AppTheme.contentPadding,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radius12),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionButton extends StatelessWidget {
-  const _QuickActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.destructive = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-  final bool destructive;
-
-  @override
-  Widget build(BuildContext context) {
-    return _ActionChipButton(
-      icon: icon,
-      label: label,
-      destructive: destructive,
-      onPressed: onPressed,
-    );
-  }
+  final String title;
+  final List<_InfoTileData> items;
 }

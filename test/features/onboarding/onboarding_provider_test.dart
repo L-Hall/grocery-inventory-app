@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:grocery_app/core/services/storage_service.dart';
-import 'package:grocery_app/features/onboarding/providers/onboarding_provider.dart';
+import 'package:sustain/core/services/storage_service.dart';
+import 'package:sustain/features/onboarding/providers/onboarding_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

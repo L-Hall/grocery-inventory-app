@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/onboarding_provider.dart';
+import '../../../core/widgets/soft_tile_icon.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -54,60 +55,77 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
           child: Column(
             children: [
               Align(
-                alignment: Alignment.centerRight,
+                alignment: Alignment.topRight,
                 child: TextButton(
                   onPressed: _handleSkip,
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    textStyle: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   child: const Text('Skip'),
                 ),
               ),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _slides.length,
-                  onPageChanged: (index) {
-                    setState(() => _currentPageIndex = index);
-                  },
-                  itemBuilder: (context, index) {
-                    final slide = _slides[index];
-                    return _OnboardingSlideView(slide: slide);
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-              _DotsIndicator(
-                count: _slides.length,
-                activeIndex: _currentPageIndex,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _handleNext,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(
-                    _currentPageIndex == _slides.length - 1
-                        ? 'Get started'
-                        : 'Next',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
               const SizedBox(height: 12),
-              TextButton(
-                onPressed: _handleSkip,
-                child: const Text('Already have an account? Sign in'),
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: _slides.length,
+                        onPageChanged: (index) {
+                          setState(() => _currentPageIndex = index);
+                        },
+                        itemBuilder: (context, index) {
+                          final slide = _slides[index];
+                          return _OnboardingSlideView(slide: slide);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _DotsIndicator(
+                      count: _slides.length,
+                      activeIndex: _currentPageIndex,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _handleNext,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          _currentPageIndex == _slides.length - 1
+                              ? 'Get started'
+                              : 'Next',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _handleSkip,
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
+                        textStyle: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: const Text('Already have an account? Sign in'),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             ],
           ),
@@ -162,34 +180,33 @@ class _OnboardingSlideView extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          height: 140,
-          width: 140,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(32),
+        const Spacer(),
+        SoftTileIcon(icon: slide.icon),
+        const SizedBox(height: 28),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 340),
+          child: Column(
+            children: [
+              Text(
+                slide.title,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                slide.description,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-          child: Icon(slide.icon, size: 72, color: theme.colorScheme.primary),
         ),
-        const SizedBox(height: 32),
-        Text(
-          slide.title,
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        Text(
-          slide.description,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          textAlign: TextAlign.center,
-        ),
+        const Spacer(),
       ],
     );
   }
@@ -211,13 +228,13 @@ class _DotsIndicator extends StatelessWidget {
         final isActive = index == activeIndex;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.symmetric(horizontal: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 6),
           height: 8,
-          width: isActive ? 24 : 10,
+          width: isActive ? 18 : 8,
           decoration: BoxDecoration(
             color: isActive
                 ? theme.colorScheme.primary
-                : theme.colorScheme.primary.withOpacity(0.2),
+                : theme.colorScheme.primary.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(4),
           ),
         );

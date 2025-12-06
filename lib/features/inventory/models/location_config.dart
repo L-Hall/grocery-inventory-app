@@ -20,11 +20,8 @@ class LocationOption {
   });
 
   Map<String, dynamic> toJson() {
-    final rgbHex = [
-      color.red,
-      color.green,
-      color.blue,
-    ].map((component) => component.toRadixString(16).padLeft(2, '0')).join();
+    final argb = color.toARGB32();
+    final rgbHex = argb.toRadixString(16).padLeft(8, '0').substring(2);
 
     return {
       'id': id,
