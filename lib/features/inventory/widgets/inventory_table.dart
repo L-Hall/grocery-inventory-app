@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/widgets/soft_tile_icon.dart'
-    show SoftTileCard, SoftTileActionIcon;
+import '../../../core/widgets/soft_tile_icon.dart' show SoftTileCard;
 import '../../../core/theme/app_theme.dart';
 import '../models/category.dart' as inventory;
 import '../models/inventory_item.dart';
@@ -155,28 +154,33 @@ class _InventoryTableState extends State<InventoryTable> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(12),
-                child: SoftTileCard(
-                  tint: theme.colorScheme.primary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Inventory (${_rows.length})',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                        ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: SoftTileCard(
+                      tint: theme.colorScheme.primary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                      TextButton.icon(
-                        onPressed: _openColumnPicker,
-                        icon: const Icon(Icons.view_column_outlined, size: 18),
-                        label: const Text('Columns'),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Inventory (${_rows.length})',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _openColumnPicker,
+                            icon: const Icon(Icons.view_column_outlined, size: 18),
+                            label: const Text('Columns'),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -662,23 +666,38 @@ class _StatusIndicator extends StatelessWidget {
       label = 'Out';
     } else if (item.stockStatus == StockStatus.low) {
       icon = Icons.warning;
-      color = scheme.tertiary;
+      color = Colors.amber[800] ?? scheme.secondary;
       label = 'Low';
     } else if (item.isExpiringSoon) {
       icon = Icons.schedule;
-      color = scheme.tertiary;
+      color = Colors.amber[800] ?? scheme.secondary;
       label = 'Soon';
     } else {
       icon = Icons.check_circle;
-      color = scheme.secondary;
+      color = Colors.green[700] ?? scheme.secondary;
       label = 'In';
     }
 
-    return SoftTileActionIcon(
-      icon: icon,
-      label: label,
-      tint: color,
-      onPressed: null,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -726,22 +745,8 @@ class _CategoryChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            baseColor.withValues(alpha: 0.16),
-            baseColor.withValues(alpha: 0.1),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(color: baseColor.withValues(alpha: 0.24)),
+        color: baseColor.withValues(alpha: 0.16),
+        border: Border.all(color: baseColor.withValues(alpha: 0.4)),
       ),
       constraints: const BoxConstraints(maxWidth: 180),
       child: FittedBox(
@@ -751,7 +756,7 @@ class _CategoryChip extends StatelessWidget {
           category.name,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: baseColor,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
         ),
       ),
@@ -800,46 +805,49 @@ class _InlineStepperState extends State<_InlineStepper> {
         ),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-            iconSize: 16,
-            onPressed: () => _update(-1),
-            icon: const Icon(Icons.remove_circle_outline),
-          ),
-          SizedBox(
-            width: 34,
-            child: Center(
-              child: widget.isLoading || _working
-                  ? SizedBox(
-                      height: 12,
-                      width: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: theme.colorScheme.primary,
-                      ),
-                    )
-                  : Text(
-                      display,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 22, height: 22),
+              iconSize: 15,
+              onPressed: () => _update(-1),
+              icon: const Icon(Icons.remove_circle_outline),
             ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-            iconSize: 16,
-            onPressed: () => _update(1),
-            icon: const Icon(Icons.add_circle_outline),
-          ),
-        ],
+            SizedBox(
+              width: 30,
+              child: Center(
+                child: widget.isLoading || _working
+                    ? SizedBox(
+                        height: 12,
+                        width: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.primary,
+                        ),
+                      )
+                    : Text(
+                        display,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 22, height: 22),
+              iconSize: 15,
+              onPressed: () => _update(1),
+              icon: const Icon(Icons.add_circle_outline),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -204,11 +204,11 @@ class _SoftTileSurface extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final gradientStart = isDark ? 0.22 : 0.12;
     final gradientEnd = isDark ? 0.10 : 0.08;
-    final shadow1Alpha = isDark ? 0.45 : 0.06;
-    final shadow2Alpha = isDark ? 0.26 : 0.12;
-    final shadow1Blur = isDark ? 24.0 : 18.0;
-    final shadow1Offset = isDark ? const Offset(0, 16) : const Offset(0, 10);
-    final shadow2Blur = isDark ? 10.0 : 8.0;
+    final shadow1Alpha = isDark ? 0.45 : 0.12;
+    final shadow2Alpha = isDark ? 0.26 : 0.08;
+    final shadow1Blur = isDark ? 24.0 : 16.0;
+    final shadow1Offset = isDark ? const Offset(0, 16) : const Offset(0, 8);
+    final shadow2Blur = isDark ? 10.0 : 6.0;
     final shadow2Offset = const Offset(0, 4);
 
     return Container(

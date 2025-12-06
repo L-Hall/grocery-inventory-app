@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'app_colors.dart';
 
 /// Sustain design system theme and spacing tokens.
 class AppTheme {
@@ -15,7 +16,7 @@ class AppTheme {
   static const double radius20 = 20;
 
   // Palette
-  static const Color seedColor = Color(0xFFD86A6A);
+  static const Color seedColor = AppColors.rose;
   static const Color background = Color(0xFFF8EDE7);
   static const Color darkSurface = Color(0xFF151016);
   static const Color darkSurfaceVariant = Color(0xFF211823);

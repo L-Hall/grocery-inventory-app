@@ -32,7 +32,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Preference states
   bool _notificationsEnabled = true;
-  bool _lowStockAlerts = true;
   String _unitSystem = 'metric';
   ThemeMode _themeMode = ThemeMode.system;
   List<SavedSearch> _savedSearches = const [];
@@ -72,10 +71,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'notifications_enabled',
         defaultValue: true,
       );
-      final lowStock = _storageService.getBool(
-        'low_stock_alerts',
-        defaultValue: true,
-      );
       final unitSystem =
           _storageService.getString(StorageService.keyUnitSystem) ??
           _legacyUnitSystemFallback();
@@ -84,7 +79,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() {
           _notificationsEnabled = notifications;
-          _lowStockAlerts = lowStock;
           _unitSystem = unitSystem;
           _themeMode = _parseThemeMode(theme);
         });
@@ -135,7 +129,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final remoteDefaultUnit = settings['unitSystem'] as String? ??
             settings['defaultUnit'] as String?;
         final remoteNotifications = settings['notificationsEnabled'] as bool?;
-        final remoteLowStock = settings['lowStockAlerts'] as bool?;
 
         if (mounted) {
           setState(() {
@@ -144,9 +137,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             }
             if (remoteNotifications != null) {
               _notificationsEnabled = remoteNotifications;
-            }
-            if (remoteLowStock != null) {
-              _lowStockAlerts = remoteLowStock;
             }
           });
         }
@@ -181,7 +171,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: const Text('Settings'),
         centerTitle: true,
@@ -224,74 +216,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildUserProfileSection(BuildContext context) {
+    final theme = Theme.of(context);
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
         final user = authProvider.user;
+        final initials = _getUserInitials(user?.displayName ?? user?.email ?? '');
+        final name = user?.displayName ?? 'User';
+        final email = user?.email ?? 'No email';
 
-        return _buildSection(
-          context,
-          title: 'Profile',
-          icon: Icons.person,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SoftTileActionIcon(
-                      icon: Icons.person,
-                      tint: Theme.of(context).primaryColor,
-                      label: _getUserInitials(
-                        user?.displayName ?? user?.email ?? '',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      user?.displayName ?? 'User',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    Text(
-                      user?.email ?? 'No email',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _showEditProfileDialog,
-                      child: const Text('Edit profile'),
-                    ),
-                  ],
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Text(
+                'Profile',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.1,
                 ),
               ),
             ),
-            ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              leading: const Icon(Icons.admin_panel_settings_outlined),
-              title: const Text('Account & subscriptions'),
-              subtitle: const Text(
-                'Manage sync, billing, and account deletion',
-                softWrap: true,
+            SoftTileCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              onTap: _showEditProfileDialog,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    child: Text(
+                      initials,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          email,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _showEditProfileDialog,
+                    child: const Text('Edit'),
+                  ),
+                ],
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: _openUserManagement,
             ),
-            ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              leading: const Icon(Icons.home_work_outlined),
-              title: const Text('Household & sharing'),
-              subtitle: const Text(
-                'Invite family or join a shared pantry',
-                softWrap: true,
-              ),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: _openHouseholdSharing,
+            const SizedBox(height: 12),
+            _SettingsSection(
+              title: 'Account',
+              children: [
+                _SettingsTile(
+                  icon: Icons.admin_panel_settings_outlined,
+                  title: 'Account & subscriptions',
+                  subtitle: 'Manage sync, billing, and account deletion',
+                  onTap: _openUserManagement,
+                ),
+                _SettingsTile(
+                  icon: Icons.home_work_outlined,
+                  title: 'Household & sharing',
+                  subtitle: 'Invite family or join a shared pantry',
+                  onTap: _openHouseholdSharing,
+                ),
+              ],
             ),
           ],
         );
@@ -343,23 +348,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value == 'metric'
                     ? 'Metric units will be used by default.'
                     : 'Imperial units will be used by default.',
-              );
-            },
-          ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.warning_amber),
-          title: const Text('Low Stock Alerts'),
-          subtitle: const Text('Notify when items are running low'),
-          trailing: Switch(
-            value: _lowStockAlerts,
-            onChanged: (value) async {
-              setState(() {
-                _lowStockAlerts = value;
-              });
-              await _storageService.setBool('low_stock_alerts', value);
-              _showSnackMessage(
-                'Low stock alerts ${value ? 'enabled' : 'disabled'}',
               );
             },
           ),
@@ -881,6 +869,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ),
+        SoftTileCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (int i = 0; i < children.length; i++) ...[
+                if (i != 0)
+                  Divider(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                children[i],
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ListTile(
+      leading: SoftTileActionIcon(
+        icon: icon,
+        tint: theme.colorScheme.primary,
+        onPressed: onTap,
+      ),
+      title: Text(title),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          : null,
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
     );
   }
 }
