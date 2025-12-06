@@ -156,6 +156,7 @@ class InventoryRepository {
   Future<void> updateItem(
     InventoryItem item, {
     double? newQuantity,
+    double? newLowStockThreshold,
     UpdateAction action = UpdateAction.set,
   }) async {
     final quantity = newQuantity ?? item.quantity;
@@ -166,7 +167,7 @@ class InventoryRepository {
       action: action,
       category: item.category,
       location: item.location,
-      lowStockThreshold: item.lowStockThreshold,
+      lowStockThreshold: newLowStockThreshold ?? item.lowStockThreshold,
       notes: item.notes,
     );
 

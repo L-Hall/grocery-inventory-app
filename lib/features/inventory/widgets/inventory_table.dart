@@ -46,8 +46,10 @@ class _InventoryTableState extends State<InventoryTable> {
   bool _sortAscending = true;
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
-  final NumberFormat _numberFormat = NumberFormat('#,##0.##', 'en_GB');
   final DateFormat _dateFormat = DateFormat('d MMM yyyy');
+  final Map<String, bool> _updatingQty = {};
+  final Map<String, bool> _updatingMinQty = {};
+  double _itemColumnFlex = 4.5;
 
   static const List<InventoryColumn> _columnOrder = [
     InventoryColumn.item,
@@ -318,7 +320,7 @@ class _InventoryTableState extends State<InventoryTable> {
   TableColumnWidth _columnWidth(InventoryColumn column) {
     switch (column) {
       case InventoryColumn.item:
-        return const FlexColumnWidth(3.2);
+        return FlexColumnWidth(_itemColumnFlex);
       case InventoryColumn.category:
         return const FlexColumnWidth(2.4);
       case InventoryColumn.quantity:
@@ -371,21 +373,33 @@ class _InventoryTableState extends State<InventoryTable> {
       final label = _columnLabel(column);
 
       if (!sortable) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Align(
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurfaceVariant,
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Align(
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
-          ),
-        );
+          );
       }
+
+      final trailing = column == InventoryColumn.item
+          ? IconButton(
+              tooltip: 'Toggle item column width',
+              icon: const Icon(Icons.unfold_more),
+              onPressed: () {
+                setState(() {
+                  _itemColumnFlex = _itemColumnFlex >= 6 ? 4.0 : 6.0;
+                });
+              },
+            )
+          : null;
 
       return InkWell(
         onTap: () => _applySort(column, isSorted ? !_sortAscending : true),
@@ -394,6 +408,7 @@ class _InventoryTableState extends State<InventoryTable> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (trailing != null) trailing,
               Flexible(
                 child: Text(
                   label,
@@ -549,7 +564,26 @@ class _InventoryTableState extends State<InventoryTable> {
                   ),
           );
         case InventoryColumn.quantity:
-          return textCell(_numberFormat.format(item.quantity));
+          return cell(
+            SizedBox(
+              height: 32,
+              child: _InlineStepper(
+                value: item.quantity,
+                isLoading: _updatingQty[item.id] ?? false,
+                onChanged: (newValue) async {
+                  final key = item.id;
+                  setState(() => _updatingQty[key] = true);
+                  await widget.provider.updateItem(
+                    item,
+                    newQuantity: newValue,
+                    action: UpdateAction.set,
+                  );
+                  if (mounted) setState(() => _updatingQty[key] = false);
+                },
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+          );
         case InventoryColumn.unit:
           return textCell(item.unit);
         case InventoryColumn.location:
@@ -565,7 +599,25 @@ class _InventoryTableState extends State<InventoryTable> {
               : '—';
           return textCell(label);
         case InventoryColumn.minQty:
-          return textCell(_numberFormat.format(item.lowStockThreshold));
+          return cell(
+            SizedBox(
+              height: 32,
+              child: _InlineStepper(
+                value: item.lowStockThreshold,
+                isLoading: _updatingMinQty[item.id] ?? false,
+                onChanged: (newValue) async {
+                  final key = item.id;
+                  setState(() => _updatingMinQty[key] = true);
+                  await widget.provider.updateItem(
+                    item,
+                    newLowStockThreshold: newValue,
+                  );
+                  if (mounted) setState(() => _updatingMinQty[key] = false);
+                },
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+          );
         case InventoryColumn.status:
           return cell(_StatusIndicator(item: item));
         case InventoryColumn.actions:
@@ -668,26 +720,124 @@ class _CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseColor = category.colorValue;
-    final background = baseColor.withValues(alpha: 0.16);
-    final border = baseColor.withValues(alpha: 0.32);
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            baseColor.withValues(alpha: 0.16),
+            baseColor.withValues(alpha: 0.1),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+        border: Border.all(color: baseColor.withValues(alpha: 0.24)),
       ),
-      constraints: const BoxConstraints(maxWidth: 160),
+      constraints: const BoxConstraints(maxWidth: 180),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: Text(
           category.name,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: baseColor),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: baseColor,
+                fontWeight: FontWeight.w600,
+              ),
         ),
+      ),
+    );
+  }
+}
+
+class _InlineStepper extends StatefulWidget {
+  const _InlineStepper({
+    required this.value,
+    required this.onChanged,
+    this.isLoading = false,
+  });
+
+  final double value;
+  final Future<void> Function(double) onChanged;
+  final bool isLoading;
+
+  @override
+  State<_InlineStepper> createState() => _InlineStepperState();
+}
+
+class _InlineStepperState extends State<_InlineStepper> {
+  bool _working = false;
+
+  Future<void> _update(double delta) async {
+    if (_working || widget.isLoading) return;
+    setState(() => _working = true);
+    final next = (widget.value + delta).clamp(0, 9999).toDouble();
+    await widget.onChanged(next);
+    if (mounted) setState(() => _working = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final display = widget.value % 1 == 0
+        ? widget.value.toInt().toString()
+        : widget.value.toStringAsFixed(1);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.4,
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            iconSize: 16,
+            onPressed: () => _update(-1),
+            icon: const Icon(Icons.remove_circle_outline),
+          ),
+          SizedBox(
+            width: 34,
+            child: Center(
+              child: widget.isLoading || _working
+                  ? SizedBox(
+                      height: 12,
+                      width: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.primary,
+                      ),
+                    )
+                  : Text(
+                      display,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            iconSize: 16,
+            onPressed: () => _update(1),
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+        ],
       ),
     );
   }

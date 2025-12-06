@@ -37,68 +37,68 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = authProvider.user;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_getAppBarTitle()),
-        centerTitle: true,
-        backgroundColor: theme.colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          // User avatar or menu
-          PopupMenuButton(
-            icon: CircleAvatar(
-              radius: 16,
-              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-              child: Text(
-                _getUserInitials(user?.displayName ?? user?.email ?? ''),
-                style: TextStyle(
-                  color: theme.primaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                child: Row(
-                  children: [
-                    Icon(Icons.person, color: theme.colorScheme.onSurface),
-                    const SizedBox(width: 12),
-                    Text(user?.displayName ?? 'Profile'),
-                  ],
-                ),
-                onTap: () {
-                  // Navigate to profile settings
-                  Future.delayed(Duration.zero, () {
-                    setState(() {
-                      _currentIndex = 2; // Settings tab
-                    });
-                    _pageController.animateToPage(
-                      2,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  });
-                },
-              ),
-              PopupMenuItem(
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: theme.colorScheme.error),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Sign Out',
-                      style: TextStyle(color: theme.colorScheme.error),
+      appBar: _currentIndex == 0
+          ? null
+          : AppBar(
+              title: Text(_getAppBarTitle()),
+              centerTitle: true,
+              backgroundColor: theme.colorScheme.surface,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              actions: [
+                PopupMenuButton(
+                  icon: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                    child: Text(
+                      _getUserInitials(user?.displayName ?? user?.email ?? ''),
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(Icons.person, color: theme.colorScheme.onSurface),
+                          const SizedBox(width: 12),
+                          Text(user?.displayName ?? 'Profile'),
+                        ],
+                      ),
+                      onTap: () {
+                        Future.delayed(Duration.zero, () {
+                          setState(() {
+                            _currentIndex = 2;
+                          });
+                          _pageController.animateToPage(
+                            2,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        });
+                      },
+                    ),
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(Icons.logout, color: theme.colorScheme.error),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Sign Out',
+                            style: TextStyle(color: theme.colorScheme.error),
+                          ),
+                        ],
+                      ),
+                      onTap: () => _handleSignOut(context),
                     ),
                   ],
                 ),
-                onTap: () => _handleSignOut(context),
-              ),
-            ],
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+                const SizedBox(width: 8),
+              ],
+            ),
       body: PageView(
         controller: _pageController,
         onPageChanged: (index) {

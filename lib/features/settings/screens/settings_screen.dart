@@ -236,24 +236,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Profile',
           icon: Icons.person,
           children: [
-            ListTile(
-              leading: SoftTileActionIcon(
-                icon: Icons.person,
-                tint: Theme.of(context).primaryColor,
-                label: _getUserInitials(user?.displayName ?? user?.email ?? ''),
-              ),
-              title: Text(user?.displayName ?? 'User'),
-              subtitle: Text(user?.email ?? 'No email'),
-              trailing: TextButton(
-                onPressed: _showEditProfileDialog,
-                child: const Text('Edit'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SoftTileActionIcon(
+                    icon: Icons.person,
+                    tint: Theme.of(context).primaryColor,
+                    label: _getUserInitials(
+                      user?.displayName ?? user?.email ?? '',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    user?.displayName ?? 'User',
+                    style: Theme.of(context).textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  Text(
+                    user?.email ?? 'No email',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _showEditProfileDialog,
+                    child: const Text('Edit profile'),
+                  ),
+                ],
               ),
             ),
             ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               leading: const Icon(Icons.admin_panel_settings_outlined),
               title: const Text('Account & subscriptions'),
               subtitle: const Text(
                 'Manage sync, billing, and account deletion',
+                softWrap: true,
               ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: _openUserManagement,
@@ -480,17 +504,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.language),
-          title: const Text('Language'),
-          subtitle: const Text('English'),
-          trailing: const Icon(Icons.arrow_forward_ios),
-          onTap: () {
-            _showSnack(
-              const SnackBar(content: Text('Language settings coming soon')),
-            );
-          },
         ),
       ],
     );

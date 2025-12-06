@@ -124,6 +124,7 @@ class PreviewInventoryRepository extends InventoryRepository {
   Future<void> updateItem(
     InventoryItem item, {
     double? newQuantity,
+    double? newLowStockThreshold,
     UpdateAction action = UpdateAction.set,
   }) {
     return updateInventory([
@@ -134,7 +135,7 @@ class PreviewInventoryRepository extends InventoryRepository {
         action: action,
         category: item.category,
         location: item.location,
-        lowStockThreshold: item.lowStockThreshold,
+        lowStockThreshold: newLowStockThreshold ?? item.lowStockThreshold,
         expirationDate: item.expirationDate,
         notes: item.notes,
       ),

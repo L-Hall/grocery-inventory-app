@@ -454,18 +454,15 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildImagePreview(ThemeData theme) {
     final fileName = _selectedFileName ?? '';
     final isPreviewableImage = _isPreviewableImage(fileName);
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outline, width: 1),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return SoftTileCard(
+      padding: const EdgeInsets.all(12),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: SizedBox(
+              height: 240,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -512,47 +509,37 @@ class _TextInputScreenState extends State<TextInputScreen> {
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.3,
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                isPreviewableImage
+                    ? Icons.check_circle
+                    : _getDocumentIcon(fileName),
+                color: theme.colorScheme.primary,
+                size: 20,
               ),
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(12),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _selectedFileName ?? 'Image selected',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isPreviewableImage
-                      ? Icons.check_circle
-                      : _getDocumentIcon(fileName),
-                  color: theme.colorScheme.primary,
-                  size: 20,
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: _handleImageSelection,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Change'),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _selectedFileName ?? 'Image selected',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: _handleImageSelection,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Change'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
