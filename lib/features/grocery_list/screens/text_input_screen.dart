@@ -893,7 +893,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Color _softTint(ThemeData theme) =>
-      theme.colorScheme.primary.withValues(alpha: 0.9);
+      theme.colorScheme.primary.withValues(alpha: 0.2);
 
   Future<void> _initSpeechEngine() async {
     final available = await _speechToText.initialize(

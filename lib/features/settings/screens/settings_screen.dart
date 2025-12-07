@@ -577,7 +577,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required List<Widget> children,
   }) {
     final theme = Theme.of(context);
-    final softTint = theme.colorScheme.primary.withValues(alpha: 0.9);
+    final softTint = theme.colorScheme.primary.withValues(alpha: 0.6);
 
     return SoftTileCard(
       tint: softTint,
