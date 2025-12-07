@@ -14,6 +14,7 @@ import 'package:csv/csv.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/widgets/soft_tile_icon.dart'
     show SoftTileButton, SoftTileCard;
+import '../../../core/widgets/sustain_background.dart';
 import '../../../core/utils/file_downloader.dart';
 import '../../analytics/models/agent_metrics.dart';
 import '../../analytics/services/agent_metrics_service.dart';
@@ -281,7 +282,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                         'Examples:\n• bought 2 litres of semi-skimmed milk and 3 loaves of bread\n• used 4 eggs baking cupcakes\n• have 5 apples left in the fruit bowl\n• finished the orange juice',
                     hintStyle: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.7,
+                        alpha: 0.2,
                       ),
                       height: 1.5,
                     ),
@@ -436,7 +437,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
             _getPlaceholderSubtext(),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant.withValues(
-                alpha: 0.7,
+                alpha: 0.3,
               ),
             ),
             textAlign: TextAlign.center,
@@ -892,8 +893,12 @@ class _TextInputScreenState extends State<TextInputScreen> {
     });
   }
 
-  Color _softTint(ThemeData theme) =>
-      theme.colorScheme.primary.withValues(alpha: 0.2);
+  Color _softTint(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    return isDark
+        ? theme.colorScheme.primary.withValues(alpha: 0.4)
+        : theme.colorScheme.primary.withValues(alpha: 0.9);
+  }
 
   Future<void> _initSpeechEngine() async {
     final available = await _speechToText.initialize(

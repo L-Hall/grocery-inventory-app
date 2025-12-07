@@ -146,7 +146,7 @@ class SoftTileActionIcon extends StatelessWidget {
       baseColor: base,
       height: 72,
       width: 72,
-      child: Icon(icon, color: base.withValues(alpha: 0.9)),
+      child: Icon(icon, color: base.withValues(alpha: 0.2)),
     );
 
     final content = Column(
@@ -204,13 +204,13 @@ class _SoftTileSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final gradientStart = isDark ? 0.22 : 0.08;
-    final gradientEnd = isDark ? 0.10 : 0.04;
-    final shadow1Alpha = isDark ? 0.45 : 0.08;
-    final shadow2Alpha = isDark ? 0.26 : 0.05;
-    final shadow1Blur = isDark ? 24.0 : 16.0;
+    final gradientStart = isDark ? 0.08 : 0.08;
+    final gradientEnd = isDark ? 0.04 : 0.04;
+    final shadow1Alpha = isDark ? 0.18 : 0.08;
+    final shadow2Alpha = isDark ? 0.10 : 0.05;
+    final shadow1Blur = isDark ? 18.0 : 16.0;
     final shadow1Offset = isDark ? const Offset(0, 16) : const Offset(0, 8);
-    final shadow2Blur = isDark ? 10.0 : 6.0;
+    final shadow2Blur = isDark ? 8.0 : 6.0;
     final shadow2Offset = const Offset(0, 4);
 
     return Container(

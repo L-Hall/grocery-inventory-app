@@ -18,9 +18,9 @@ class AppTheme {
   // Palette
   static const Color seedColor = AppColors.rose;
   static const Color background = Color(0xFFF8EDE7);
-  static const Color darkSurface = Color(0xFF151016);
-  static const Color darkSurfaceVariant = Color(0xFF211823);
-  static const Color darkBackground = Color(0xFF100B12);
+  static const Color darkSurface = Color(0xFF0D0F2A);
+  static const Color darkSurfaceVariant = Color(0xFF141733);
+  static const Color darkBackground = Color(0xFF3B2F79);
 
   static ThemeData get lightTheme {
     final base = ThemeData.light(useMaterial3: true);
@@ -145,15 +145,17 @@ class AppTheme {
       seedColor: seedColor,
       brightness: Brightness.dark,
     ).copyWith(
-      // Slightly brighter rose for dark mode to avoid muddy tones
-      primary: const Color(0xFFE07A8C),
+      primary: seedColor,
       onPrimary: Colors.white,
       error: seedColor,
       surface: darkSurface,
       surfaceVariant: darkSurfaceVariant,
       background: darkBackground,
-      primaryContainer: const Color(0xFF5A2F3D),
-      secondaryContainer: const Color(0xFF432A3A),
+      primaryContainer: darkSurfaceVariant,
+      secondaryContainer: darkSurface,
+      onSurface: Colors.white,
+      onSurfaceVariant: const Color(0xFFC9C4E2),
+      outline: const Color(0xFF6F6A8F),
     );
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
       bodyMedium: GoogleFonts.inter(fontSize: 16),

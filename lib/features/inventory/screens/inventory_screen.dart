@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/soft_tile_icon.dart' show SoftTileIcon, SoftTileButton;
+import '../../../core/widgets/sustain_background.dart';
 import '../providers/inventory_provider.dart';
 import '../models/inventory_item.dart';
 import '../widgets/inventory_item_editor.dart';
@@ -51,81 +52,87 @@ class _InventoryScreenState extends State<InventoryScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: () async {
-          final inventoryProvider = Provider.of<InventoryProvider>(
-            context,
-            listen: false,
-          );
-          await inventoryProvider.refresh();
-        },
-        child: Consumer<InventoryProvider>(
-          builder: (context, inventoryProvider, _) {
-            if (inventoryProvider.isLoading && inventoryProvider.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
-            }
+    return SustainBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: RefreshIndicator(
+          onRefresh: () async {
+            final inventoryProvider = Provider.of<InventoryProvider>(
+              context,
+              listen: false,
+            );
+            await inventoryProvider.refresh();
+          },
+          child: Consumer<InventoryProvider>(
+            builder: (context, inventoryProvider, _) {
+              if (inventoryProvider.isLoading && inventoryProvider.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            if (inventoryProvider.hasError && inventoryProvider.isEmpty) {
-              return _buildErrorState(context, inventoryProvider);
-            }
+              if (inventoryProvider.hasError && inventoryProvider.isEmpty) {
+                return _buildErrorState(context, inventoryProvider);
+              }
 
-            if (inventoryProvider.isEmpty) {
-              return _buildEmptyState(context);
-            }
+              if (inventoryProvider.isEmpty) {
+                return _buildEmptyState(context);
+              }
 
-            final items = inventoryProvider.items;
+              final items = inventoryProvider.items;
 
-            if (_searchController.text != inventoryProvider.searchQuery) {
-              _searchController.value = _searchController.value.copyWith(
-                text: inventoryProvider.searchQuery,
-                selection: TextSelection.collapsed(
-                  offset: inventoryProvider.searchQuery.length,
-                ),
-                composing: TextRange.empty,
-              );
-            }
-
-            return CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _FilterHeaderDelegate(
-                    minExtentHeight: 320,
-                    maxExtentHeight: 380,
-                    child: _buildSearchAndFilters(context, inventoryProvider),
+              if (_searchController.text != inventoryProvider.searchQuery) {
+                _searchController.value = _searchController.value.copyWith(
+                  text: inventoryProvider.searchQuery,
+                  selection: TextSelection.collapsed(
+                    offset: inventoryProvider.searchQuery.length,
                   ),
-                ),
-                if (items.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _buildNoResultsState(context),
-                  )
-                else
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.screenPadding,
-                        vertical: 12,
-                      ),
-                      child: InventoryTable(
-                        items: items,
-                        provider: inventoryProvider,
-                        onEdit: (item) => _openItemEditor(context, item: item),
-                        onDetails: (item) =>
-                            _openItemDetails(context, item, inventoryProvider),
-                        onDelete: (item) => _showDeleteConfirmation(
-                          context,
-                          item,
-                          inventoryProvider,
+                  composing: TextRange.empty,
+                );
+              }
+
+              return CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _FilterHeaderDelegate(
+                      minExtentHeight: 320,
+                      maxExtentHeight: 380,
+                      child: _buildSearchAndFilters(context, inventoryProvider),
+                    ),
+                  ),
+                  if (items.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildNoResultsState(context),
+                    )
+                  else
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.screenPadding,
+                          vertical: 12,
+                        ),
+                        child: InventoryTable(
+                          items: items,
+                          provider: inventoryProvider,
+                          onEdit: (item) => _openItemEditor(context, item: item),
+                          onDetails: (item) => _openItemDetails(
+                            context,
+                            item,
+                            inventoryProvider,
+                          ),
+                          onDelete: (item) => _showDeleteConfirmation(
+                            context,
+                            item,
+                            inventoryProvider,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

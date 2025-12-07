@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/sustain_background.dart';
+
 import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/di/service_locator.dart';
@@ -239,7 +241,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             SoftTileCard(
-              tint: theme.colorScheme.primary.withValues(alpha: 0.9),
+              tint: theme.brightness == Brightness.dark
+                  ? theme.colorScheme.primary.withValues(alpha: 0.4)
+                  : theme.colorScheme.primary.withValues(alpha: 0.2),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               onTap: _showEditProfileDialog,
               child: Row(
@@ -577,7 +581,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required List<Widget> children,
   }) {
     final theme = Theme.of(context);
-    final softTint = theme.colorScheme.primary.withValues(alpha: 0.6);
+    final softTint = theme.brightness == Brightness.dark
+        ? theme.colorScheme.primary.withValues(alpha: 0.4)
+        : theme.colorScheme.primary.withValues(alpha: 0.2);
 
     return SoftTileCard(
       tint: softTint,
