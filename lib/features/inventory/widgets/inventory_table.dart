@@ -471,10 +471,16 @@ class _InventoryTableState extends State<InventoryTable> {
       Widget child, {
       EdgeInsetsGeometry padding =
           const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+      InventoryItem? tapItem,
     }) {
-      return Padding(
+      final content = Padding(
         padding: padding,
         child: Align(alignment: Alignment.center, child: child),
+      );
+      if (tapItem == null) return content;
+      return GestureDetector(
+        onDoubleTap: () => widget.onEdit?.call(tapItem),
+        child: content,
       );
     }
 
@@ -572,27 +578,18 @@ class _InventoryTableState extends State<InventoryTable> {
                     style: theme.textTheme.bodyMedium,
                     overflow: TextOverflow.ellipsis,
                   ),
+            tapItem: item,
           );
         case InventoryColumn.quantity:
           return cell(
-            SizedBox(
-              height: 32,
-              child: _InlineStepper(
-                value: item.quantity,
-                isLoading: _updatingQty[item.id] ?? false,
-                onChanged: (newValue) async {
-                  final key = item.id;
-                  setState(() => _updatingQty[key] = true);
-                  await widget.provider.updateItem(
-                    item,
-                    newQuantity: newValue,
-                    action: UpdateAction.set,
-                  );
-                  if (mounted) setState(() => _updatingQty[key] = false);
-                },
-              ),
+            _ValuePill(
+              label: item.quantity % 1 == 0
+                  ? item.quantity.toInt().toString()
+                  : item.quantity.toStringAsFixed(1),
+              color: theme.colorScheme.primary,
             ),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            tapItem: item,
           );
         case InventoryColumn.unit:
           return textCell(item.unit);
@@ -601,32 +598,31 @@ class _InventoryTableState extends State<InventoryTable> {
             item.location != null && item.location!.isNotEmpty
                 ? _TagChip(label: item.location!)
                 : Text('-', style: theme.textTheme.bodyMedium),
+            tapItem: item,
           );
         case InventoryColumn.expiry:
           final expiration = item.expirationDate;
           final label = expiration != null
               ? _dateFormat.format(expiration.toLocal())
               : '—';
-          return textCell(label);
+          return cell(
+            Text(
+              label,
+              style: theme.textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            tapItem: item,
+          );
         case InventoryColumn.minQty:
           return cell(
-            SizedBox(
-              height: 32,
-              child: _InlineStepper(
-                value: item.lowStockThreshold,
-                isLoading: _updatingMinQty[item.id] ?? false,
-                onChanged: (newValue) async {
-                  final key = item.id;
-                  setState(() => _updatingMinQty[key] = true);
-                  await widget.provider.updateItem(
-                    item,
-                    newLowStockThreshold: newValue,
-                  );
-                  if (mounted) setState(() => _updatingMinQty[key] = false);
-                },
-              ),
+            _ValuePill(
+              label: item.lowStockThreshold % 1 == 0
+                  ? item.lowStockThreshold.toInt().toString()
+                  : item.lowStockThreshold.toStringAsFixed(1),
+              color: theme.colorScheme.primary,
             ),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            tapItem: item,
           );
         case InventoryColumn.status:
           return cell(_StatusIndicator(item: item));
@@ -823,6 +819,50 @@ class _CategoryChip extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
         ),
+      ),
+    );
+  }
+}
+
+class _ValuePill extends StatelessWidget {
+  const _ValuePill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.18),
+            color.withValues(alpha: 0.10),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: color.withValues(alpha: 0.14),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }
