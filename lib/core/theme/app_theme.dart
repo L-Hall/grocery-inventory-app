@@ -145,14 +145,14 @@ class AppTheme {
       seedColor: seedColor,
       brightness: Brightness.dark,
     ).copyWith(
-      primary: seedColor,
+      primary: const Color(0xFFD86A6A),
       onPrimary: Colors.white,
       error: seedColor,
       surface: darkSurface,
       surfaceVariant: darkSurfaceVariant,
       background: darkBackground,
-      primaryContainer: const Color(0xFF3B2329),
-      secondaryContainer: const Color(0xFF332029),
+      primaryContainer: const Color(0xFF5B2A2F),
+      secondaryContainer: const Color(0xFF452935),
     );
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
       bodyMedium: GoogleFonts.inter(fontSize: 16),
