@@ -265,55 +265,57 @@ class _InventoryTableState extends State<InventoryTable> {
               });
             }
 
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Choose columns',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Choose columns',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ...toggleableColumns.map(
-                    (column) => CheckboxListTile(
-                      value: tempSelection.contains(column),
-                      activeColor: Theme.of(context).colorScheme.primary,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        if (!value && tempSelection.length == 1) {
-                          return;
-                        }
-                        handleToggle(column, value);
-                      },
-                      title: Text(_columnLabel(column)),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () {
-                        setState(() {
-                          _visibleColumns = tempSelection;
-                        });
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Apply'),
+                    const SizedBox(height: 8),
+                    ...toggleableColumns.map(
+                      (column) => CheckboxListTile(
+                        value: tempSelection.contains(column),
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          if (!value && tempSelection.length == 1) {
+                            return;
+                          }
+                          handleToggle(column, value);
+                        },
+                        title: Text(_columnLabel(column)),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () {
+                          setState(() {
+                            _visibleColumns = tempSelection;
+                          });
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -410,12 +412,14 @@ class _InventoryTableState extends State<InventoryTable> {
         onTap: () => _applySort(column, isSorted ? !_sortAscending : true),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (trailing != null) trailing,
-              Flexible(
-                child: Text(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (trailing != null) trailing,
+                Text(
                   label,
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w600,
@@ -424,16 +428,17 @@ class _InventoryTableState extends State<InventoryTable> {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                icon,
-                size: 16,
-                color: isSorted
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isSorted
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.5),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -681,8 +686,27 @@ class _StatusIndicator extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.16),
+            color.withValues(alpha: 0.10),
+          ],
+        ),
         borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: color.withValues(alpha: 0.16),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -745,8 +769,27 @@ class _CategoryChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: baseColor.withValues(alpha: 0.16),
-        border: Border.all(color: baseColor.withValues(alpha: 0.4)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            baseColor.withValues(alpha: 0.20),
+            baseColor.withValues(alpha: 0.10),
+          ],
+        ),
+        border: Border.all(color: baseColor.withValues(alpha: 0.55)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: baseColor.withValues(alpha: 0.18),
+            blurRadius: 5,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       constraints: const BoxConstraints(maxWidth: 180),
       child: FittedBox(
@@ -819,7 +862,7 @@ class _InlineStepperState extends State<_InlineStepper> {
               icon: const Icon(Icons.remove_circle_outline),
             ),
             SizedBox(
-              width: 30,
+              width: 42,
               child: Center(
                 child: widget.isLoading || _working
                     ? SizedBox(
@@ -835,6 +878,8 @@ class _InlineStepperState extends State<_InlineStepper> {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.visible,
                       ),
               ),
             ),

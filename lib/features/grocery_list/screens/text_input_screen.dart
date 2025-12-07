@@ -118,7 +118,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildInstructionsCard(ThemeData theme) {
+    final softTint = _softTint(theme);
     return SoftTileCard(
+      tint: softTint,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -181,7 +183,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   Widget _buildInputModeSelector(ThemeData theme) {
+    final softTint = _softTint(theme);
     return SoftTileCard(
+      tint: softTint,
       padding: const EdgeInsets.all(4),
       child: Row(
         children: [
@@ -206,6 +210,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
     ThemeData theme,
   ) {
     final isSelected = _inputMode == mode;
+    final softTint = _softTint(theme);
 
     return Expanded(
       child: isSelected
@@ -214,6 +219,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
               label: label,
               height: 52,
               width: double.infinity,
+              tint: softTint,
               onPressed: () => _selectInputMode(mode),
             )
           : OutlinedButton(
@@ -256,7 +262,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildTextInput(ThemeData theme) {
     return Consumer<GroceryListProvider>(
       builder: (context, groceryProvider, _) {
+        final softTint = _softTint(theme);
         return SoftTileCard(
+          tint: softTint,
           child: Column(
             children: [
               // Input field
@@ -327,21 +335,22 @@ class _TextInputScreenState extends State<TextInputScreen> {
                           onPressed: _handlePaste,
                           icon: const Icon(Icons.content_paste, size: 18),
                           label: const Text('Paste'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.primary,
-                          ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.primary,
                         ),
-                        SoftTileButton(
-                          onPressed: _toggleListening,
-                          height: 44,
-                          width: 140,
-                          icon: _isListening ? Icons.mic_off : Icons.mic_none,
-                          label: _isListening ? 'Stop dictation' : 'Dictate',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      SoftTileButton(
+                        onPressed: _toggleListening,
+                        height: 44,
+                        width: 140,
+                        icon: _isListening ? Icons.mic_off : Icons.mic_none,
+                        label: _isListening ? 'Stop dictation' : 'Dictate',
+                        tint: _softTint(theme),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
               ),
               if (_isListening || _interimTranscript.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -403,7 +412,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
       return _buildImagePreview(theme);
     }
 
+    final softTint = _softTint(theme);
     return SoftTileCard(
+      tint: softTint,
       onTap: _handleImageSelection,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -436,6 +447,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
             label: _getActionText(),
             width: 220,
             height: 48,
+            tint: softTint,
             onPressed: _handleImageSelection,
           ),
           if (_inputMode == InputMode.file) ...[
@@ -454,7 +466,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget _buildImagePreview(ThemeData theme) {
     final fileName = _selectedFileName ?? '';
     final isPreviewableImage = _isPreviewableImage(fileName);
+    final softTint = _softTint(theme);
     return SoftTileCard(
+      tint: softTint,
       padding: const EdgeInsets.all(12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -877,6 +891,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
       }
     });
   }
+
+  Color _softTint(ThemeData theme) =>
+      theme.colorScheme.primary.withValues(alpha: 0.9);
 
   Future<void> _initSpeechEngine() async {
     final available = await _speechToText.initialize(

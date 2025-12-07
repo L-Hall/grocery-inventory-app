@@ -92,8 +92,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _FilterHeaderDelegate(
-                    minExtentHeight: 260,
-                    maxExtentHeight: 300,
+                    minExtentHeight: 320,
+                    maxExtentHeight: 380,
                     child: _buildSearchAndFilters(context, inventoryProvider),
                   ),
                 ),
@@ -268,15 +268,16 @@ class _InventoryScreenState extends State<InventoryScreen>
             const SizedBox(height: 16),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SoftTileButton(
                     icon: Icons.warning_amber_rounded,
                     label: 'Low stock ($lowStockCount)',
                     height: 52,
-                    width: 170,
+                    width: null,
                     tint: theme.colorScheme.error,
                     onPressed: () {
                       inventoryProvider.setLowStockFilter(true);
@@ -300,7 +301,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                             'Category'
                         : 'Category',
                     height: 52,
-                    width: 140,
+                    width: null,
+                    tint: theme.colorScheme.primary,
                     onPressed: () async {
                       final selection = await showMenu<String>(
                         context: context,
@@ -344,7 +346,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                     label:
                         inventoryProvider.selectedLocationFilter ?? 'Location',
                     height: 52,
-                    width: 140,
+                    width: null,
+                    tint: theme.colorScheme.primary,
                     onPressed: () async {
                       final selection = await showMenu<String>(
                         context: context,

@@ -45,7 +45,7 @@ class SoftTileButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final Color? tint;
-  final double width;
+  final double? width;
   final double height;
 
   @override
@@ -64,6 +64,7 @@ class SoftTileButton extends StatelessWidget {
           width: width,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, color: base.withValues(alpha: 0.9)),
@@ -75,7 +76,8 @@ class SoftTileButton extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: theme.colorScheme.onSurface,
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
                 ),
               ),
             ],

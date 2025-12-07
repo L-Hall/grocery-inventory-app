@@ -2140,14 +2140,14 @@ app.post("/user/initialize", authenticate, async (req, res) => {
 
     // Create default categories
     const categories = [
-      {id: "dairy", name: "Dairy", color: "#FFE4B5", icon: "🥛"},
-      {id: "produce", name: "Produce", color: "#90EE90", icon: "🥬"},
-      {id: "meat", name: "Meat & Poultry", color: "#FFB6C1", icon: "🥩"},
-      {id: "pantry", name: "Pantry", color: "#DEB887", icon: "🥫"},
-      {id: "frozen", name: "Frozen", color: "#B0E0E6", icon: "❄️"},
-      {id: "beverages", name: "Beverages", color: "#FFFFE0", icon: "🧃"},
-      {id: "snacks", name: "Snacks", color: "#F0E68C", icon: "🍿"},
-      {id: "bakery", name: "Bakery", color: "#FFDAB9", icon: "🍞"},
+      {id: "dairy", name: "Chilled", color: "#FFC107", icon: "🥛"},
+      {id: "produce", name: "Fruit & veg", color: "#4CAF50", icon: "🥬"},
+      {id: "meat", name: "Meat", color: "#F44336", icon: "🥩"},
+      {id: "pantry", name: "Food cupboard", color: "#FF9800", icon: "🥫"},
+      {id: "frozen", name: "Frozen", color: "#00BCD4", icon: "❄️"},
+      {id: "beverages", name: "Drinks", color: "#2196F3", icon: "🧃"},
+      {id: "snacks", name: "Snacks", color: "#9C27B0", icon: "🍿"},
+      {id: "bakery", name: "Bakery", color: "#FFCA85", icon: "🍞"},
     ];
 
     const batch = db.batch();

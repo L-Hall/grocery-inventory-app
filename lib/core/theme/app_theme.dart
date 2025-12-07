@@ -28,7 +28,10 @@ class AppTheme {
       seedColor: seedColor,
       brightness: Brightness.light,
     ).copyWith(
+      primary: seedColor,
+      onPrimary: Colors.white,
       surface: Colors.white,
+      error: seedColor,
       secondary: const Color(0xFFF3DED6),
     );
 
@@ -142,6 +145,9 @@ class AppTheme {
       seedColor: seedColor,
       brightness: Brightness.dark,
     ).copyWith(
+      primary: seedColor,
+      onPrimary: Colors.white,
+      error: seedColor,
       surface: darkSurface,
       surfaceVariant: darkSurfaceVariant,
       background: darkBackground,

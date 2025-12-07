@@ -84,81 +84,60 @@ class DefaultCategories {
   // NOTE: Keep user-facing labels in UK English going forward.
   static const List<Map<String, dynamic>> categories = [
     {
-      'id': 'produce',
-      'name': 'Fruit & veg',
-      'color': '4CAF50', // Green
-      'icon': 'local_grocery_store',
+      'id': 'dairy',
+      'name': 'Chilled',
+      'color': 'FFC107',
+      'icon': '🥛',
       'sortOrder': 1,
     },
     {
-      'id': 'dairy',
-      'name': 'Dairy & Eggs',
-      'color': 'FFC107', // Amber
-      'icon': 'egg_alt',
-      'sortOrder': 2,
-    },
-    {
       'id': 'meat',
-      'name': 'Meat & fish',
-      'color': 'F44336', // Red
-      'icon': 'set_meal',
+      'name': 'Meat',
+      'color': 'F44336',
+      'icon': '🥩',
       'sortOrder': 3,
     },
     {
       'id': 'pantry',
       'name': 'Food cupboard',
-      'color': 'FF9800', // Orange
-      'icon': 'kitchen',
+      'color': 'FF9800',
+      'icon': '🥫',
       'sortOrder': 4,
     },
     {
       'id': 'frozen',
       'name': 'Frozen',
-      'color': '03DAC6', // Teal
-      'icon': 'ac_unit',
+      'color': '00BCD4',
+      'icon': '❄️',
       'sortOrder': 5,
     },
     {
       'id': 'beverages',
       'name': 'Drinks',
-      'color': '2196F3', // Blue
-      'icon': 'local_drink',
+      'color': '2196F3',
+      'icon': '🧃',
       'sortOrder': 6,
     },
     {
       'id': 'snacks',
       'name': 'Snacks',
-      'color': '9C27B0', // Purple
-      'icon': 'cookie',
+      'color': '9C27B0',
+      'icon': '🍿',
       'sortOrder': 7,
     },
     {
-      'id': 'household',
-      'name': 'Household cleaning',
-      'color': '607D8B', // Blue Grey
-      'icon': 'home',
+      'id': 'bakery',
+      'name': 'Bakery',
+      'color': 'FFCA85',
+      'icon': '🍞',
       'sortOrder': 8,
     },
     {
-      'id': 'pet',
-      'name': 'Pet',
-      'color': '8BC34A', // Light Green
-      'icon': 'pets',
-      'sortOrder': 9,
-    },
-    {
-      'id': 'personal_care',
-      'name': 'Personal Care',
-      'color': 'E91E63', // Pink
-      'icon': 'face',
-      'sortOrder': 10,
-    },
-    {
-      'id': 'other',
-      'name': 'Other',
-      'color': '9E9E9E', // Grey
-      'icon': 'category',
-      'sortOrder': 11,
+      'id': 'produce',
+      'name': 'Fruit & veg',
+      'color': '4CAF50',
+      'icon': '🥬',
+      'sortOrder': 2,
     },
   ];
 

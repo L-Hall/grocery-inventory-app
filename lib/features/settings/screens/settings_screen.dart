@@ -175,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Settings'),
+       // title: const Text('Settings'),
         centerTitle: true,
       ),
       body: _isLoading
@@ -239,13 +239,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             SoftTileCard(
+              tint: theme.colorScheme.primary.withValues(alpha: 0.9),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               onTap: _showEditProfileDialog,
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    backgroundColor:
+                        theme.colorScheme.primary.withValues(alpha: 0.12),
                     child: Text(
                       initials,
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -293,7 +295,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _SettingsTile(
                   icon: Icons.home_work_outlined,
                   title: 'Household & sharing',
-                  subtitle: 'Invite family or join a shared pantry',
+                  subtitle: 'Invite family or join a shared inventory',
                   onTap: _openHouseholdSharing,
                 ),
               ],
@@ -308,7 +310,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return _buildSection(
       context,
       title: 'Inventory Settings',
-      icon: Icons.inventory_2,
+      //icon: Icons.inventory_2,
       children: [
         ListTile(
           leading: const Icon(Icons.straighten),
@@ -412,7 +414,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return _buildSection(
       context,
       title: 'App Preferences',
-      icon: Icons.tune,
+      //icon: Icons.tune,
       children: [
         ListTile(
           leading: const Icon(Icons.palette),
@@ -482,7 +484,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return _buildSection(
       context,
       title: 'Data Management',
-      icon: Icons.storage,
+      //icon: Icons.storage,
       children: [
         ListTile(
           leading: const Icon(Icons.refresh),
@@ -516,7 +518,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return _buildSection(
       context,
       title: 'About',
-      icon: Icons.info,
+      //icon: Icons.info,
       children: [
         ListTile(
           leading: const Icon(Icons.help),
@@ -571,27 +573,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSection(
     BuildContext context, {
     required String title,
-    required IconData icon,
+    IconData? icon,
     required List<Widget> children,
   }) {
     final theme = Theme.of(context);
+    final softTint = theme.colorScheme.primary.withValues(alpha: 0.9);
 
     return SoftTileCard(
+      tint: softTint,
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SoftTileActionIcon(
-                    icon: icon,
-                    tint: theme.primaryColor,
-                  ),
-                  const SizedBox(width: 12),
+                  if (icon != null) ...[
+                    SoftTileActionIcon(
+                      icon: icon,
+                      tint: softTint,
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   Text(
                     title,
                     style: theme.textTheme.titleMedium?.copyWith(
@@ -932,12 +938,22 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tint = theme.colorScheme.primary;
 
     return ListTile(
-      leading: SoftTileActionIcon(
-        icon: icon,
-        tint: theme.colorScheme.primary,
-        onPressed: onTap,
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: tint.withValues(alpha: 0.18),
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            color: tint,
+          ),
+        ),
       ),
       title: Text(title),
       subtitle: subtitle != null
