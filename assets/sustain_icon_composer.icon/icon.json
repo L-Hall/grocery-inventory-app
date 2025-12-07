@@ -1,0 +1,37 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.47843,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "unburden_Premium_app_icon._iOS._The_idea_is_a_simple_set_of_t_f39150c0-13f7-4f7b-bdfc-75caf690dad8_1.png",
+          "name" : "sustain_app_icon",
+          "position" : {
+            "scale" : 1.4,
+            "translation-in-points" : [
+              0,
+              -17.9544677734375
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
