@@ -46,9 +46,71 @@ class _InventoryTableState extends State<InventoryTable> {
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
   final DateFormat _dateFormat = DateFormat('d MMM yyyy');
-  final Map<String, bool> _updatingQty = {};
-  final Map<String, bool> _updatingMinQty = {};
   double _itemColumnFlex = 4.5;
+  Future<void> _promptNumberEdit(
+    BuildContext context,
+    InventoryItem item, {
+    required bool isQuantity,
+  }) async {
+    final controller = TextEditingController(
+      text: isQuantity
+          ? item.quantity.toString()
+          : item.lowStockThreshold.toString(),
+    );
+    final result = await showDialog<double>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isQuantity ? 'Edit quantity' : 'Edit min qty'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(
+              signed: false,
+              decimal: true,
+            ),
+            decoration: const InputDecoration(
+              hintText: 'Enter value',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final parsed = double.tryParse(controller.text.trim());
+                if (parsed != null) {
+                  Navigator.of(context).pop(parsed);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    if (isQuantity) {
+      await widget.provider.updateItem(
+        item,
+        newQuantity: result,
+        action: UpdateAction.set,
+      );
+    } else {
+      await widget.provider.updateItem(
+        item,
+        newLowStockThreshold: result,
+      );
+    }
+
+    if (mounted) {
+      widget.provider.refresh();
+    }
+  }
 
   static const List<InventoryColumn> _columnOrder = [
     InventoryColumn.item,
@@ -471,15 +533,15 @@ class _InventoryTableState extends State<InventoryTable> {
       Widget child, {
       EdgeInsetsGeometry padding =
           const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
-      InventoryItem? tapItem,
+      VoidCallback? onDoubleTap,
     }) {
       final content = Padding(
         padding: padding,
         child: Align(alignment: Alignment.center, child: child),
       );
-      if (tapItem == null) return content;
+      if (onDoubleTap == null) return content;
       return GestureDetector(
-        onDoubleTap: () => widget.onEdit?.call(tapItem),
+        onDoubleTap: onDoubleTap,
         child: content,
       );
     }
@@ -578,7 +640,7 @@ class _InventoryTableState extends State<InventoryTable> {
                     style: theme.textTheme.bodyMedium,
                     overflow: TextOverflow.ellipsis,
                   ),
-            tapItem: item,
+            onDoubleTap: () => widget.onEdit?.call(item),
           );
         case InventoryColumn.quantity:
           return cell(
@@ -589,7 +651,11 @@ class _InventoryTableState extends State<InventoryTable> {
               color: theme.colorScheme.primary,
             ),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            tapItem: item,
+            onDoubleTap: () => _promptNumberEdit(
+              context,
+              item,
+              isQuantity: true,
+            ),
           );
         case InventoryColumn.unit:
           return textCell(item.unit);
@@ -598,7 +664,7 @@ class _InventoryTableState extends State<InventoryTable> {
             item.location != null && item.location!.isNotEmpty
                 ? _TagChip(label: item.location!)
                 : Text('-', style: theme.textTheme.bodyMedium),
-            tapItem: item,
+            onDoubleTap: () => widget.onEdit?.call(item),
           );
         case InventoryColumn.expiry:
           final expiration = item.expirationDate;
@@ -611,7 +677,7 @@ class _InventoryTableState extends State<InventoryTable> {
               style: theme.textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
-            tapItem: item,
+            onDoubleTap: () => widget.onEdit?.call(item),
           );
         case InventoryColumn.minQty:
           return cell(
@@ -622,7 +688,11 @@ class _InventoryTableState extends State<InventoryTable> {
               color: theme.colorScheme.primary,
             ),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            tapItem: item,
+            onDoubleTap: () => _promptNumberEdit(
+              context,
+              item,
+              isQuantity: false,
+            ),
           );
         case InventoryColumn.status:
           return cell(_StatusIndicator(item: item));
@@ -860,100 +930,9 @@ class _ValuePill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: color,
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w700,
             ),
-      ),
-    );
-  }
-}
-
-class _InlineStepper extends StatefulWidget {
-  const _InlineStepper({
-    required this.value,
-    required this.onChanged,
-    this.isLoading = false,
-  });
-
-  final double value;
-  final Future<void> Function(double) onChanged;
-  final bool isLoading;
-
-  @override
-  State<_InlineStepper> createState() => _InlineStepperState();
-}
-
-class _InlineStepperState extends State<_InlineStepper> {
-  bool _working = false;
-
-  Future<void> _update(double delta) async {
-    if (_working || widget.isLoading) return;
-    setState(() => _working = true);
-    final next = (widget.value + delta).clamp(0, 9999).toDouble();
-    await widget.onChanged(next);
-    if (mounted) setState(() => _working = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final display = widget.value % 1 == 0
-        ? widget.value.toInt().toString()
-        : widget.value.toStringAsFixed(1);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.4,
-        ),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 22, height: 22),
-              iconSize: 15,
-              onPressed: () => _update(-1),
-              icon: const Icon(Icons.remove_circle_outline),
-            ),
-            SizedBox(
-              width: 42,
-              child: Center(
-                child: widget.isLoading || _working
-                    ? SizedBox(
-                        height: 12,
-                        width: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.primary,
-                        ),
-                      )
-                    : Text(
-                        display,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.visible,
-                      ),
-              ),
-            ),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 22, height: 22),
-              iconSize: 15,
-              onPressed: () => _update(1),
-              icon: const Icon(Icons.add_circle_outline),
-            ),
-          ],
-        ),
       ),
     );
   }
