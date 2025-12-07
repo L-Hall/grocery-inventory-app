@@ -8,17 +8,19 @@ class SustainBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (!isDark) {
+      // Light mode: use the regular scaffold background colour (no gradient).
+      return Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: child,
+      );
+    }
+
+    // Dark mode: use a solid deep purple background.
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF8F89C6), // top
-            Color(0xFF3B2F79), // bottom
-          ],
-        ),
-      ),
+      color: const Color(0xFF0D0F2A),
       child: child,
     );
   }

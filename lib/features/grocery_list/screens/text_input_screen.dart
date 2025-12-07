@@ -83,35 +83,26 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Instructions card
-              _buildInstructionsCard(theme),
-
-              const SizedBox(height: 16),
-
-              // Input mode selector
-              _buildInputModeSelector(theme),
-
-              const SizedBox(height: 16),
-
-              // Input area (changes based on mode)
-              Expanded(child: _buildInputArea(theme)),
-
-              const SizedBox(height: 16),
-
-              // Process button and status
-              _buildProcessSection(theme),
-
-              const SizedBox(height: 16),
-
-              _buildAgentMetricsCard(theme),
-            ],
+    return SustainBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildInstructionsCard(theme),
+                const SizedBox(height: 16),
+                _buildInputModeSelector(theme),
+                const SizedBox(height: 16),
+                Expanded(child: _buildInputArea(theme)),
+                const SizedBox(height: 16),
+                _buildProcessSection(theme),
+                const SizedBox(height: 16),
+                _buildAgentMetricsCard(theme),
+              ],
+            ),
           ),
         ),
       ),
@@ -896,7 +887,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
   Color _softTint(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     return isDark
-        ? theme.colorScheme.primary.withValues(alpha: 0.4)
+        ? theme.colorScheme.surfaceVariant
         : theme.colorScheme.primary.withValues(alpha: 0.9);
   }
 

@@ -174,46 +174,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-       // title: const Text('Settings'),
-        centerTitle: true,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildUserProfileSection(context),
-                    const SizedBox(height: 16),
-                    _buildAppPreferencesSection(context),
-                    const SizedBox(height: 16),
-                    _buildInventoryPreferencesSection(context),
-                    if (_savedSearches.isNotEmpty ||
-                        _customViews.isNotEmpty) ...[
+    return SustainBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+         // title: const Text('Settings'),
+          centerTitle: true,
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       const SizedBox(height: 16),
-                      if (_savedSearches.isNotEmpty)
-                        _buildSavedSearchesSection(context),
-                      if (_savedSearches.isNotEmpty &&
-                          _customViews.isNotEmpty)
-                        const SizedBox(height: 12),
-                      if (_customViews.isNotEmpty)
-                        _buildCustomViewsSection(context),
+                      _buildUserProfileSection(context),
+                      const SizedBox(height: 24),
+                      _buildAppPreferencesSection(context),
+                      const SizedBox(height: 24),
+                      _buildInventoryPreferencesSection(context),
+                      if (_savedSearches.isNotEmpty ||
+                          _customViews.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        if (_savedSearches.isNotEmpty)
+                          _buildSavedSearchesSection(context),
+                        if (_savedSearches.isNotEmpty &&
+                            _customViews.isNotEmpty)
+                          const SizedBox(height: 12),
+                        if (_customViews.isNotEmpty)
+                          _buildCustomViewsSection(context),
+                      ],
+                      const SizedBox(height: 24),
+                      _buildDataManagementSection(context),
+                      const SizedBox(height: 24),
+                      _buildAboutSection(context),
+                      const SizedBox(height: 24),
+                      _buildSignOutSection(context),
                     ],
-                    const SizedBox(height: 16),
-                    _buildDataManagementSection(context),
-                    const SizedBox(height: 16),
-                    _buildAboutSection(context),
-                    const SizedBox(height: 24),
-                    _buildSignOutSection(context),
-                  ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -242,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SoftTileCard(
               tint: theme.brightness == Brightness.dark
-                  ? theme.colorScheme.primary.withValues(alpha: 0.4)
+                  ? theme.colorScheme.surfaceVariant
                   : theme.colorScheme.primary.withValues(alpha: 0.2),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               onTap: _showEditProfileDialog,
@@ -582,7 +585,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     final theme = Theme.of(context);
     final softTint = theme.brightness == Brightness.dark
-        ? theme.colorScheme.primary.withValues(alpha: 0.4)
+        ? theme.colorScheme.surfaceVariant
         : theme.colorScheme.primary.withValues(alpha: 0.2);
 
     return SoftTileCard(
@@ -894,6 +897,9 @@ class _SettingsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tint = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceVariant
+        : theme.colorScheme.primary.withValues(alpha: 0.2);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -909,6 +915,7 @@ class _SettingsSection extends StatelessWidget {
           ),
         ),
         SoftTileCard(
+          tint: tint,
           padding: EdgeInsets.zero,
           child: Column(
             children: [
