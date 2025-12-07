@@ -285,7 +285,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     label: 'Low stock ($lowStockCount)',
                     height: 52,
                     width: null,
-                    tint: theme.colorScheme.error,
+                    tint: theme.colorScheme.surfaceVariant,
                     onPressed: () {
                       inventoryProvider.setLowStockFilter(true);
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -309,7 +309,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         : 'Category',
                     height: 52,
                     width: null,
-                    tint: theme.colorScheme.primary,
+                    tint: theme.colorScheme.surfaceVariant,
                     onPressed: () async {
                       final selection = await showMenu<String>(
                         context: context,
@@ -354,7 +354,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         inventoryProvider.selectedLocationFilter ?? 'Location',
                     height: 52,
                     width: null,
-                    tint: theme.colorScheme.primary,
+                    tint: theme.colorScheme.surfaceVariant,
                     onPressed: () async {
                       final selection = await showMenu<String>(
                         context: context,
