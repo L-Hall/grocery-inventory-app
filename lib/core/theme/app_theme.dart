@@ -190,7 +190,6 @@ class AppTheme {
           borderRadius: BorderRadius.circular(radius16),
         ),
       ),
-      scaffoldBackgroundColor: darkSurface,
     );
   }
 }
