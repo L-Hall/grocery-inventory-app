@@ -23,7 +23,7 @@ class SoftTileIcon extends StatelessWidget {
       child: Icon(
         icon,
         size: 56,
-        color: base.withValues(alpha: 0.9),
+        color: base.withValues(alpha: 0.2),
       ),
     );
   }
@@ -67,7 +67,12 @@ class SoftTileButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: base.withValues(alpha: 0.9)),
+              Icon(
+                icon,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : base.withValues(alpha: 0.9),
+              ),
               const SizedBox(width: 10),
               Flexible(
                 child: Text(
@@ -146,7 +151,12 @@ class SoftTileActionIcon extends StatelessWidget {
       baseColor: base,
       height: 72,
       width: 72,
-      child: Icon(icon, color: base.withValues(alpha: 0.2)),
+      child: Icon(
+        icon,
+        color: theme.brightness == Brightness.dark
+            ? Colors.white
+            : base.withValues(alpha: 0.9),
+      ),
     );
 
     final content = Column(
@@ -204,14 +214,14 @@ class _SoftTileSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final gradientStart = isDark ? 0.08 : 0.08;
-    final gradientEnd = isDark ? 0.04 : 0.04;
-    final shadow1Alpha = isDark ? 0.18 : 0.08;
-    final shadow2Alpha = isDark ? 0.10 : 0.05;
-    final shadow1Blur = isDark ? 18.0 : 16.0;
-    final shadow1Offset = isDark ? const Offset(0, 16) : const Offset(0, 8);
+    final gradientStart = isDark ? 0.12 : 0.08;
+    final gradientEnd = isDark ? 0.08 : 0.04;
+    final shadow1Alpha = isDark ? 0.12 : 0.08;
+    final shadow2Alpha = isDark ? 0.08 : 0.05;
+    final shadow1Blur = isDark ? 18.0 : 12.0;
+    final shadow1Offset = isDark ? const Offset(0, 16) : const Offset(0, 4);
     final shadow2Blur = isDark ? 8.0 : 6.0;
-    final shadow2Offset = const Offset(0, 4);
+    final shadow2Offset = const Offset(0, 2);
 
     return Container(
       height: height,
