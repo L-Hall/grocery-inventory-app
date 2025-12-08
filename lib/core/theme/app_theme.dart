@@ -20,7 +20,7 @@ class AppTheme {
   static const Color background = Color(0xFFF8EDE7);
   static const Color darkSurface = Color(0xFF0D0F2A);
   static const Color darkSurfaceVariant = Color(0xFF141733);
-  static const Color darkBackground = Color(0xFF3B2F79);
+  static const Color darkBackground = darkSurface;
 
   static ThemeData get lightTheme {
     final base = ThemeData.light(useMaterial3: true);
@@ -150,7 +150,7 @@ class AppTheme {
       error: seedColor,
       surface: darkSurface,
       surfaceVariant: darkSurfaceVariant,
-      background: darkBackground,
+      background: darkSurface,
       primaryContainer: darkSurfaceVariant,
       secondaryContainer: darkSurface,
       onSurface: Colors.white,
@@ -190,6 +190,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(radius16),
         ),
       ),
+      scaffoldBackgroundColor: darkSurface,
     );
   }
 }
