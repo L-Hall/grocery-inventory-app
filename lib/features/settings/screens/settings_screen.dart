@@ -180,6 +180,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         appBar: AppBar(
          // title: const Text('Settings'),
           centerTitle: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
