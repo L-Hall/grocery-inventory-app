@@ -95,8 +95,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _FilterHeaderDelegate(
-                      minExtentHeight: 320,
-                      maxExtentHeight: 380,
+                      // Match content height closely so we don't leave a large gap above the table.
+                      minExtentHeight: 140,
+                      maxExtentHeight: 180,
                       child: _buildSearchAndFilters(context, inventoryProvider),
                     ),
                   ),
@@ -222,15 +223,18 @@ class _InventoryScreenState extends State<InventoryScreen>
     InventoryProvider inventoryProvider,
   ) {
     final theme = Theme.of(context);
+    final softTint = _softTileTint(theme);
     final lowStockCount = inventoryProvider.lowStockItems.length;
 
     return Material(
       color: theme.colorScheme.surface,
       elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.screenPadding,
-          vertical: 12,
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.screenPadding,
+          6,
+          AppTheme.screenPadding,
+          6,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -272,10 +276,10 @@ class _InventoryScreenState extends State<InventoryScreen>
                 onChanged: inventoryProvider.setSearchQuery,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -285,7 +289,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     label: 'Low stock ($lowStockCount)',
                     height: 52,
                     width: null,
-                    tint: theme.colorScheme.surfaceVariant,
+                    tint: softTint,
                     onPressed: () {
                       inventoryProvider.setLowStockFilter(true);
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -309,7 +313,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         : 'Category',
                     height: 52,
                     width: null,
-                    tint: theme.colorScheme.surfaceVariant,
+                    tint: softTint,
                     onPressed: () async {
                       final selection = await showMenu<String>(
                         context: context,
@@ -354,7 +358,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         inventoryProvider.selectedLocationFilter ?? 'Location',
                     height: 52,
                     width: null,
-                    tint: theme.colorScheme.surfaceVariant,
+                    tint: softTint,
                     onPressed: () async {
                       final selection = await showMenu<String>(
                         context: context,
@@ -490,6 +494,11 @@ class _InventoryScreenState extends State<InventoryScreen>
         ],
       ),
     );
+  }
+
+  Color? _softTileTint(ThemeData theme) {
+    if (theme.brightness == Brightness.dark) return null;
+    return theme.colorScheme.primary.withValues(alpha: 0.12);
   }
 }
 
