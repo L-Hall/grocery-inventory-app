@@ -121,11 +121,8 @@ class _InventoryTableState extends State<InventoryTable> {
     InventoryColumn.expiry,
     InventoryColumn.minQty,
     InventoryColumn.status,
-    InventoryColumn.actions,
   ];
-  static const Set<InventoryColumn> _nonToggleableColumns = {
-    InventoryColumn.actions,
-  };
+  static const Set<InventoryColumn> _nonToggleableColumns = {};
 
   late Set<InventoryColumn> _visibleColumns;
   List<InventoryColumn> get _activeColumns => _columnOrder
@@ -197,8 +194,6 @@ class _InventoryTableState extends State<InventoryTable> {
         return item.lowStockThreshold;
       case InventoryColumn.status:
         return item.stockStatus.index;
-      case InventoryColumn.actions:
-        return 0;
     }
   }
 
@@ -269,7 +264,10 @@ class _InventoryTableState extends State<InventoryTable> {
                           child: IntrinsicWidth(
                             child: Builder(
                               builder: (context) {
-                                final columns = _activeColumns;
+                                final availableWidth =
+                                    constraints.maxWidth - 24; // account for padding
+                                final columns =
+                                    _responsiveColumns(_activeColumns, availableWidth);
                                 final columnWidths = <int, TableColumnWidth>{};
                                 for (var i = 0; i < columns.length; i++) {
                                   columnWidths[i] = _columnWidth(columns[i]);
@@ -391,6 +389,65 @@ class _InventoryTableState extends State<InventoryTable> {
     );
   }
 
+  List<InventoryColumn> _responsiveColumns(
+    List<InventoryColumn> columns,
+    double availableWidth,
+  ) {
+    // Prioritize keeping item, quantity, and status; drop low-priority columns first.
+    const dropPriority = [
+      InventoryColumn.actions,
+      InventoryColumn.unit,
+      InventoryColumn.expiry,
+      InventoryColumn.location,
+      InventoryColumn.category,
+      InventoryColumn.minQty,
+      InventoryColumn.status,
+      InventoryColumn.quantity,
+      InventoryColumn.item,
+    ];
+
+    final List<InventoryColumn> visible = List.of(columns);
+    double totalWidth =
+        visible.fold(0, (sum, col) => sum + _minColumnWidth(col));
+
+    for (final col in dropPriority) {
+      if (totalWidth <= availableWidth) break;
+      if (visible.length <= 3) break; // never drop below essential set
+      if (visible.contains(col) &&
+          col != InventoryColumn.item &&
+          col != InventoryColumn.quantity &&
+          col != InventoryColumn.status) {
+        totalWidth -= _minColumnWidth(col);
+        visible.remove(col);
+      }
+    }
+
+    return visible;
+  }
+
+  double _minColumnWidth(InventoryColumn column) {
+    switch (column) {
+      case InventoryColumn.item:
+        return 140;
+      case InventoryColumn.category:
+        return 110;
+      case InventoryColumn.quantity:
+        return 80;
+      case InventoryColumn.unit:
+        return 70;
+      case InventoryColumn.location:
+        return 110;
+      case InventoryColumn.expiry:
+        return 120;
+      case InventoryColumn.minQty:
+        return 90;
+      case InventoryColumn.status:
+        return 90;
+      case InventoryColumn.actions:
+        return 90;
+    }
+  }
+
   TableColumnWidth _columnWidth(InventoryColumn column) {
     switch (column) {
       case InventoryColumn.item:
@@ -402,7 +459,7 @@ class _InventoryTableState extends State<InventoryTable> {
       case InventoryColumn.unit:
         return const FixedColumnWidth(76);
       case InventoryColumn.location:
-        return const FlexColumnWidth(2.2);
+        return const FlexColumnWidth(1.6);
       case InventoryColumn.expiry:
         return const FlexColumnWidth(2.2);
       case InventoryColumn.minQty:
@@ -632,7 +689,9 @@ class _InventoryTableState extends State<InventoryTable> {
           return cell(
             Text(
               item.name,
-              style: theme.textTheme.bodyMedium,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           );
