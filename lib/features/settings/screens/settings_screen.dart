@@ -649,7 +649,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
     // Let dark mode use the soft tile default lavender; keep a subtle tint in light mode.
     if (theme.brightness == Brightness.dark) return null;
-    return theme.colorScheme.primary.withValues(alpha: 0.2);
+    return theme.colorScheme.primary.withValues(alpha: 0.12);
   }
 
   void _showEditProfileDialog() {
@@ -903,9 +903,6 @@ class _SettingsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tint = theme.brightness == Brightness.dark
-        ? null
-        : theme.colorScheme.primary.withValues(alpha: 0.2);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -920,21 +917,13 @@ class _SettingsSection extends StatelessWidget {
             ),
           ),
         ),
-        SoftTileCard(
-          tint: tint,
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (int i = 0; i < children.length; i++) ...[
-                if (i != 0)
-                  Divider(
-                    height: 1,
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                children[i],
-              ],
+        Column(
+          children: [
+            for (int i = 0; i < children.length; i++) ...[
+              children[i],
+              if (i != children.length - 1) const SizedBox(height: 12),
             ],
-          ),
+          ],
         ),
       ],
     );
@@ -957,35 +946,55 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tint = theme.colorScheme.primary;
+    final tint = theme.brightness == Brightness.dark
+        ? null
+        : theme.colorScheme.primary.withValues(alpha: 0.12);
+    final iconColor = theme.colorScheme.primary;
 
-    return ListTile(
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: tint.withValues(alpha: 0.18),
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            color: tint,
-          ),
-        ),
-      ),
-      title: Text(title),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            )
-          : null,
-      trailing: const Icon(Icons.chevron_right_rounded),
+    return SoftTileCard(
+      tint: tint,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: iconColor.withValues(alpha: 0.18),
+            ),
+            child: Center(
+              child: Icon(
+                icon,
+                color: iconColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded),
+        ],
+      ),
     );
   }
 }

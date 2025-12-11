@@ -85,14 +85,12 @@ class _LoginScreenState extends State<LoginScreen> {
           height: 132,
           width: 132,
           child: SoftTileCard(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: Image.asset(
-                  'assets/sustain_app_icon.png',
-                  fit: BoxFit.contain,
-                ),
+            padding: const EdgeInsets.all(8),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: Image.asset(
+                'assets/sustain_app_icon.png',
+                fit: BoxFit.contain,
               ),
             ),
           ),

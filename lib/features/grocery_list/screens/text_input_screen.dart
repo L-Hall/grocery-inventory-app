@@ -884,11 +884,10 @@ class _TextInputScreenState extends State<TextInputScreen> {
     });
   }
 
-  Color _softTint(ThemeData theme) {
-    final isDark = theme.brightness == Brightness.dark;
-    return isDark
-        ? theme.colorScheme.surfaceVariant
-        : theme.colorScheme.primary.withValues(alpha: 0.9);
+  Color? _softTint(ThemeData theme) {
+    // Let soft tiles use the shared lavender in dark mode; keep a light tint in light mode.
+    if (theme.brightness == Brightness.dark) return null;
+    return theme.colorScheme.primary.withValues(alpha: 0.12);
   }
 
   Future<void> _initSpeechEngine() async {

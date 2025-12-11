@@ -225,8 +225,8 @@ class _SoftTileSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final gradientStart = isDark ? 0.22 : 0.08;
-    final gradientEnd = isDark ? 0.14 : 0.04;
+    final gradientStart = isDark ? 0.10 : 0.06;
+    final gradientEnd = isDark ? 0.05 : 0.02;
     final shadow1Alpha = isDark ? 0.12 : 0.08;
     final shadow2Alpha = isDark ? 0.08 : 0.05;
     final shadow1Blur = isDark ? 18.0 : 12.0;
