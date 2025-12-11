@@ -238,7 +238,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Center(
               child: Text(
@@ -248,35 +248,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            Material(
-              elevation: 1,
-              shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(AppTheme.radius12),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search items...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: inventoryProvider.searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            inventoryProvider.setSearchQuery('');
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-                onChanged: inventoryProvider.setSearchQuery,
-              ),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -381,6 +353,37 @@ class _InventoryScreenState extends State<InventoryScreen>
                     },
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Material(
+                elevation: 1,
+                shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radius12),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search items...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: inventoryProvider.searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              inventoryProvider.setSearchQuery('');
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                  ),
+                  onChanged: inventoryProvider.setSearchQuery,
+                ),
               ),
             ),
             if (inventoryProvider.searchQuery.isNotEmpty ||
