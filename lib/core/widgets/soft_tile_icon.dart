@@ -1,5 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
+Color _resolveSoftTileBaseColor(ThemeData theme, Color? tint) {
+  if (tint != null) return tint;
+  if (theme.brightness == Brightness.dark) {
+    // Soften to a lavender hue for dark surfaces while keeping a hint of the brand primary.
+    return Color.lerp(AppColors.rose, const Color(0xFFB6A7FF), 0.65)!;
+  }
+  return theme.colorScheme.primary;
+}
+
 /// Premium soft tile used across Sustain for icon presentation.
 class SoftTileIcon extends StatelessWidget {
   const SoftTileIcon({
@@ -14,7 +25,7 @@ class SoftTileIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final base = tint ?? theme.colorScheme.primary;
+    final base = _resolveSoftTileBaseColor(theme, tint);
 
     return _SoftTileSurface(
       baseColor: base,
@@ -51,7 +62,7 @@ class SoftTileButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final base = tint ?? theme.colorScheme.primary;
+    final base = _resolveSoftTileBaseColor(theme, tint);
 
     return Material(
       color: Colors.transparent,
@@ -111,7 +122,7 @@ class SoftTileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final base = tint ?? theme.colorScheme.primary;
+    final base = _resolveSoftTileBaseColor(theme, tint);
 
     return Material(
       color: Colors.transparent,
@@ -146,7 +157,7 @@ class SoftTileActionIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final base = tint ?? theme.colorScheme.primary;
+    final base = _resolveSoftTileBaseColor(theme, tint);
     final tile = _SoftTileSurface(
       baseColor: base,
       height: 72,
@@ -214,8 +225,8 @@ class _SoftTileSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final gradientStart = isDark ? 0.12 : 0.08;
-    final gradientEnd = isDark ? 0.08 : 0.04;
+    final gradientStart = isDark ? 0.22 : 0.08;
+    final gradientEnd = isDark ? 0.14 : 0.04;
     final shadow1Alpha = isDark ? 0.12 : 0.08;
     final shadow2Alpha = isDark ? 0.08 : 0.05;
     final shadow1Blur = isDark ? 18.0 : 12.0;

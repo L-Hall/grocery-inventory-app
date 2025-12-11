@@ -247,9 +247,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             SoftTileCard(
-              tint: theme.brightness == Brightness.dark
-                  ? theme.colorScheme.surfaceVariant
-                  : theme.colorScheme.primary.withValues(alpha: 0.2),
+              tint: _softTileTint(context),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               onTap: _showEditProfileDialog,
               child: Row(
@@ -587,9 +585,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required List<Widget> children,
   }) {
     final theme = Theme.of(context);
-    final softTint = theme.brightness == Brightness.dark
-        ? theme.colorScheme.surfaceVariant
-        : theme.colorScheme.primary.withValues(alpha: 0.2);
+    final softTint = _softTileTint(context);
 
     return SoftTileCard(
       tint: softTint,
@@ -647,6 +643,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case ThemeMode.system:
         return 'System';
     }
+  }
+
+  Color? _softTileTint(BuildContext context) {
+    final theme = Theme.of(context);
+    // Let dark mode use the soft tile default lavender; keep a subtle tint in light mode.
+    if (theme.brightness == Brightness.dark) return null;
+    return theme.colorScheme.primary.withValues(alpha: 0.2);
   }
 
   void _showEditProfileDialog() {
@@ -901,7 +904,7 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tint = theme.brightness == Brightness.dark
-        ? theme.colorScheme.surfaceVariant
+        ? null
         : theme.colorScheme.primary.withValues(alpha: 0.2);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
