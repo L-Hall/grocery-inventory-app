@@ -220,7 +220,7 @@ class _InventoryTableState extends State<InventoryTable> {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 420),
                     child: SoftTileCard(
-                      tint: theme.colorScheme.primary,
+                      tint: _softTileTint(theme),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 12,
@@ -305,6 +305,11 @@ class _InventoryTableState extends State<InventoryTable> {
         );
       },
     );
+  }
+
+  Color? _softTileTint(ThemeData theme) {
+    if (theme.brightness == Brightness.dark) return null;
+    return theme.colorScheme.primary.withValues(alpha: 0.12);
   }
 
   void _openColumnPicker() {
